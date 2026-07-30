@@ -1,239 +1,84 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
-
 class PostService {
+  final SupabaseClient supabase = Supabase.instance.client;
 
-
-  final SupabaseClient supabase =
-      Supabase.instance.client;
-
-
-
-
-
-
+  // ==========================
   // OBTENER POSTS
+  // ==========================
 
-  Future<List<Map<String,dynamic>>> getPosts() async {
-
-
+  Future<List<Map<String, dynamic>>> getPosts() async {
     final response = await supabase
-
         .from('posts')
-
         .select()
+        .order('created_at', ascending: false);
 
-        .order(
-
-          'created_at',
-
-          ascending:false,
-
-        );
-
-
-
-    return List<Map<String,dynamic>>.from(response);
-
-
+    return List<Map<String, dynamic>>.from(response);
   }
 
-
-
-
-
-
-
-
-
+  // ==========================
   // SUBIR IMAGEN
+  // ==========================
 
-  Future<String> uploadImage(File image) async {
-
-
+  Future<String> uploadImage(Uint8List bytes, String originalName) async {
+    final extension = originalName.split('.').last;
 
     final fileName =
-
-    'posts/${DateTime.now().millisecondsSinceEpoch}.png';
-
-
-
-
+        'posts/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
     await supabase.storage
-
         .from('post-images')
-
-        .upload(
-
+        .uploadBinary(
           fileName,
-
-          image,
-
-          fileOptions:
-
-          const FileOptions(
-
-            cacheControl:'3600',
-
-            upsert:false,
-
-          ),
-
+          bytes,
+          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
         );
 
-
-
-
-
-    return supabase.storage
-
-        .from('post-images')
-
-        .getPublicUrl(fileName);
-
-
-
+    return supabase.storage.from('post-images').getPublicUrl(fileName);
   }
 
-
-
-
-
-
-
-
-
+  // ==========================
   // SUBIR VIDEO
+  // ==========================
 
-  Future<String> uploadVideo(File video) async {
-
-
+  Future<String> uploadVideo(Uint8List bytes, String originalName) async {
+    final extension = originalName.split('.').last;
 
     final fileName =
-
-    'videos/${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-
-
-
+        'videos/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
     await supabase.storage
-
         .from('post-videos')
-
-        .upload(
-
+        .uploadBinary(
           fileName,
-
-          video,
-
-          fileOptions:
-
-          const FileOptions(
-
-            cacheControl:'3600',
-
-            upsert:false,
-
-          ),
-
+          bytes,
+          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
         );
 
-
-
-
-
-    return supabase.storage
-
-        .from('post-videos')
-
-        .getPublicUrl(fileName);
-
-
-
+    return supabase.storage.from('post-videos').getPublicUrl(fileName);
   }
 
-
-
-
-
-
-
-
-
+  // ==========================
   // CREAR POST
+  // ==========================
 
   Future<void> createPost({
-
-
     required String username,
-
-
     required String content,
-
-
     String? image,
-
-
     String? video,
-
-
     String type = "text",
-
-
-
   }) async {
-
-
-
-    await supabase
-
-        .from('posts')
-
-        .insert({
-
-
-
-          'username':username,
-
-
-
-          'content':content,
-
-
-
-          'image':image,
-
-
-
-          'video':video,
-
-
-
-          'type':type,
-
-
-
-          'likes':0,
-
-
-
-          'comments':0,
-
-
-
-        });
-
-
-
+    await supabase.from('posts').insert({
+      'username': username,
+      'content': content,
+      'image': image,
+      'video': video,
+      'type': type,
+      'likes': 0,
+      'comments': 0,
+    });
   }
-
-
-
-
-
 }

@@ -4,121 +4,51 @@ description: "A new Flutter project."
 
 publish_to: "none"
 
-
 version: 1.0.0+1
 
-
-
 environment:
-
   sdk: ^3.12.2
 
-
-
-
-
 dependencies:
-
-
-
   flutter:
-
     sdk: flutter
-
-
-
-
 
   cupertino_icons: ^1.0.8
 
-
-
-
-
   # Base de datos
-
   supabase_flutter: ^2.9.1
 
-
-
-
-
   # Variables de entorno
-
   flutter_dotenv: ^5.2.1
 
-
-
-
-
   # Seleccionar imágenes y videos
-
   image_picker: ^1.1.2
 
+  # Selector de archivos (Windows/Web)
+  file_picker: ^10.3.2
 
-
-
+  # Guardar datos localmente
+  shared_preferences: ^2.5.3
 
   # Reproductor de video móvil
-
   video_player: ^2.9.2
 
-
-
-
-
   # Reproductor multiplataforma Windows + Chrome
-
   media_kit: ^1.1.10
-
   media_kit_video: ^1.2.4
-
   media_kit_libs_video: ^1.0.4
 
-
-
-
-
-  # Detectar cuando un widget está visible (autoplay tipo TikTok)
-
+  # Detectar cuando un widget está visible
   visibility_detector: ^0.4.0+2
 
-
-
-
-
-
-
 dev_dependencies:
-
-
-
   flutter_test:
-
     sdk: flutter
-
-
-
-
 
   flutter_lints: ^6.0.0
 
-
-
-
-
-
-
 flutter:
-
-
-
   uses-material-design: true
 
-
-
-
-
   assets:
-
-    - assets/images/xdd.png
+    - assets/images/

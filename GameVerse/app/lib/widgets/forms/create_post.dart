@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,34 +21,44 @@ class _CreatePostState extends State<CreatePost> {
 
   final ImagePicker picker = ImagePicker();
 
-  File? selectedImage;
+  Uint8List? selectedImageBytes;
+  String? selectedImageName;
 
-  File? selectedVideo;
+  Uint8List? selectedVideoBytes;
+  String? selectedVideoName;
 
   bool loading = false;
 
   Future<void> pickImage() async {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
-    if (image != null) {
-      setState(() {
-        selectedImage = File(image.path);
+    if (image == null) return;
 
-        selectedVideo = null;
-      });
-    }
+    final bytes = await image.readAsBytes();
+
+    setState(() {
+      selectedImageBytes = bytes;
+      selectedImageName = image.name;
+
+      selectedVideoBytes = null;
+      selectedVideoName = null;
+    });
   }
 
   Future<void> pickVideo() async {
     final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
 
-    if (video != null) {
-      setState(() {
-        selectedVideo = File(video.path);
+    if (video == null) return;
 
-        selectedImage = null;
-      });
-    }
+    final bytes = await video.readAsBytes();
+
+    setState(() {
+      selectedVideoBytes = bytes;
+      selectedVideoName = video.name;
+
+      selectedImageBytes = null;
+      selectedImageName = null;
+    });
   }
 
   void startStream() {
@@ -65,8 +75,8 @@ class _CreatePostState extends State<CreatePost> {
 
   Future<void> publishPost() async {
     if (controller.text.trim().isEmpty &&
-        selectedImage == null &&
-        selectedVideo == null) {
+        selectedImageBytes == null &&
+        selectedVideoBytes == null) {
       return;
     }
 
@@ -76,57 +86,61 @@ class _CreatePostState extends State<CreatePost> {
 
     try {
       String? imageUrl;
-
       String? videoUrl;
 
       String type = "text";
 
-      if (selectedImage != null) {
-        imageUrl = await postService.uploadImage(selectedImage!);
+      if (selectedImageBytes != null) {
+        imageUrl = await postService.uploadImage(
+          selectedImageBytes!,
+          selectedImageName!,
+        );
 
         type = "image";
       }
 
-      if (selectedVideo != null) {
-        videoUrl = await postService.uploadVideo(selectedVideo!);
+      if (selectedVideoBytes != null) {
+        videoUrl = await postService.uploadVideo(
+          selectedVideoBytes!,
+          selectedVideoName!,
+        );
 
         type = "video";
       }
 
       await postService.createPost(
         username: "Gio",
-
         content: controller.text.trim(),
-
         image: imageUrl,
-
         video: videoUrl,
-
         type: type,
       );
 
       controller.clear();
 
       setState(() {
-        selectedImage = null;
+        selectedImageBytes = null;
+        selectedImageName = null;
 
-        selectedVideo = null;
+        selectedVideoBytes = null;
+        selectedVideoName = null;
       });
 
       widget.onPostCreated();
     } catch (e) {
       debugPrint(e.toString());
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     controller.dispose();
-
     super.dispose();
   }
 
@@ -134,34 +148,23 @@ class _CreatePostState extends State<CreatePost> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-
       decoration: BoxDecoration(
         color: const Color(0xff211D2E),
-
         borderRadius: BorderRadius.circular(16),
       ),
-
       child: Column(
         children: [
           TextField(
             controller: controller,
-
             maxLines: 3,
-
             style: const TextStyle(color: Colors.white),
-
             decoration: InputDecoration(
               hintText: "¿Qué estás jugando?",
-
               hintStyle: const TextStyle(color: Colors.white54),
-
               filled: true,
-
               fillColor: const Color(0xff17141F),
-
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-
                 borderSide: BorderSide.none,
               ),
             ),
@@ -169,39 +172,29 @@ class _CreatePostState extends State<CreatePost> {
 
           const SizedBox(height: 12),
 
-          if (selectedImage != null)
+          if (selectedImageBytes != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-
-              child: Image.file(
-                selectedImage!,
-
+              child: Image.memory(
+                selectedImageBytes!,
                 height: 180,
-
                 width: double.infinity,
-
                 fit: BoxFit.cover,
               ),
             ),
 
-          if (selectedVideo != null)
+          if (selectedVideoBytes != null)
             Container(
               height: 180,
-
               width: double.infinity,
-
               decoration: BoxDecoration(
                 color: Colors.black,
-
                 borderRadius: BorderRadius.circular(12),
               ),
-
               child: const Center(
                 child: Icon(
                   Icons.play_circle_fill,
-
                   color: Colors.white,
-
                   size: 60,
                 ),
               ),
@@ -214,56 +207,42 @@ class _CreatePostState extends State<CreatePost> {
               Expanded(
                 child: Wrap(
                   spacing: 15,
-
                   children: [
                     TextButton.icon(
                       onPressed: pickImage,
-
                       icon: const Icon(Icons.image, color: Colors.greenAccent),
-
                       label: const Text(
                         "Imagen",
-
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
 
                     TextButton.icon(
                       onPressed: pickVideo,
-
                       icon: const Icon(Icons.videocam, color: Colors.redAccent),
-
                       label: const Text(
                         "Video",
-
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
 
                     TextButton.icon(
                       onPressed: startStream,
-
                       icon: const Icon(
                         Icons.wifi_tethering,
-
                         color: Colors.purpleAccent,
                       ),
-
                       label: const Text(
                         "Directo",
-
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
 
                     TextButton.icon(
                       onPressed: createPoll,
-
                       icon: const Icon(Icons.poll, color: Colors.orangeAccent),
-
                       label: const Text(
                         "Encuesta",
-
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
@@ -273,16 +252,20 @@ class _CreatePostState extends State<CreatePost> {
 
               ElevatedButton(
                 onPressed: loading ? null : publishPost,
-
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff6438FF),
                 ),
-
                 child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Text(
                         "Publicar",
-
                         style: TextStyle(color: Colors.white),
                       ),
               ),

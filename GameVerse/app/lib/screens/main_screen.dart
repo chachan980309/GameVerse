@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../pages/feed_page.dart';
+import '../pages/profile_page.dart';
 import '../pages/friends_page.dart';
 
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
 import '../widgets/layout/topbar.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,7 +18,9 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int selectedIndex = 0;
+
   String usernameActual = "Usuario";
+
   @override
   void initState() {
     super.initState();
@@ -29,13 +32,13 @@ class _MainScreenState extends State<MainScreen> {
 
     if (user == null) return;
 
-    print("USUARIO LOGIN: $user");
-
     final data = await Supabase.instance.client
         .from('profiles')
         .select('username')
         .eq('id', user.id)
         .single();
+
+    if (!mounted) return;
 
     setState(() {
       usernameActual = data['username'] ?? "Sin nombre";
@@ -47,6 +50,9 @@ class _MainScreenState extends State<MainScreen> {
       case 0:
         return const FeedPage();
 
+      case 1:
+        return const ProfilePage();
+
       case 2:
         return const FriendsPage();
 
@@ -54,7 +60,6 @@ class _MainScreenState extends State<MainScreen> {
         return const Center(
           child: Text(
             "Chats",
-
             style: TextStyle(color: Colors.white, fontSize: 30),
           ),
         );
@@ -63,7 +68,6 @@ class _MainScreenState extends State<MainScreen> {
         return const Center(
           child: Text(
             "Ajustes",
-
             style: TextStyle(color: Colors.white, fontSize: 30),
           ),
         );
@@ -77,17 +81,13 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff17141F),
-
       body: Row(
         children: [
-          // SIDEBAR IZQUIERDO
           SizedBox(
             width: 250,
-
             child: Sidebar(
               selected: selectedIndex,
               username: usernameActual,
-
               onSelected: (index) {
                 setState(() {
                   selectedIndex = index;
@@ -96,27 +96,17 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
 
-          // CENTRO
           Expanded(
             child: Column(
               children: [
                 const TopBar(),
 
-                Expanded(
-                  child: Center(
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 760),
-
-                      child: currentPage(),
-                    ),
-                  ),
-                ),
+                Expanded(child: currentPage()),
               ],
             ),
           ),
 
-          // PANEL DERECHO
-          SizedBox(width: 280, child: const RightPanel()),
+          const SizedBox(width: 280, child: RightPanel()),
         ],
       ),
     );
