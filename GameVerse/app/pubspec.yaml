@@ -1,7 +1,5 @@
 name: app
-
 description: "A new Flutter project."
-
 publish_to: "none"
 
 version: 1.0.0+1
@@ -19,17 +17,14 @@ dependencies:
   supabase_flutter: ^2.9.1
 
   # Variables de entorno
-  flutter_dotenv: ^6.0.1
+  flutter_dotenv: ^5.2.1
 
   # Seleccionar imágenes y videos
   image_picker: ^1.1.2
 
   # Selector de archivos (Windows/Web)
-<<<<<<< HEAD
-=======
-  file_picker: 10.3.2
+  file_picker: ^10.3.2
 
->>>>>>> 529b9688b67c5b8304f354a27d1f2dc1fd9118f8
   # Guardar datos localmente
   shared_preferences: ^2.5.3
 
@@ -38,12 +33,11 @@ dependencies:
 
   # Reproductor multiplataforma Windows + Chrome
   media_kit: ^1.1.10
-  media_kit_video: ^2.0.1
+  media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4
 
   # Detectar cuando un widget está visible
   visibility_detector: ^0.4.0+2
-  file_picker: 10.3.2
 
 dev_dependencies:
   flutter_test:
