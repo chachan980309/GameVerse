@@ -1,6 +1,5 @@
 import 'package:app/controllers/profile_controller.dart';
 import 'package:app/services/image_picker_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class EditableAvatar extends StatefulWidget {
@@ -66,13 +65,20 @@ class _EditableAvatarState extends State<EditableAvatar> {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // ==========================
+                // Avatar
+                // ==========================
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 5),
+                    border: Border.all(
+                      color: const Color(0xff6438FF),
+                      width: 5,
+                    ),
                   ),
                   child: CircleAvatar(
-                    radius: 60,
+                    radius: 85,
+
                     backgroundImage:
                         profile.avatarUrl != null &&
                             profile.avatarUrl!.isNotEmpty
@@ -82,12 +88,15 @@ class _EditableAvatarState extends State<EditableAvatar> {
                   ),
                 ),
 
+                // ==========================
+                // Hover oscuro
+                // ==========================
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
                   opacity: _hover ? 1 : 0,
                   child: Container(
-                    width: 120,
-                    height: 120,
+                    width: 170,
+                    height: 170,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: .55),
                       shape: BoxShape.circle,
@@ -95,6 +104,9 @@ class _EditableAvatarState extends State<EditableAvatar> {
                   ),
                 ),
 
+                // ==========================
+                // Texto cambiar foto
+                // ==========================
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
                   opacity: _hover ? 1 : 0,
@@ -104,15 +116,17 @@ class _EditableAvatarState extends State<EditableAvatar> {
                       Icon(
                         Icons.photo_camera_outlined,
                         color: Colors.white,
-                        size: 24,
+                        size: 30,
                       ),
-                      SizedBox(height: 6),
+
+                      SizedBox(height: 8),
+
                       Text(
                         "Cambiar\nfoto",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

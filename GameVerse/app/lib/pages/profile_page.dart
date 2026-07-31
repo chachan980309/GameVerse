@@ -22,13 +22,21 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff17141F),
+
       body: SafeArea(
         child: Column(
           children: [
-            const ProfileHeader(),
+            // ==========================
+            // HEADER PERFIL
+            // ==========================
+            const SizedBox(height: 270, child: ProfileHeader()),
 
+            // ==========================
+            // TABS
+            // ==========================
             ProfileTabs(
               selectedIndex: _selectedTab,
+
               onTabSelected: (index) {
                 setState(() {
                   _selectedTab = index;
@@ -36,13 +44,20 @@ class _ProfilePageState extends State<ProfilePage> {
               },
             ),
 
+            // ==========================
+            // CONTENIDO
+            // ==========================
             Expanded(
               child: IndexedStack(
                 index: _selectedTab,
+
                 children: const [
                   WallTab(),
+
                   GamesTab(),
+
                   ClipsTab(),
+
                   PhotosTab(),
                 ],
               ),

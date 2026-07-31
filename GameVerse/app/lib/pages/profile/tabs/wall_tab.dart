@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../controllers/post_controller.dart';
 import '../../../controllers/profile_controller.dart';
 
-import '../../../widgets/post/post_create_box.dart';
+import '../../../widgets/forms/create_post.dart';
 import '../../../widgets/posts/post_list.dart';
 
 class WallTab extends StatefulWidget {
@@ -46,7 +46,12 @@ class _WallTabState extends State<WallTab> {
       builder: (context, _) {
         return Column(
           children: [
-            const PostCreateBox(),
+            // MISMO CREADOR DE PUBLICACIONES DEL FEED
+            CreatePost(
+              onPostCreated: () {
+                _loadPosts();
+              },
+            ),
 
             const SizedBox(height: 20),
 
