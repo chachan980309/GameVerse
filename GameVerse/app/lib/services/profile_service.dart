@@ -24,7 +24,25 @@ class ProfileService {
       throw Exception("Usuario no autenticado");
     }
 
-    final path = "${user.id}/avatar.png";
+    // ============================
+    // Eliminar avatar anterior
+    // ============================
+
+    final files = await _supabase.storage.from("avatars").list(path: user.id);
+
+    if (files.isNotEmpty) {
+      final paths = files.map((file) => "${user.id}/${file.name}").toList();
+
+      await _supabase.storage.from("avatars").remove(paths);
+    }
+
+    // ============================
+    // Nuevo nombre único
+    // ============================
+
+    final fileName = "${DateTime.now().millisecondsSinceEpoch}.png";
+
+    final path = "${user.id}/$fileName";
 
     print("======================================");
     print("INICIANDO SUBIDA DE AVATAR");
@@ -34,6 +52,7 @@ class ProfileService {
     print("SESSION ACTIVA: ${_supabase.auth.currentSession != null}");
 
     final session = _supabase.auth.currentSession;
+
     if (session != null) {
       print("TOKEN: ${session.accessToken.substring(0, 20)}...");
     }
@@ -48,10 +67,7 @@ class ProfileService {
           .uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(
-              upsert: true,
-              contentType: "image/png",
-            ),
+            fileOptions: const FileOptions(contentType: "image/png"),
           );
 
       print("Imagen subida correctamente.");
