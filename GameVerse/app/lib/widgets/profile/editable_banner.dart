@@ -1,6 +1,7 @@
+import 'package:flutter/material.dart';
+
 import 'package:app/controllers/profile_controller.dart';
 import 'package:app/services/image_picker_service.dart';
-import 'package:flutter/material.dart';
 
 class EditableBanner extends StatefulWidget {
   const EditableBanner({super.key});
@@ -10,14 +11,13 @@ class EditableBanner extends StatefulWidget {
 }
 
 class _EditableBannerState extends State<EditableBanner> {
-  bool _hover = false;
-
   final ProfileController _profile = ProfileController();
+
+  bool _hover = false;
 
   @override
   void initState() {
     super.initState();
-
     _profile.addListener(_refresh);
   }
 
@@ -44,52 +44,49 @@ class _EditableBannerState extends State<EditableBanner> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: _pickBanner,
         child: SizedBox(
-          height: 220,
           width: double.infinity,
+          height: 220,
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              Positioned.fill(
-                child:
-                    _profile.bannerUrl != null && _profile.bannerUrl!.isNotEmpty
-                    ? Image.network(_profile.bannerUrl!, fit: BoxFit.cover)
-                    : Image.asset(
-                        "assets/images/banner.jpg",
-                        fit: BoxFit.cover,
-                      ),
-              ),
+              // Imagen del banner
+              _profile.bannerUrl != null && _profile.bannerUrl!.isNotEmpty
+                  ? Image.network(_profile.bannerUrl!, fit: BoxFit.cover)
+                  : Image.asset("assets/images/banner.jpg", fit: BoxFit.cover),
 
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: .15),
-                        Colors.black.withValues(alpha: .70),
-                      ],
-                    ),
+              // Degradado
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: .12),
+                      Colors.black.withValues(alpha: .72),
+                    ],
                   ),
                 ),
               ),
 
+              // Oscurecer al pasar el mouse
               AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 180),
                 opacity: _hover ? 1 : 0,
                 child: Container(color: Colors.black.withValues(alpha: .25)),
               ),
 
+              // Botón cambiar banner
               Positioned(
-                top: 18,
-                right: 18,
+                top: 16,
+                right: 16,
                 child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 180),
                   opacity: _hover ? 1 : 0,
                   child: ElevatedButton.icon(
                     onPressed: _pickBanner,
@@ -97,6 +94,15 @@ class _EditableBannerState extends State<EditableBanner> {
                     label: const Text("Cambiar banner"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff6E4CFF),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
