@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/auth_gate.dart';
 import 'screens/register_screen.dart';
 
 Future<void> main() async {
@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
 
       routes: {"/register": (context) => const RegisterScreen()},
 
-      home: const LoginScreen(),
+      home: AuthGate(),
     );
   }
 }

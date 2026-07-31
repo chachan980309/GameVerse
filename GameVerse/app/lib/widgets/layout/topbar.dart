@@ -1,4 +1,6 @@
 import 'package:app/controllers/profile_controller.dart';
+import 'package:app/screens/login_screen.dart';
+import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class TopBar extends StatelessWidget {
@@ -60,71 +62,110 @@ class TopBar extends StatelessWidget {
 
               const SizedBox(width: 22),
 
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xff7B4DFF),
-                        width: 2,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: const Color(0xff6438FF),
-                      backgroundImage:
-                          profile.avatarUrl != null &&
-                              profile.avatarUrl!.isNotEmpty
-                          ? NetworkImage(profile.avatarUrl!)
-                          : const AssetImage("assets/images/avatar.png")
-                                as ImageProvider,
+              PopupMenuButton(
+                offset: const Offset(0, 55),
+                color: const Color(0xff211D2E),
+
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    onTap: () async {
+                      await AuthService().signOut();
+
+                      if (!context.mounted) return;
+
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    },
+
+                    child: const Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.white70, size: 20),
+
+                        SizedBox(width: 10),
+
+                        Text(
+                          "Cerrar sesión",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ],
                     ),
                   ),
+                ],
 
-                  const SizedBox(width: 10),
-
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        profile.username,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xff7B4DFF),
+                          width: 2,
                         ),
                       ),
 
-                      const SizedBox(height: 2),
-
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.greenAccent,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-
-                          const SizedBox(width: 6),
-
-                          Text(
-                            profile.status,
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: const Color(0xff6438FF),
+                        backgroundImage:
+                            profile.avatarUrl != null &&
+                                profile.avatarUrl!.isNotEmpty
+                            ? NetworkImage(profile.avatarUrl!)
+                            : const AssetImage("assets/images/avatar.png")
+                                  as ImageProvider,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        Text(
+                          profile.username,
+
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+
+                        const SizedBox(height: 2),
+
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+
+                              decoration: const BoxDecoration(
+                                color: Colors.greenAccent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+
+                            const SizedBox(width: 6),
+
+                            Text(
+                              profile.status,
+
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

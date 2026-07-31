@@ -23,22 +23,23 @@ class _ProfileHeaderState extends State<ProfileHeader> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 270,
+      height: 230,
 
       child: Stack(
         clipBehavior: Clip.none,
 
         children: [
-          // Banner
+          // BANNER
           const IgnorePointer(child: EditableBanner()),
 
-          // Avatar
-          Positioned(left: 35, bottom: -35, child: const EditableAvatar()),
+          // AVATAR
+          Positioned(left: 35, bottom: -25, child: const EditableAvatar()),
 
-          // Información jugador
+          // INFORMACION USUARIO
           Positioned(
             left: 220,
-            top: 75,
+
+            top: 55,
 
             child: SizedBox(
               width: 420,
@@ -52,12 +53,14 @@ class _ProfileHeaderState extends State<ProfileHeader> {
 
                     style: TextStyle(
                       color: Colors.white,
+
                       fontSize: 30,
+
                       fontWeight: FontWeight.bold,
                     ),
                   ),
 
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 3),
 
                   const Row(
                     children: [
@@ -70,13 +73,14 @@ class _ProfileHeaderState extends State<ProfileHeader> {
 
                         style: TextStyle(
                           color: Colors.greenAccent,
+
                           fontSize: 14,
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
 
                   const Text(
                     "Nivel 5",
@@ -84,7 +88,7 @@ class _ProfileHeaderState extends State<ProfileHeader> {
                     style: TextStyle(color: Colors.white70, fontSize: 13),
                   ),
 
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
 
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
@@ -104,7 +108,7 @@ class _ProfileHeaderState extends State<ProfileHeader> {
                     ),
                   ),
 
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
 
                   const Text(
                     "1200 / 2000 XP",
@@ -112,14 +116,13 @@ class _ProfileHeaderState extends State<ProfileHeader> {
                     style: TextStyle(color: Colors.white60, fontSize: 12),
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 10),
 
-                  // ==========================
                   // LEMA
-                  // ==========================
                   SizedBox(
                     width: 320,
-                    height: 32,
+
+                    height: 28,
 
                     child: TextField(
                       controller: mottoController,
@@ -136,8 +139,11 @@ class _ProfileHeaderState extends State<ProfileHeader> {
 
                       style: const TextStyle(
                         color: Colors.white70,
+
                         fontSize: 16,
+
                         fontWeight: FontWeight.bold,
+
                         fontStyle: FontStyle.italic,
                       ),
 
@@ -148,8 +154,11 @@ class _ProfileHeaderState extends State<ProfileHeader> {
 
                         hintStyle: TextStyle(
                           color: Colors.white38,
+
                           fontSize: 16,
+
                           fontWeight: FontWeight.bold,
+
                           fontStyle: FontStyle.italic,
                         ),
 
@@ -164,49 +173,58 @@ class _ProfileHeaderState extends State<ProfileHeader> {
             ),
           ),
 
-          // Botones
+          // BOTONES
           Positioned(
             right: 35,
-            top: 125,
+
+            top: 95,
 
             child: Row(
               children: [
-                ElevatedButton(
-                  onPressed: () {},
+                SizedBox(
+                  height: 40,
 
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff6E4CFF),
+                  child: ElevatedButton(
+                    onPressed: () {},
 
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff6E4CFF),
+
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ),
 
-                  child: const Text(
-                    "Editar perfil",
+                    child: const Text(
+                      "Editar perfil",
 
-                    style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
 
                 const SizedBox(width: 12),
 
-                OutlinedButton.icon(
-                  onPressed: () {},
+                SizedBox(
+                  height: 40,
 
-                  icon: const Icon(Icons.share, size: 18),
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
 
-                  label: const Text("Compartir"),
+                    icon: const Icon(Icons.share, size: 18),
 
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
+                    label: const Text("Compartir"),
 
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: .15),
-                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
 
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: .15),
+                      ),
+
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
