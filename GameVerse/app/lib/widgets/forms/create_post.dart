@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../controllers/post_controller.dart';
 import '../../services/post_service.dart';
 
 class CreatePost extends StatefulWidget {
@@ -17,6 +18,7 @@ class CreatePost extends StatefulWidget {
 class _CreatePostState extends State<CreatePost> {
   final TextEditingController controller = TextEditingController();
 
+  final PostController postController = PostController.instance;
   final PostService postService = PostService();
 
   final ImagePicker picker = ImagePicker();
@@ -85,36 +87,51 @@ class _CreatePostState extends State<CreatePost> {
     });
 
     try {
+      debugPrint("========== INICIO PUBLICACIÓN ==========");
+
       String? imageUrl;
       String? videoUrl;
 
       String type = "text";
 
       if (selectedImageBytes != null) {
+        debugPrint("Subiendo imagen...");
+
         imageUrl = await postService.uploadImage(
           selectedImageBytes!,
           selectedImageName!,
         );
 
+        debugPrint("Imagen subida:");
+        debugPrint(imageUrl);
+
         type = "image";
       }
 
       if (selectedVideoBytes != null) {
+        debugPrint("Subiendo video...");
+
         videoUrl = await postService.uploadVideo(
           selectedVideoBytes!,
           selectedVideoName!,
         );
 
+        debugPrint("Video subido:");
+        debugPrint(videoUrl);
+
         type = "video";
       }
 
-      await postService.createPost(
-        username: "Gio",
+      debugPrint("Creando publicación...");
+
+      await postController.createPost(
         content: controller.text.trim(),
-        image: imageUrl,
-        video: videoUrl,
+        imageUrl: imageUrl,
+        videoUrl: videoUrl,
         type: type,
       );
+
+      debugPrint("Publicación creada correctamente.");
 
       controller.clear();
 
@@ -127,8 +144,26 @@ class _CreatePostState extends State<CreatePost> {
       });
 
       widget.onPostCreated();
-    } catch (e) {
+
+      debugPrint("========== FIN PUBLICACIÓN ==========");
+    } catch (e, stackTrace) {
+      debugPrint("====================================");
+      debugPrint("ERROR AL PUBLICAR");
       debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+      debugPrint("====================================");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text(
+              e.toString(),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -216,7 +251,6 @@ class _CreatePostState extends State<CreatePost> {
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
-
                     TextButton.icon(
                       onPressed: pickVideo,
                       icon: const Icon(Icons.videocam, color: Colors.redAccent),
@@ -225,7 +259,6 @@ class _CreatePostState extends State<CreatePost> {
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
-
                     TextButton.icon(
                       onPressed: startStream,
                       icon: const Icon(
@@ -237,7 +270,6 @@ class _CreatePostState extends State<CreatePost> {
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
-
                     TextButton.icon(
                       onPressed: createPoll,
                       icon: const Icon(Icons.poll, color: Colors.orangeAccent),

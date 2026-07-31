@@ -1,54 +1,52 @@
 class PostModel {
-
   final String id;
-  final String username;
-  final String avatar;
+  final String userId;
+
   final String content;
-  final String? image;
-  final int likes;
-  final int comments;
+
+  final String? game;
+  final String? imageUrl;
+  final String? videoUrl;
+
+  final String type;
+
   final DateTime createdAt;
 
+  // Datos del perfil
+  final String username;
+  final String avatarUrl;
 
-  PostModel({
-
+  const PostModel({
     required this.id,
-    required this.username,
-    required this.avatar,
+    required this.userId,
     required this.content,
-    this.image,
-    required this.likes,
-    required this.comments,
+    required this.type,
     required this.createdAt,
-
+    required this.username,
+    required this.avatarUrl,
+    this.game,
+    this.imageUrl,
+    this.videoUrl,
   });
 
-
-
   factory PostModel.fromMap(Map<String, dynamic> map) {
+    final profile = map["profiles"] as Map<String, dynamic>?;
 
     return PostModel(
+      id: map["id"],
+      userId: map["user_id"],
+      content: map["content"] ?? "",
 
-      id: map['id'],
+      game: map["game"],
+      imageUrl: map["image"],
+      videoUrl: map["video"],
 
-      username: map['username'],
+      type: map["type"] ?? "text",
 
-      avatar: map['avatar'] ?? '',
+      createdAt: DateTime.parse(map["created_at"]),
 
-      content: map['content'],
-
-      image: map['image'],
-
-      likes: map['likes'] ?? 0,
-
-      comments: map['comments'] ?? 0,
-
-      createdAt: DateTime.parse(
-        map['created_at'],
-      ),
-
+      username: profile?["username"] ?? "Usuario",
+      avatarUrl: profile?["avatar_url"] ?? "",
     );
-
   }
-
 }

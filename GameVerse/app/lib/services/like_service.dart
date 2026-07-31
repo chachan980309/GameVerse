@@ -3,35 +3,34 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LikeService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // CREAR LIKE
+  User get _user => supabase.auth.currentUser!;
 
-  Future<void> addLike({
-    required String postId,
+  // ==========================
+  // DAR LIKE
+  // ==========================
 
-    required String username,
-  }) async {
+  Future<void> addLike({required String postId}) async {
     await supabase.from('post_likes').insert({
       'post_id': postId,
-
-      'username': username,
+      'user_id': _user.id,
     });
   }
 
-  // ELIMINAR LIKE
+  // ==========================
+  // QUITAR LIKE
+  // ==========================
 
-  Future<void> removeLike({
-    required String postId,
-
-    required String username,
-  }) async {
+  Future<void> removeLike({required String postId}) async {
     await supabase
         .from('post_likes')
         .delete()
         .eq('post_id', postId)
-        .eq('username', username);
+        .eq('user_id', _user.id);
   }
 
+  // ==========================
   // CONTAR LIKES
+  // ==========================
 
   Future<int> getLikes(String postId) async {
     final data = await supabase
@@ -42,18 +41,16 @@ class LikeService {
     return data.length;
   }
 
-  // SABER SI ESTE USUARIO YA DIO LIKE
+  // ==========================
+  // ¿YA DIO LIKE?
+  // ==========================
 
-  Future<bool> hasLiked({
-    required String postId,
-
-    required String username,
-  }) async {
+  Future<bool> hasLiked({required String postId}) async {
     final data = await supabase
         .from('post_likes')
         .select('id')
         .eq('post_id', postId)
-        .eq('username', username);
+        .eq('user_id', _user.id);
 
     return data.isNotEmpty;
   }
