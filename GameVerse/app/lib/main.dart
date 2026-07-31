@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,8 +16,6 @@ Future<void> main() async {
     url: "https://kspeynuvzzglafckkiza.supabase.co",
     publishableKey: "sb_publishable_3adr9c84mh5xpbvFs6nEDA_AtKjC-7m",
   );
-
-  await Supabase.instance.client.auth.signOut();
 
   runApp(const MyApp());
 }
@@ -33,15 +32,14 @@ class MyApp extends StatelessWidget {
 
       theme: ThemeData(
         brightness: Brightness.dark,
-
         scaffoldBackgroundColor: const Color(0xff17141f),
-
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
-
           brightness: Brightness.dark,
         ),
       ),
+
+      routes: {"/register": (context) => const RegisterScreen()},
 
       home: const LoginScreen(),
     );

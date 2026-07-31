@@ -14,6 +14,7 @@ class ProfileController extends ChangeNotifier {
   final ProfileService _profileService = ProfileService();
 
   String? avatarUrl;
+  String? bannerUrl;
 
   String username = "Usuario";
   String status = "En línea";
@@ -25,6 +26,7 @@ class ProfileController extends ChangeNotifier {
     if (profile == null) return;
 
     avatarUrl = profile["avatar_url"];
+    bannerUrl = profile["banner_url"];
     username = profile["username"] ?? "Usuario";
     status = profile["status"] ?? "En línea";
     bio = profile["bio"] ?? "";
@@ -34,6 +36,11 @@ class ProfileController extends ChangeNotifier {
 
   Future<void> setAvatar(bytes) async {
     avatarUrl = await _profileService.uploadAvatar(bytes);
+    notifyListeners();
+  }
+
+  Future<void> setBanner(bytes) async {
+    bannerUrl = await _profileService.uploadBanner(bytes);
     notifyListeners();
   }
 

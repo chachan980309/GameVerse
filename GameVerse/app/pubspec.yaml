@@ -25,6 +25,11 @@ dependencies:
   image_picker: ^1.1.2
 
   # Selector de archivos (Windows/Web)
+<<<<<<< HEAD
+=======
+  file_picker: 10.3.2
+
+>>>>>>> 529b9688b67c5b8304f354a27d1f2dc1fd9118f8
   # Guardar datos localmente
   shared_preferences: ^2.5.3
 
