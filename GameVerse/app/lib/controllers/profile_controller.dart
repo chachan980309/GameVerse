@@ -13,6 +13,9 @@ class ProfileController extends ChangeNotifier {
 
   final ProfileService _profileService = ProfileService();
 
+  /// ID del usuario logueado
+  String? userId;
+
   String? avatarUrl;
   String? bannerUrl;
 
@@ -25,8 +28,11 @@ class ProfileController extends ChangeNotifier {
 
     if (profile == null) return;
 
+    userId = profile["id"];
+
     avatarUrl = profile["avatar_url"];
     bannerUrl = profile["banner_url"];
+
     username = profile["username"] ?? "Usuario";
     status = profile["status"] ?? "En línea";
     bio = profile["bio"] ?? "";

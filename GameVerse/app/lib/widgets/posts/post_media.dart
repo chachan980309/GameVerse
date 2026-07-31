@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../controllers/video_feed_controller.dart';
 import '../../models/post_model.dart';
 
+import '../../pages/image_viewer_page.dart';
 import 'video_player_widget.dart';
 
 class PostMedia extends StatelessWidget {
@@ -29,7 +32,7 @@ class PostMedia extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          height: 380,
+          height: 420,
           color: Colors.black,
           child: VideoPlayerWidget(url: post.videoUrl!),
         ),
@@ -42,40 +45,91 @@ class PostMedia extends StatelessWidget {
     if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: InteractiveViewer(
-          minScale: 1,
-          maxScale: 4,
-          child: Image.network(
-            post.imageUrl!,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
-              }
+        child: FutureBuilder<ImageInfo>(
+          future: _loadImage(post.imageUrl!),
+          builder: (context, snapshot) {
+            double height = 420;
 
-              return Container(
-                height: 300,
-                alignment: Alignment.center,
-                child: const CircularProgressIndicator(),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 250,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.broken_image,
-                  color: Colors.white54,
-                  size: 50,
+            if (snapshot.hasData) {
+              final image = snapshot.data!.image;
+              final ratio = image.width / image.height;
+
+              if (ratio > 1.35) {
+                // Horizontal
+                height = 320;
+              } else if (ratio < 0.8) {
+                // Vertical
+                height = 650;
+              } else {
+                // Cuadrada
+                height = 450;
+              }
+            }
+
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ImageViewerPage(imageUrl: post.imageUrl!),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: height,
+                  color: Colors.transparent,
+                  child: Image.network(
+                    post.imageUrl!,
+                    width: double.infinity,
+                    height: height,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) {
+                        return child;
+                      }
+
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white54,
+                          size: 60,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       );
     }
 
     return const SizedBox.shrink();
+  }
+
+  Future<ImageInfo> _loadImage(String url) {
+    final provider = NetworkImage(url);
+
+    final completer = Completer<ImageInfo>();
+
+    final stream = provider.resolve(const ImageConfiguration());
+
+    late ImageStreamListener listener;
+
+    listener = ImageStreamListener((info, _) {
+      completer.complete(info);
+      stream.removeListener(listener);
+    });
+
+    stream.addListener(listener);
+
+    return completer.future;
   }
 }

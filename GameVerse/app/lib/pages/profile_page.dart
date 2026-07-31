@@ -1,10 +1,12 @@
-import 'package:app/pages/profile/tabs/clips_tab.dart';
-import 'package:app/pages/profile/tabs/games_tab.dart';
-import 'package:app/pages/profile/tabs/photos_tab.dart';
-import 'package:app/pages/profile/tabs/wall_tab.dart';
-import 'package:app/widgets/profile/profile_header.dart';
-import 'package:app/widgets/profile/profile_tabs.dart';
 import 'package:flutter/material.dart';
+
+import 'profile/tabs/wall_tab.dart';
+import 'profile/tabs/games_tab.dart';
+import 'profile/tabs/clips_tab.dart';
+import 'profile/tabs/photos_tab.dart';
+
+import '../../widgets/profile/profile_header.dart';
+import '../../widgets/profile/profile_tabs.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,7 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff17141F),
-      body: SingleChildScrollView(
+      body: SafeArea(
         child: Column(
           children: [
             const ProfileHeader(),
@@ -34,9 +36,16 @@ class _ProfilePageState extends State<ProfilePage> {
               },
             ),
 
-            IndexedStack(
-              index: _selectedTab,
-              children: const [WallTab(), GamesTab(), ClipsTab(), PhotosTab()],
+            Expanded(
+              child: IndexedStack(
+                index: _selectedTab,
+                children: const [
+                  WallTab(),
+                  GamesTab(),
+                  ClipsTab(),
+                  PhotosTab(),
+                ],
+              ),
             ),
           ],
         ),

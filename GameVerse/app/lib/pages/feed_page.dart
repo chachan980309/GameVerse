@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/post_controller.dart';
-import '../controllers/video_feed_controller.dart';
 
 import '../widgets/forms/create_post.dart';
-import '../widgets/posts/post_card.dart';
+import '../widgets/posts/post_list.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
@@ -15,14 +14,6 @@ class FeedPage extends StatefulWidget {
 
 class _FeedPageState extends State<FeedPage> {
   final PostController postController = PostController.instance;
-
-  final VideoFeedController videoController = VideoFeedController();
-
-  @override
-  void dispose() {
-    videoController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,46 +39,11 @@ class _FeedPageState extends State<FeedPage> {
           child: AnimatedBuilder(
             animation: postController,
             builder: (context, _) {
-              if (postController.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(color: Color(0xff6438FF)),
-                );
-              }
-
-              if (postController.feedPosts.isEmpty) {
-                return RefreshIndicator(
-                  color: const Color(0xff6438FF),
-                  onRefresh: postController.loadFeed,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 150),
-                      Center(
-                        child: Text(
-                          "Aún no hay publicaciones.",
-                          style: TextStyle(color: Colors.white54, fontSize: 16),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return RefreshIndicator(
-                color: const Color(0xff6438FF),
+              return PostList(
+                posts: postController.feedPosts,
+                loading: postController.isLoading,
                 onRefresh: postController.loadFeed,
-                child: ListView.builder(
-                  padding: EdgeInsets.zero,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: postController.feedPosts.length,
-                  itemBuilder: (context, index) {
-                    return PostCard(
-                      post: postController.feedPosts[index],
-                      index: index,
-                      videoController: videoController,
-                    );
-                  },
-                ),
+                emptyMessage: "Aún no hay publicaciones.",
               );
             },
           ),

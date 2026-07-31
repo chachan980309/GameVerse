@@ -14,9 +14,20 @@ class PostController extends ChangeNotifier {
 
   final PostService _postService = PostService();
 
+  /// Feed principal
   List<PostModel> feedPosts = [];
 
+  /// Publicaciones del perfil
+  List<PostModel> userPosts = [];
+
   bool isLoading = false;
+
+  /// Usuario cuyo muro está cargado actualmente
+  String? _currentUserId;
+
+  // ==========================
+  // FEED
+  // ==========================
 
   Future<void> loadFeed() async {
     isLoading = true;
@@ -30,17 +41,27 @@ class PostController extends ChangeNotifier {
     }
   }
 
+  // ==========================
+  // PERFIL
+  // ==========================
+
   Future<void> loadUserPosts(String userId) async {
+    _currentUserId = userId;
+
     isLoading = true;
     notifyListeners();
 
     try {
-      feedPosts = await _postService.getUserPosts(userId);
+      userPosts = await _postService.getUserPosts(userId);
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
+
+  // ==========================
+  // CREAR PUBLICACIÓN
+  // ==========================
 
   Future<void> createPost({
     required String content,
@@ -55,6 +76,13 @@ class PostController extends ChangeNotifier {
       type: type,
     );
 
+    // Actualiza el feed
     await loadFeed();
+
+    // Si el muro del perfil ya estaba cargado,
+    // también se actualiza automáticamente.
+    if (_currentUserId != null) {
+      await loadUserPosts(_currentUserId!);
+    }
   }
 }

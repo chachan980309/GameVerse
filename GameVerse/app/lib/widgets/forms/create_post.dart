@@ -9,7 +9,15 @@ import '../../services/post_service.dart';
 class CreatePost extends StatefulWidget {
   final VoidCallback onPostCreated;
 
-  const CreatePost({super.key, required this.onPostCreated});
+  final bool compact;
+  final String placeholder;
+
+  const CreatePost({
+    super.key,
+    required this.onPostCreated,
+    this.compact = false,
+    this.placeholder = "¿Qué estás jugando?",
+  });
 
   @override
   State<CreatePost> createState() => _CreatePostState();
@@ -181,61 +189,166 @@ class _CreatePostState extends State<CreatePost> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.all(widget.compact ? 12 : 16),
       decoration: BoxDecoration(
         color: const Color(0xff211D2E),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          TextField(
-            controller: controller,
-            maxLines: 3,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: "¿Qué estás jugando?",
-              hintStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: const Color(0xff17141F),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                radius: 22,
+                backgroundColor: Color(0xff6438FF),
+                child: Icon(Icons.person, color: Colors.white),
               ),
-            ),
-          ),
 
-          const SizedBox(height: 12),
+              const SizedBox(width: 12),
 
-          if (selectedImageBytes != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                selectedImageBytes!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  minLines: 1,
+                  maxLines: widget.compact ? 1 : 3,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: widget.placeholder,
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: const Color(0xff17141F),
 
-          if (selectedVideoBytes != null)
-            Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: Colors.white,
-                  size: 60,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: const BorderSide(
+                        color: Color(0xff6438FF),
+                        width: 2,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
+          SizedBox(height: widget.compact ? 8 : 12),
 
-          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: selectedImageBytes != null || selectedVideoBytes != null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 10),
+                    child: selectedImageBytes != null
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  selectedImageBytes!,
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () {
+                                      setState(() {
+                                        selectedImageBytes = null;
+                                        selectedImageName = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Stack(
+                            children: [
+                              Container(
+                                height: 180,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.play_circle_fill,
+                                    color: Colors.white,
+                                    size: 60,
+                                  ),
+                                ),
+                              ),
+
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () {
+                                      setState(() {
+                                        selectedVideoBytes = null;
+                                        selectedVideoName = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                  )
+                : const SizedBox.shrink(),
+          ),
 
           Row(
             children: [
@@ -243,41 +356,86 @@ class _CreatePostState extends State<CreatePost> {
                 child: Wrap(
                   spacing: 15,
                   children: [
-                    TextButton.icon(
-                      onPressed: pickImage,
-                      icon: const Icon(Icons.image, color: Colors.greenAccent),
-                      label: const Text(
-                        "Imagen",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: pickVideo,
-                      icon: const Icon(Icons.videocam, color: Colors.redAccent),
-                      label: const Text(
-                        "Video",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: startStream,
-                      icon: const Icon(
-                        Icons.wifi_tethering,
-                        color: Colors.purpleAccent,
-                      ),
-                      label: const Text(
-                        "Directo",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: createPoll,
-                      icon: const Icon(Icons.poll, color: Colors.orangeAccent),
-                      label: const Text(
-                        "Encuesta",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
+                    widget.compact
+                        ? IconButton(
+                            tooltip: "Imagen",
+                            onPressed: pickImage,
+                            icon: const Icon(
+                              Icons.image,
+                              color: Colors.greenAccent,
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: pickImage,
+                            icon: const Icon(
+                              Icons.image,
+                              color: Colors.greenAccent,
+                            ),
+                            label: const Text(
+                              "Imagen",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                    widget.compact
+                        ? IconButton(
+                            tooltip: "Video",
+                            onPressed: pickVideo,
+                            icon: const Icon(
+                              Icons.videocam,
+                              color: Colors.redAccent,
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: pickVideo,
+                            icon: const Icon(
+                              Icons.videocam,
+                              color: Colors.redAccent,
+                            ),
+                            label: const Text(
+                              "Video",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                    widget.compact
+                        ? IconButton(
+                            tooltip: "Directo",
+                            onPressed: startStream,
+                            icon: const Icon(
+                              Icons.wifi_tethering,
+                              color: Colors.purpleAccent,
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: startStream,
+                            icon: const Icon(
+                              Icons.wifi_tethering,
+                              color: Colors.purpleAccent,
+                            ),
+                            label: const Text(
+                              "Directo",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                    widget.compact
+                        ? IconButton(
+                            tooltip: "Encuesta",
+                            onPressed: createPoll,
+                            icon: const Icon(
+                              Icons.poll,
+                              color: Colors.orangeAccent,
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: createPoll,
+                            icon: const Icon(
+                              Icons.poll,
+                              color: Colors.orangeAccent,
+                            ),
+                            label: const Text(
+                              "Encuesta",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
                   ],
                 ),
               ),
