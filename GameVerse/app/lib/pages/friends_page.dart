@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../services/friend_service.dart';
 
 class FriendsPage extends StatefulWidget {
@@ -14,7 +13,10 @@ class _FriendsPageState extends State<FriendsPage> {
 
   bool loading = true;
 
+  int selectedTab = 0;
+
   List<Map<String, dynamic>> users = [];
+  List<Map<String, dynamic>> pendingRequests = [];
   Set<String> requestedUsers = {};
 
   @override
@@ -26,6 +28,7 @@ class _FriendsPageState extends State<FriendsPage> {
   Future<void> loadUsers() async {
     try {
       final result = await _friendService.searchUsers();
+      final pending = await _friendService.getPendingRequests();
 
       requestedUsers.clear();
 
@@ -41,6 +44,7 @@ class _FriendsPageState extends State<FriendsPage> {
 
       setState(() {
         users = result;
+        pendingRequests = pending;
         loading = false;
       });
     } catch (e) {
@@ -103,38 +107,43 @@ class _FriendsPageState extends State<FriendsPage> {
             style: const TextStyle(color: Colors.white54),
           ),
 
-          const SizedBox(height: 25),
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => selectedTab = 0);
+                },
+                child: const Text("Todos"),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => selectedTab = 1);
+                },
+                child: Text("Pendientes (${pendingRequests.length})"),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
 
           Expanded(
-            child: users.isEmpty
-                ? const Center(
-                    child: Text(
-                      "No hay usuarios disponibles.",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  )
-                : ListView.builder(
+            child: selectedTab == 0
+                ? ListView.builder(
                     itemCount: users.length,
                     itemBuilder: (context, index) {
                       final user = users[index];
-
                       final alreadyRequested = requestedUsers.contains(
                         user["id"],
                       );
 
-                      return Container(
+                      return Card(
+                        color: const Color(0xff211D2B),
                         margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff211D2B),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
                           leading: const CircleAvatar(
-                            radius: 24,
                             backgroundColor: Color(0xff7B4DFF),
                             child: Icon(Icons.person, color: Colors.white),
                           ),
@@ -162,6 +171,67 @@ class _FriendsPageState extends State<FriendsPage> {
                                   icon: const Icon(Icons.person_add),
                                   label: const Text("Agregar"),
                                 ),
+                        ),
+                      );
+                    },
+                  )
+                : pendingRequests.isEmpty
+                ? const Center(
+                    child: Text(
+                      "No tienes solicitudes pendientes",
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: pendingRequests.length,
+                    itemBuilder: (context, index) {
+                      final request = pendingRequests[index];
+
+                      return Card(
+                        color: const Color(0xff211D2B),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xff7B4DFF),
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          title: Text(
+                            request["sender"]["username"] ?? "",
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          subtitle: const Text(
+                            "Quiere ser tu amigo",
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.check,
+                                  color: Colors.green,
+                                ),
+                                onPressed: () async {
+                                  await _friendService.acceptRequest(
+                                    request["id"],
+                                  );
+                                  await loadUsers();
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () async {
+                                  await _friendService.rejectRequest(
+                                    request["id"],
+                                  );
+                                  await loadUsers();
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

@@ -6,6 +6,7 @@ import 'profile/tabs/clips_tab.dart';
 import 'profile/tabs/photos_tab.dart';
 
 import '../../widgets/profile/profile_header.dart';
+import '../../widgets/profile/profile_overview.dart';
 import '../../widgets/profile/profile_tabs.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -22,21 +23,28 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff17141F),
-
       body: SafeArea(
         child: Column(
           children: [
             // ==========================
-            // HEADER PERFIL
+            // BANNER
             // ==========================
-            const SizedBox(height: 270, child: ProfileHeader()),
+            const ProfileHeader(),
+
+            const SizedBox(height: 12),
+
+            // ==========================
+            // OVERVIEW DEL PERFIL
+            // ==========================
+            const ProfileOverview(),
+
+            const SizedBox(height: 12),
 
             // ==========================
             // TABS
             // ==========================
             ProfileTabs(
               selectedIndex: _selectedTab,
-
               onTabSelected: (index) {
                 setState(() {
                   _selectedTab = index;
@@ -50,14 +58,10 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: IndexedStack(
                 index: _selectedTab,
-
                 children: const [
                   WallTab(),
-
                   GamesTab(),
-
                   ClipsTab(),
-
                   PhotosTab(),
                 ],
               ),
