@@ -17,6 +17,10 @@ class ProfileService {
         .maybeSingle();
   }
 
+  // ==========================
+  // Avatar
+  // ==========================
+
   Future<String> uploadAvatar(Uint8List bytes) async {
     final user = _supabase.auth.currentUser;
 
@@ -24,10 +28,7 @@ class ProfileService {
       throw Exception("Usuario no autenticado");
     }
 
-    // ============================
     // Eliminar avatar anterior
-    // ============================
-
     final files = await _supabase.storage.from("avatars").list(path: user.id);
 
     if (files.isNotEmpty) {
@@ -36,12 +37,8 @@ class ProfileService {
       await _supabase.storage.from("avatars").remove(paths);
     }
 
-    // ============================
     // Nuevo nombre único
-    // ============================
-
     final fileName = "${DateTime.now().millisecondsSinceEpoch}.png";
-
     final path = "${user.id}/$fileName";
 
     print("======================================");
@@ -97,6 +94,80 @@ class ProfileService {
       rethrow;
     }
   }
+
+  // ==========================
+  // Banner
+  // ==========================
+
+  Future<String> uploadBanner(Uint8List bytes) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception("Usuario no autenticado");
+    }
+
+    // Eliminar banner anterior
+    final files = await _supabase.storage.from("banners").list(path: user.id);
+
+    if (files.isNotEmpty) {
+      final paths = files.map((file) => "${user.id}/${file.name}").toList();
+
+      await _supabase.storage.from("banners").remove(paths);
+    }
+
+    // Nuevo nombre único
+    final fileName = "${DateTime.now().millisecondsSinceEpoch}.png";
+    final path = "${user.id}/$fileName";
+
+    print("======================================");
+    print("INICIANDO SUBIDA DE BANNER");
+    print("USER ID: ${user.id}");
+    print("EMAIL: ${user.email}");
+    print("PATH: $path");
+    print("======================================");
+
+    try {
+      print("Subiendo banner...");
+
+      await _supabase.storage
+          .from("banners")
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(contentType: "image/png"),
+          );
+
+      print("Banner subido correctamente.");
+
+      final publicUrl = _supabase.storage.from("banners").getPublicUrl(path);
+
+      print("URL PUBLICA:");
+      print(publicUrl);
+
+      print("Actualizando perfil...");
+
+      await _supabase
+          .from("profiles")
+          .update({"banner_url": publicUrl})
+          .eq("id", user.id);
+
+      print("Banner actualizado correctamente.");
+      print("======================================");
+
+      return publicUrl;
+    } catch (e, stack) {
+      print("======================================");
+      print("ERROR AL SUBIR BANNER");
+      print(e);
+      print(stack);
+      print("======================================");
+      rethrow;
+    }
+  }
+
+  // ==========================
+  // Actualizar perfil
+  // ==========================
 
   Future<void> updateProfile({
     String? username,

@@ -1,7 +1,5 @@
-import 'dart:typed_data';
-
+import 'package:app/controllers/profile_controller.dart';
 import 'package:app/services/image_picker_service.dart';
-import 'package:app/services/image_storage_service.dart';
 import 'package:flutter/material.dart';
 
 class EditableBanner extends StatefulWidget {
@@ -14,22 +12,25 @@ class EditableBanner extends StatefulWidget {
 class _EditableBannerState extends State<EditableBanner> {
   bool _hover = false;
 
-  Uint8List? _bannerBytes;
+  final ProfileController _profile = ProfileController();
 
   @override
   void initState() {
     super.initState();
-    _loadBanner();
+
+    _profile.addListener(_refresh);
   }
 
-  Future<void> _loadBanner() async {
-    final bytes = await ImageStorageService.loadBanner();
+  @override
+  void dispose() {
+    _profile.removeListener(_refresh);
+    super.dispose();
+  }
 
-    if (!mounted || bytes == null) return;
-
-    setState(() {
-      _bannerBytes = bytes;
-    });
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _pickBanner() async {
@@ -37,11 +38,7 @@ class _EditableBannerState extends State<EditableBanner> {
 
     if (bytes == null) return;
 
-    await ImageStorageService.saveBanner(bytes);
-
-    setState(() {
-      _bannerBytes = bytes;
-    });
+    await _profile.setBanner(bytes);
   }
 
   @override
@@ -58,8 +55,9 @@ class _EditableBannerState extends State<EditableBanner> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: _bannerBytes != null
-                    ? Image.memory(_bannerBytes!, fit: BoxFit.cover)
+                child:
+                    _profile.bannerUrl != null && _profile.bannerUrl!.isNotEmpty
+                    ? Image.network(_profile.bannerUrl!, fit: BoxFit.cover)
                     : Image.asset(
                         "assets/images/banner.jpg",
                         fit: BoxFit.cover,
