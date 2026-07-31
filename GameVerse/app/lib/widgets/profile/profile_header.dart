@@ -119,7 +119,7 @@ class _ProfileHeaderState extends State<ProfileHeader> {
                       ),
                       decoration: const InputDecoration(
                         counterText: "",
-                        hintText: "Agregar lema...",
+                        hintText: "Agregar lemaa...",
                         hintStyle: TextStyle(
                           color: Colors.white38,
                           fontSize: 16,

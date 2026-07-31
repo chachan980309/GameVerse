@@ -35,11 +35,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
       for (final user in result) {
         final exists = await _friendService.hasFriendRequest(user["id"]);
 
+        print("Usuario: ${user["username"]} - Existe: $exists");
+
         if (exists) {
           requestedUsers.add(user["id"]);
         }
       }
-
       if (!mounted) return;
 
       setState(() {

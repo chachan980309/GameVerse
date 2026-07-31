@@ -13,7 +13,9 @@ class _FriendsPageState extends State<FriendsPage> {
   final FriendService _friendService = FriendService();
 
   bool loading = true;
+
   List<Map<String, dynamic>> users = [];
+  Set<String> requestedUsers = {};
 
   @override
   void initState() {
@@ -24,6 +26,16 @@ class _FriendsPageState extends State<FriendsPage> {
   Future<void> loadUsers() async {
     try {
       final result = await _friendService.searchUsers();
+
+      requestedUsers.clear();
+
+      for (final user in result) {
+        final exists = await _friendService.hasFriendRequest(user["id"]);
+
+        if (exists) {
+          requestedUsers.add(user["id"]);
+        }
+      }
 
       if (!mounted) return;
 
@@ -38,9 +50,9 @@ class _FriendsPageState extends State<FriendsPage> {
         loading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -50,26 +62,24 @@ class _FriendsPageState extends State<FriendsPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Solicitud enviada"),
-        ),
-      );
+      await loadUsers();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("✅ Solicitud enviada")));
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     return Padding(
@@ -90,9 +100,7 @@ class _FriendsPageState extends State<FriendsPage> {
 
           Text(
             "${users.length} usuarios encontrados",
-            style: const TextStyle(
-              color: Colors.white54,
-            ),
+            style: const TextStyle(color: Colors.white54),
           ),
 
           const SizedBox(height: 25),
@@ -110,6 +118,10 @@ class _FriendsPageState extends State<FriendsPage> {
                     itemBuilder: (context, index) {
                       final user = users[index];
 
+                      final alreadyRequested = requestedUsers.contains(
+                        user["id"],
+                      );
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
@@ -124,10 +136,7 @@ class _FriendsPageState extends State<FriendsPage> {
                           leading: const CircleAvatar(
                             radius: 24,
                             backgroundColor: Color(0xff7B4DFF),
-                            child: Icon(
-                              Icons.person,
-                              color: Colors.white,
-                            ),
+                            child: Icon(Icons.person, color: Colors.white),
                           ),
                           title: Text(
                             user["username"] ?? "",
@@ -138,15 +147,21 @@ class _FriendsPageState extends State<FriendsPage> {
                           ),
                           subtitle: Text(
                             user["email"] ?? "",
-                            style: const TextStyle(
-                              color: Colors.white54,
-                            ),
+                            style: const TextStyle(color: Colors.white54),
                           ),
-                          trailing: ElevatedButton.icon(
-                            onPressed: () => addFriend(user["id"]),
-                            icon: const Icon(Icons.person_add),
-                            label: const Text("Agregar"),
-                          ),
+                          trailing: alreadyRequested
+                              ? ElevatedButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.check),
+                                  label: const Text("Enviada"),
+                                )
+                              : ElevatedButton.icon(
+                                  onPressed: () async {
+                                    await addFriend(user["id"]);
+                                  },
+                                  icon: const Icon(Icons.person_add),
+                                  label: const Text("Agregar"),
+                                ),
                         ),
                       );
                     },

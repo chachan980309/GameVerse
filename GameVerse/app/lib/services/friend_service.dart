@@ -110,5 +110,25 @@ class FriendService {
         .update({'status': 'blocked'})
         .eq('id', friendshipId);
   }
-}
-  // PRUEBA COMMIT
+
+  /// Verifica si ya existe una amistad o solicitud
+  Future<bool> hasFriendRequest(String userId) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) return false;
+
+    final data = await _supabase
+        .from('friendships')
+        .select()
+        .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}');
+
+    for (final row in data) {
+      if ((row['sender_id'] == user.id && row['receiver_id'] == userId) ||
+          (row['sender_id'] == userId && row['receiver_id'] == user.id)) {
+        return true;
+      }
+    }
+
+    return false;
+  } //
+} //
