@@ -6,7 +6,6 @@ import 'profile/tabs/clips_tab.dart';
 import 'profile/tabs/photos_tab.dart';
 
 import '../../widgets/profile/profile_header.dart';
-import '../../widgets/profile/profile_overview.dart';
 import '../../widgets/profile/profile_tabs.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -27,18 +26,9 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           children: [
             // ==========================
-            // BANNER
+            // HEADER PERFIL
             // ==========================
-            const ProfileHeader(),
-
-            const SizedBox(height: 12),
-
-            // ==========================
-            // OVERVIEW DEL PERFIL
-            // ==========================
-            const ProfileOverview(),
-
-            const SizedBox(height: 12),
+            const SizedBox(height: 270, child: ProfileHeader()),
 
             // ==========================
             // TABS

@@ -128,22 +128,41 @@ class FriendService {
     final data = await _supabase
         .from('friendships')
         .select()
-        .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}');
+        .or(
+          'and(sender_id.eq.${user.id},receiver_id.eq.$userId),and(sender_id.eq.$userId,receiver_id.eq.${user.id})',
+        );
 
-    print("Usuario actual: ${user.id}");
-    print("Usuario consultado: $userId");
+    return data.isNotEmpty;
+  }
 
-    for (final row in data) {
-      print(row);
+  /// Amigos aceptados
+  Future<List<Map<String, dynamic>>> getAcceptedFriends() async {
+    final user = _supabase.auth.currentUser;
 
-      if ((row['sender_id'] == user.id && row['receiver_id'] == userId) ||
-          (row['sender_id'] == userId && row['receiver_id'] == user.id)) {
-        print("ENCONTRADA");
-        return true;
-      }
+    if (user == null) {
+      throw Exception("Usuario no autenticado.");
     }
 
-    print("NO ENCONTRADA");
-    return false;
+    final data = await _supabase
+        .from('friendships')
+        .select('''
+          id,
+          sender_id,
+          receiver_id,
+          sender:profiles!friendships_sender_id_fkey(
+            id,
+            username,
+            email
+          ),
+          receiver:profiles!friendships_receiver_id_fkey(
+            id,
+            username,
+            email
+          )
+        ''')
+        .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}')
+        .eq('status', 'accepted');
+
+    return List<Map<String, dynamic>>.from(data);
   }
 }

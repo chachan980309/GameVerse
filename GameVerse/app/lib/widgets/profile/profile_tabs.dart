@@ -15,7 +15,7 @@ class ProfileTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
+      height: 60,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xff2A2A2A))),
       ),
@@ -26,7 +26,6 @@ class ProfileTabs extends StatelessWidget {
 
           return InkWell(
             onTap: () => onTabSelected(index),
-            borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -43,7 +42,7 @@ class ProfileTabs extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: selected ? 45 : 0,
