@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 
-import 'screens/main_screen.dart';
+import 'screens/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,9 +13,10 @@ Future<void> main() async {
   // Inicializar Supabase
   await Supabase.initialize(
     url: "https://kspeynuvzzglafckkiza.supabase.co",
-
     publishableKey: "sb_publishable_3adr9c84mh5xpbvFs6nEDA_AtKjC-7m",
   );
+
+  await Supabase.instance.client.auth.signOut();
 
   runApp(const MyApp());
 }
@@ -42,7 +43,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: const MainScreen(),
+      home: const LoginScreen(),
     );
   }
 }

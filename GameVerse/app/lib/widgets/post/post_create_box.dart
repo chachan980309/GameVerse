@@ -1,6 +1,8 @@
 import 'package:app/controllers/profile_controller.dart';
 import 'package:flutter/material.dart';
 
+import 'create_post_dialog.dart';
+
 class PostCreateBox extends StatelessWidget {
   const PostCreateBox({super.key});
 
@@ -24,31 +26,50 @@ class PostCreateBox extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundImage: profile.avatar != null
-                          ? MemoryImage(profile.avatar!)
-                          : const AssetImage("assets/images/avatar.png")
-                                as ImageProvider,
+                    GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => const CreatePostDialog(),
+                        );
+                      },
+                      child: CircleAvatar(
+                        radius: 26,
+                        backgroundImage:
+                            profile.avatarUrl != null &&
+                                profile.avatarUrl!.isNotEmpty
+                            ? NetworkImage(profile.avatarUrl!)
+                            : const AssetImage("assets/images/avatar.png")
+                                  as ImageProvider,
+                      ),
                     ),
 
                     const SizedBox(width: 16),
 
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff2E2A3B),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Text(
-                          "¿Qué estás jugando hoy, ${profile.username}?",
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 15,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(30),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => const CreatePostDialog(),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff2E2A3B),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Text(
+                            "¿Qué estás jugando hoy, ${profile.username}?",
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ),
@@ -66,26 +87,11 @@ class PostCreateBox extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _button(Icons.image_outlined, "Imagen", Colors.green),
-
                     _button(Icons.videocam_outlined, "Clip", Colors.redAccent),
-
                     _button(
                       Icons.emoji_emotions_outlined,
                       "Emoji",
                       Colors.amber,
-                    ),
-
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.send),
-                      label: const Text("Publicar"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff8B5CF6),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 25,
-                          vertical: 16,
-                        ),
-                      ),
                     ),
                   ],
                 ),

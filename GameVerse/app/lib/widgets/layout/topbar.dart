@@ -74,8 +74,10 @@ class TopBar extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 18,
                       backgroundColor: const Color(0xff6438FF),
-                      backgroundImage: profile.avatar != null
-                          ? MemoryImage(profile.avatar!)
+                      backgroundImage:
+                          profile.avatarUrl != null &&
+                              profile.avatarUrl!.isNotEmpty
+                          ? NetworkImage(profile.avatarUrl!)
                           : const AssetImage("assets/images/avatar.png")
                                 as ImageProvider,
                     ),

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileService {
@@ -6,16 +8,97 @@ class ProfileService {
   Future<Map<String, dynamic>?> getProfile() async {
     final user = _supabase.auth.currentUser;
 
-    if (user == null) {
-      return null;
-    }
+    if (user == null) return null;
 
-    final profile = await _supabase
+    return await _supabase
         .from('profiles')
         .select()
         .eq('id', user.id)
         .maybeSingle();
+  }
 
-    return profile;
+  Future<String> uploadAvatar(Uint8List bytes) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception("Usuario no autenticado");
+    }
+
+    final path = "${user.id}/avatar.png";
+
+    print("======================================");
+    print("INICIANDO SUBIDA DE AVATAR");
+    print("USER ID: ${user.id}");
+    print("EMAIL: ${user.email}");
+    print("PATH: $path");
+    print("SESSION ACTIVA: ${_supabase.auth.currentSession != null}");
+
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      print("TOKEN: ${session.accessToken.substring(0, 20)}...");
+    }
+
+    print("======================================");
+
+    try {
+      print("Subiendo imagen...");
+
+      await _supabase.storage
+          .from("avatars")
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: "image/png",
+            ),
+          );
+
+      print("Imagen subida correctamente.");
+
+      final publicUrl = _supabase.storage.from("avatars").getPublicUrl(path);
+
+      print("URL PUBLICA:");
+      print(publicUrl);
+
+      print("Actualizando perfil...");
+
+      await _supabase
+          .from("profiles")
+          .update({"avatar_url": publicUrl})
+          .eq("id", user.id);
+
+      print("Perfil actualizado correctamente.");
+      print("======================================");
+
+      return publicUrl;
+    } catch (e, stack) {
+      print("======================================");
+      print("ERROR AL SUBIR AVATAR");
+      print(e);
+      print(stack);
+      print("======================================");
+      rethrow;
+    }
+  }
+
+  Future<void> updateProfile({
+    String? username,
+    String? bio,
+    String? status,
+  }) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) return;
+
+    final data = <String, dynamic>{};
+
+    if (username != null) data["username"] = username;
+    if (bio != null) data["bio"] = bio;
+    if (status != null) data["status"] = status;
+
+    if (data.isNotEmpty) {
+      await _supabase.from("profiles").update(data).eq("id", user.id);
+    }
   }
 }

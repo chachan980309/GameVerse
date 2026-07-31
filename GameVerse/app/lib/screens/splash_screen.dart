@@ -14,7 +14,7 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
 
     Timer(const Duration(seconds: 2), () {
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacementNamed(context, '/login');
     });
   }
 
@@ -26,11 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
-            Icon(
-              Icons.sports_esports,
-              size: 90,
-              color: Colors.cyanAccent,
-            ),
+            Icon(Icons.sports_esports, size: 90, color: Colors.cyanAccent),
             SizedBox(height: 20),
             Text(
               "GameVerse",
@@ -43,15 +39,10 @@ class _SplashScreenState extends State<SplashScreen> {
             SizedBox(height: 10),
             Text(
               "Conectando gamers del mundo",
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
             SizedBox(height: 40),
-            CircularProgressIndicator(
-              color: Colors.cyanAccent,
-            ),
+            CircularProgressIndicator(color: Colors.cyanAccent),
           ],
         ),
       ),

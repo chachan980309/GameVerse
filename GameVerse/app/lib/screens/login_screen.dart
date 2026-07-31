@@ -43,9 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const MainScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } on AuthException catch (e) {
       showMessage(e.message);
@@ -61,11 +59,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -109,10 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 loading
                     ? const CircularProgressIndicator()
-                    : CustomButton(
-                        text: "Iniciar sesión",
-                        onPressed: login,
-                      ),
+                    : CustomButton(text: "Iniciar sesión", onPressed: login),
 
                 const SizedBox(height: 12),
 
