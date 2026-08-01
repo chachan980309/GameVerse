@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 
 
@@ -866,4 +867,73 @@ class RightPanel extends StatelessWidget {
   }
 
 
+}
+
+/// Contextual right column shown while viewing another user's profile.
+class PublicProfilePanel extends StatefulWidget {
+  const PublicProfilePanel({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  State<PublicProfilePanel> createState() => _PublicProfilePanelState();
+}
+
+class _PublicProfilePanelState extends State<PublicProfilePanel> {
+  late final Future<Map<String, dynamic>?> _profile = _loadProfile();
+
+  Future<Map<String, dynamic>?> _loadProfile() async {
+    final profile = await Supabase.instance.client
+        .from('profiles')
+        .select()
+        .eq('id', widget.userId)
+        .maybeSingle();
+    return profile == null ? null : Map<String, dynamic>.from(profile);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF111019),
+      padding: const EdgeInsets.all(16),
+      child: FutureBuilder<Map<String, dynamic>?>(
+        future: _profile,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          }
+          final profile = snapshot.data;
+          if (profile == null) return const SizedBox();
+
+          final name = profile['username']?.toString() ?? 'Usuario';
+          final bio = profile['bio']?.toString() ?? '';
+          final status = profile['status']?.toString() ?? '';
+          final email = profile['email']?.toString() ?? '';
+
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Acerca de $name', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            if (bio.isNotEmpty)
+              Text(bio, style: const TextStyle(color: Colors.white70, height: 1.4)),
+            if (status.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(children: [
+                const Icon(Icons.circle, color: Colors.greenAccent, size: 10),
+                const SizedBox(width: 8),
+                Expanded(child: Text(status, style: const TextStyle(color: Colors.white60))),
+              ]),
+            ],
+            if (email.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Row(children: [
+                const Icon(Icons.mail_outline, color: Colors.white54, size: 17),
+                const SizedBox(width: 8),
+                Expanded(child: Text(email, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60))),
+              ]),
+            ],
+          ]);
+        },
+      ),
+    );
+  }
 }

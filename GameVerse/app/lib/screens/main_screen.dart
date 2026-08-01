@@ -18,6 +18,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int selectedIndex = 0;
+  String? viewedProfileId;
 
   String usernameActual = "Usuario";
 
@@ -51,7 +52,7 @@ class _MainScreenState extends State<MainScreen> {
         return const FeedPage();
 
       case 1:
-        return const ProfilePage();
+        return ProfilePage(userId: viewedProfileId);
 
       case 2:
         return const FriendsPage();
@@ -91,6 +92,8 @@ class _MainScreenState extends State<MainScreen> {
               onSelected: (index) {
                 setState(() {
                   selectedIndex = index;
+                  // Sidebar navigation returns to the user's own profile/panels.
+                  viewedProfileId = null;
                 });
               },
             ),
@@ -99,14 +102,26 @@ class _MainScreenState extends State<MainScreen> {
           Expanded(
             child: Column(
               children: [
-                const TopBar(),
+                TopBar(
+                  onProfileSelected: (profileId) {
+                    setState(() {
+                      selectedIndex = 1;
+                      viewedProfileId = profileId;
+                    });
+                  },
+                ),
 
                 Expanded(child: currentPage()),
               ],
             ),
           ),
 
-          const SizedBox(width: 280, child: RightPanel()),
+          SizedBox(
+            width: 280,
+            child: viewedProfileId == null
+                ? const RightPanel()
+                : PublicProfilePanel(userId: viewedProfileId!),
+          ),
         ],
       ),
     );

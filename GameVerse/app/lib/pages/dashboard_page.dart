@@ -33,8 +33,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!mounted) return;
 
       setState(() {
-        username =
-            profile?['username'] ?? auth.currentUser?.email ?? "Usuario";
+        username = profile?['username'] ?? auth.currentUser?.email ?? "Usuario";
 
         status = profile?['status'] ?? "offline";
 
@@ -59,33 +58,25 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             Text(
               "¡Bienvenido!",
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineMedium
-                  ?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
 
             const SizedBox(height: 8),
 
             Text(
               username,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 16,
-              ),
+              style: const TextStyle(color: Colors.white60, fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Row(
               children: [
-
                 CircleAvatar(
                   radius: 5,
                   backgroundColor: status == "online"
@@ -96,16 +87,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(width: 8),
 
                 Text(
-                  status == "online"
-                      ? "En línea"
-                      : "Desconectado",
+                  status == "online" ? "En línea" : "Desconectado",
                   style: TextStyle(
                     color: status == "online"
                         ? Colors.greenAccent
                         : Colors.white54,
                   ),
                 ),
-
               ],
             ),
 
@@ -113,10 +101,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
             Text(
               bio,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
             ),
 
             const SizedBox(height: 35),
@@ -139,27 +124,21 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
 
               onPressed: () async {
-
                 await auth.signOut();
 
                 if (!context.mounted) return;
 
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const LoginScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
                   (route) => false,
                 );
               },
 
               icon: const Icon(Icons.logout),
 
-              label: const Text(
-                "Cerrar sesión",
-              ),
+              label: const Text("Cerrar sesión"),
             ),
-
           ],
         ),
       ),
