@@ -29,7 +29,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Icon(Icons.sports_esports, size: 90, color: Colors.cyanAccent),
             SizedBox(height: 20),
             Text(
-              "GameVerse",
+              "nubzzz",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 36,

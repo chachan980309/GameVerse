@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 class AppLogo extends StatelessWidget {
   const AppLogo({
     super.key,
-    this.size = 180,
-    this.showText = true,
+    this.size = 280,
+    this.showText = false,
   });
 
   final double size;
@@ -16,7 +16,7 @@ class AppLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/images/xdd.png',
+          'assets/images/nubzzz_logo.png',
           width: size,
           fit: BoxFit.contain,
         ),
@@ -25,7 +25,7 @@ class AppLogo extends StatelessWidget {
           const SizedBox(height: 2),
 
           const Text(
-            'GameVerse',
+            'nubzzz',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,

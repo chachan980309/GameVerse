@@ -2,7 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'friend_service.dart';
 
-/// Searches only data that already exists in GameVerse's Supabase project.
+/// Searches only data that already exists in nubzzz's Supabase project.
 class GlobalSearchService {
   GlobalSearchService({SupabaseClient? client})
       : _supabase = client ?? Supabase.instance.client;

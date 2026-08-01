@@ -398,7 +398,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     if (action == 'remove') {
       await _confirmRelationshipAction(
         title: '¿Eliminar amigo?',
-        message: 'Dejarán de aparecer como amigos en GameVerse.',
+        message: 'Dejarán de aparecer como amigos en nubzzz.',
         confirmLabel: 'Eliminar',
         operation: (id) => FriendService().removeFriend(id),
       );

@@ -60,7 +60,7 @@ class Sidebar extends StatelessWidget {
             const SizedBox(height: 18),
 
             const Text(
-              "🎮 GameVerse",
+              "🎮 nubzzz",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,

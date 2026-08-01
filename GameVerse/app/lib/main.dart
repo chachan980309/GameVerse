@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      title: "GameVerse",
+      title: "nubzzz",
 
       theme: ThemeData(
         brightness: Brightness.dark,
