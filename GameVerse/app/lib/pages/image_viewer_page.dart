@@ -40,7 +40,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black.withOpacity(.95),
+        backgroundColor: Colors.black.withValues(alpha: .95),
         body: Stack(
           children: [
             Center(

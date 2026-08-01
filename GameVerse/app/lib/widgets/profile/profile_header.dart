@@ -23,20 +23,24 @@ class _ProfileHeaderState extends State<ProfileHeader> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 230,
+      height: 185,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // ===================== BANNER =====================
-          const EditableBanner(),
-
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: EditableBanner(),
+          ),
           // ===================== AVATAR =====================
-          const Positioned(left: 35, bottom: -25, child: EditableAvatar()),
+          const Positioned(left: 35, bottom: -45, child: EditableAvatar()),
 
           // ===================== INFORMACIÓN =====================
           Positioned(
-            left: 220,
-            top: 55,
+            left: 230,
+            top: 150,
             child: SizedBox(
               width: 420,
               child: Column(
@@ -139,7 +143,7 @@ class _ProfileHeaderState extends State<ProfileHeader> {
           // ===================== BOTONES =====================
           Positioned(
             right: 35,
-            top: 95,
+            top: 200,
             child: Row(
               children: [
                 SizedBox(

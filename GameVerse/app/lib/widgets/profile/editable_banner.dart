@@ -57,8 +57,16 @@ class _EditableBannerState extends State<EditableBanner> {
             children: [
               // Imagen del banner
               _profile.bannerUrl != null && _profile.bannerUrl!.isNotEmpty
-                  ? Image.network(_profile.bannerUrl!, fit: BoxFit.cover)
-                  : Image.asset("assets/images/banner.jpg", fit: BoxFit.cover),
+                  ? Image.network(
+                      _profile.bannerUrl!,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.bottomCenter,
+                    )
+                  : Image.asset(
+                      "assets/images/banner.jpg",
+                      fit: BoxFit.cover,
+                      alignment: Alignment.bottomCenter,
+                    ),
 
               // Degradado
               Container(
