@@ -47,6 +47,15 @@ class FriendService {
 
   Future<List<Map<String, dynamic>>> getFriends() => getAcceptedFriends();
 
+  Future<int> countAcceptedFriends(String userId) async {
+    final data = await _supabase
+        .from('friendships')
+        .select('id')
+        .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+        .eq('status', 'accepted');
+    return data.length;
+  }
+
   Future<List<Map<String, dynamic>>> getPendingRequests() async {
     final user = _requireUser();
     final data = await _supabase
@@ -124,6 +133,21 @@ class FriendService {
           'and(sender_id.eq.${user.id},receiver_id.eq.$userId),and(sender_id.eq.$userId,receiver_id.eq.${user.id})',
         );
     return data.isNotEmpty;
+  }
+
+  /// Returns the existing friendship/request with [userId], if any.
+  Future<Map<String, dynamic>?> getRelationship(String userId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    final data = await _supabase
+        .from('friendships')
+        .select('id, sender_id, receiver_id, status')
+        .or(
+          'and(sender_id.eq.${user.id},receiver_id.eq.$userId),and(sender_id.eq.$userId,receiver_id.eq.${user.id})',
+        )
+        .maybeSingle();
+    return data == null ? null : Map<String, dynamic>.from(data);
   }
 
   User _requireUser() {

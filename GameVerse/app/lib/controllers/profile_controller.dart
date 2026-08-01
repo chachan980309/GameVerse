@@ -22,6 +22,12 @@ class ProfileController extends ChangeNotifier {
   String username = "Usuario";
   String status = "En línea";
   String bio = "";
+  String handle = "";
+  String motto = "";
+  String location = "";
+  String platform = "";
+  String role = "";
+  String favoriteGame = "";
 
   Future<void> loadProfile() async {
     final profile = await _profileService.getProfile();
@@ -36,6 +42,12 @@ class ProfileController extends ChangeNotifier {
     username = profile["username"] ?? "Usuario";
     status = profile["status"] ?? "En línea";
     bio = profile["bio"] ?? "";
+    handle = profile["handle"] ?? "";
+    motto = profile["motto"] ?? "";
+    location = profile["location"] ?? "";
+    platform = profile["platform"] ?? "";
+    role = profile["role"] ?? "";
+    favoriteGame = profile["favorite_game"] ?? "";
 
     notifyListeners();
   }
@@ -54,16 +66,34 @@ class ProfileController extends ChangeNotifier {
     String? username,
     String? status,
     String? bio,
+    String? handle,
+    String? motto,
+    String? location,
+    String? platform,
+    String? role,
+    String? favoriteGame,
   }) async {
     await _profileService.updateProfile(
       username: username,
       status: status,
       bio: bio,
+      handle: handle,
+      motto: motto,
+      location: location,
+      platform: platform,
+      role: role,
+      favoriteGame: favoriteGame,
     );
 
     if (username != null) this.username = username;
     if (status != null) this.status = status;
     if (bio != null) this.bio = bio;
+    if (handle != null) this.handle = handle;
+    if (motto != null) this.motto = motto;
+    if (location != null) this.location = location;
+    if (platform != null) this.platform = platform;
+    if (role != null) this.role = role;
+    if (favoriteGame != null) this.favoriteGame = favoriteGame;
 
     notifyListeners();
   }

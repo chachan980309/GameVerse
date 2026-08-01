@@ -10,7 +10,7 @@ class ProfileTabs extends StatelessWidget {
     required this.onTabSelected,
   });
 
-  static const tabs = ["Muro", "Juegos", "Clips", "Fotos"];
+  static const tabs = ["Muro", "Juegos", "Clips", "Fotos", "Información"];
 
   @override
   Widget build(BuildContext context) {

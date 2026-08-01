@@ -173,6 +173,12 @@ class ProfileService {
     String? username,
     String? bio,
     String? status,
+    String? handle,
+    String? motto,
+    String? location,
+    String? platform,
+    String? role,
+    String? favoriteGame,
   }) async {
     final user = _supabase.auth.currentUser;
 
@@ -183,6 +189,12 @@ class ProfileService {
     if (username != null) data["username"] = username;
     if (bio != null) data["bio"] = bio;
     if (status != null) data["status"] = status;
+    if (handle != null) data["handle"] = handle;
+    if (motto != null) data["motto"] = motto;
+    if (location != null) data["location"] = location;
+    if (platform != null) data["platform"] = platform;
+    if (role != null) data["role"] = role;
+    if (favoriteGame != null) data["favorite_game"] = favoriteGame;
 
     if (data.isNotEmpty) {
       await _supabase.from("profiles").update(data).eq("id", user.id);

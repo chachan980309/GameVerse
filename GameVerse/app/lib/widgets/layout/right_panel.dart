@@ -880,7 +880,21 @@ class PublicProfilePanel extends StatefulWidget {
 }
 
 class _PublicProfilePanelState extends State<PublicProfilePanel> {
-  late final Future<Map<String, dynamic>?> _profile = _loadProfile();
+  late Future<Map<String, dynamic>?> _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = _loadProfile();
+  }
+
+  @override
+  void didUpdateWidget(covariant PublicProfilePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      setState(() => _profile = _loadProfile());
+    }
+  }
 
   Future<Map<String, dynamic>?> _loadProfile() async {
     final profile = await Supabase.instance.client
@@ -909,6 +923,10 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
           final bio = profile['bio']?.toString() ?? '';
           final status = profile['status']?.toString() ?? '';
           final email = profile['email']?.toString() ?? '';
+          final location = profile['location']?.toString() ?? '';
+          final platform = profile['platform']?.toString() ?? '';
+          final role = profile['role']?.toString() ?? '';
+          final favoriteGame = profile['favorite_game']?.toString() ?? '';
 
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Acerca de $name', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
@@ -931,9 +949,31 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
                 Expanded(child: Text(email, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60))),
               ]),
             ],
+            if (location.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _detail(Icons.location_on_outlined, location),
+            ],
+            if (platform.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _detail(Icons.desktop_windows_outlined, platform),
+            ],
+            if (role.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _detail(Icons.shield_outlined, role),
+            ],
+            if (favoriteGame.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _detail(Icons.sports_esports_outlined, favoriteGame),
+            ],
           ]);
         },
       ),
     );
   }
+
+  Widget _detail(IconData icon, String text) => Row(children: [
+        Icon(icon, color: const Color(0xFF9A78FF), size: 17),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60))),
+      ]);
 }

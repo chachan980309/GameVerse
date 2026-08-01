@@ -1,192 +1,122 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import 'package:app/widgets/profile/editable_avatar.dart';
-import 'package:app/widgets/profile/editable_banner.dart';
+import '../../controllers/profile_controller.dart';
+import 'editable_avatar.dart';
+import 'editable_banner.dart';
+import 'edit_profile_dialog.dart';
 
-class ProfileHeader extends StatefulWidget {
-  const ProfileHeader({super.key});
+class ProfileHeader extends StatelessWidget {
+  const ProfileHeader({super.key, this.collapsed = false});
 
-  @override
-  State<ProfileHeader> createState() => _ProfileHeaderState();
-}
-
-class _ProfileHeaderState extends State<ProfileHeader> {
-  final TextEditingController mottoController = TextEditingController();
-
-  @override
-  void dispose() {
-    mottoController.dispose();
-    super.dispose();
-  }
+  final bool collapsed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 185,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: EditableBanner(),
-          ),
-          // ===================== AVATAR =====================
-          const Positioned(left: 35, bottom: -45, child: EditableAvatar()),
+    final profile = ProfileController.instance;
+    return AnimatedBuilder(
+      animation: profile,
+      builder: (context, _) {
+        if (collapsed) return _collapsedHeader(context, profile);
+        return _expandedHeader(context, profile);
+      },
+    );
+  }
 
-          // ===================== INFORMACIÓN =====================
+  Widget _collapsedHeader(BuildContext context, ProfileController profile) => SizedBox(
+        height: 112,
+        child: Stack(children: [
+          const Positioned.fill(child: ColoredBox(color: Color(0xFF15121F))),
           Positioned(
-            left: 230,
-            top: 150,
-            child: SizedBox(
-              width: 420,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Gio",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 3),
-
-                  const Row(
-                    children: [
-                      Icon(Icons.circle, color: Colors.greenAccent, size: 11),
-                      SizedBox(width: 7),
-                      Text(
-                        "En línea",
-                        style: TextStyle(
-                          color: Colors.greenAccent,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Nivel 5",
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: const SizedBox(
-                      width: 280,
-                      child: LinearProgressIndicator(
-                        value: .60,
-                        minHeight: 6,
-                        backgroundColor: Color(0xff353240),
-                        valueColor: AlwaysStoppedAnimation(Color(0xff6E4CFF)),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  const Text(
-                    "1200 / 2000 XP",
-                    style: TextStyle(color: Colors.white60, fontSize: 12),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ===================== LEMA =====================
-                  SizedBox(
-                    width: 320,
-                    height: 28,
-                    child: TextField(
-                      controller: mottoController,
-                      maxLength: 20,
-                      inputFormatters: [
-                        LengthLimitingTextInputFormatter(20),
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s\-_!#.,*$]+'),
-                        ),
-                      ],
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      decoration: const InputDecoration(
-                        counterText: "",
-                        hintText: "Agregar lema...",
-                        hintStyle: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                ],
+            left: 24,
+            top: 16,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF6D35F5)),
+              child: CircleAvatar(
+                radius: 35,
+                backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
+                    ? NetworkImage(profile.avatarUrl!)
+                    : const AssetImage('assets/images/avatar.png'),
               ),
             ),
           ),
-
-          // ===================== BOTONES =====================
           Positioned(
-            right: 35,
-            top: 200,
-            child: Row(
-              children: [
-                SizedBox(
-                  height: 40,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff6E4CFF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      "Editar perfil",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                SizedBox(
-                  height: 40,
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.share, size: 18),
-                    label: const Text("Compartir"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: .15),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            left: 118,
+            top: 29,
+            right: 150,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(profile.username, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.circle, color: Colors.greenAccent, size: 9),
+                const SizedBox(width: 6),
+                Text(profile.status, style: const TextStyle(color: Colors.greenAccent, fontSize: 13)),
+              ]),
+            ]),
+          ),
+          Positioned(
+            right: 24,
+            top: 33,
+            child: OutlinedButton.icon(
+              onPressed: () => showEditProfileDialog(context),
+              icon: const Icon(Icons.edit_outlined, size: 17),
+              label: const Text('Editar'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ]),
+      );
+
+  Widget _expandedHeader(BuildContext context, ProfileController profile) => SizedBox(
+        height: 270,
+        child: Stack(clipBehavior: Clip.none, children: [
+          const Positioned(left: 0, right: 0, top: 0, height: 185, child: EditableBanner()),
+          const Positioned(left: 34, top: 90, child: EditableAvatar()),
+          Positioned(
+            left: 215,
+            top: 197,
+            right: 290,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(child: Text(profile.username, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
+                const SizedBox(width: 8),
+                const Icon(Icons.verified_rounded, color: Color(0xFF8B5CF6), size: 19),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.circle, color: Colors.greenAccent, size: 10),
+                const SizedBox(width: 7),
+                Text(profile.status, style: const TextStyle(color: Colors.greenAccent, fontSize: 14)),
+                if (profile.handle.isNotEmpty) ...[
+                  const SizedBox(width: 14),
+                  Text('@${profile.handle}', style: const TextStyle(color: Colors.white54, fontSize: 14)),
+                ],
+              ]),
+              if (profile.motto.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(profile.motto, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
+              ],
+            ]),
+          ),
+          Positioned(
+            right: 30,
+            top: 207,
+            child: Row(children: [
+              ElevatedButton.icon(
+                onPressed: () => showEditProfileDialog(context),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Editar perfil'),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6D35F5), foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.share_outlined, size: 18),
+                label: const Text('Compartir'),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+              ),
+            ]),
+          ),
+        ]),
+      );
 }
