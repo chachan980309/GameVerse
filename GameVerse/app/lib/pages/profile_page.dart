@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/post_model.dart';
 import '../models/user_game.dart';
+import '../controllers/video_feed_controller.dart';
 import '../pages/image_viewer_page.dart';
 import '../services/friend_service.dart';
+import '../services/direct_message_service.dart';
 import '../services/post_service.dart';
 import '../services/user_games_service.dart';
 import '../utils/game_catalog.dart';
 import '../widgets/profile/profile_header.dart';
 import '../widgets/profile/profile_tabs.dart';
 import '../widgets/posts/video_player_widget.dart';
+import '../widgets/posts/post_card.dart';
 import '../widgets/chat/direct_message_sheet.dart';
 import 'profile/tabs/clips_tab.dart';
 import 'profile/tabs/games_tab.dart';
@@ -91,6 +95,7 @@ class _PublicProfilePage extends StatefulWidget {
 
 class _PublicProfilePageState extends State<_PublicProfilePage> {
   late Future<_PublicProfileData?> _profileData;
+  final VideoFeedController _videoController = VideoFeedController();
   int _selectedTab = 0;
   bool _sendingRequest = false;
   bool _relationshipLoading = true;
@@ -110,6 +115,12 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       _profileData = _loadProfile();
       _loadRelationship();
     }
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    super.dispose();
   }
 
   Future<_PublicProfileData?> _loadProfile() async {
@@ -151,7 +162,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
       color: const Color(0xFF0F0E17),
       child: FutureBuilder<_PublicProfileData?>(
         future: _profileData,
@@ -172,12 +183,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           return ListView(
             padding: EdgeInsets.zero,
             children: [
-              _profileHeader(
-                data.profile,
-                data.posts.length,
-                data.friendCount,
-                data.gameCount,
-              ),
+              _profileHeader(data.profile),
               _publicTabs(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
@@ -204,12 +210,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     );
   }
 
-  Widget _profileHeader(
-    Map<String, dynamic> profile,
-    int postCount,
-    int friendCount,
-    int gameCount,
-  ) {
+  Widget _profileHeader(Map<String, dynamic> profile) {
     final bannerUrl = profile['banner_url']?.toString() ?? '';
     final avatarUrl = profile['avatar_url']?.toString() ?? '';
     final username = profile['username']?.toString() ?? 'Usuario';
@@ -221,7 +222,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
         status.toLowerCase().contains('línea');
 
     return SizedBox(
-      height: 500,
+      height: 322,
       child: Stack(
         children: [
           const Positioned.fill(child: ColoredBox(color: Color(0xFF111019))),
@@ -229,7 +230,9 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
             left: 0,
             top: 0,
             right: 0,
-            height: 245,
+            // El banner ocupa toda la cabecera: no queda una franja vacía
+            // entre las acciones del perfil y las pestañas.
+            height: 322,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -251,7 +254,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          const Color(0xFF111019).withValues(alpha: .9),
+                          const Color(0xFF111019).withValues(alpha: .82),
                           Colors.transparent,
                         ],
                       ),
@@ -263,7 +266,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           ),
           Positioned(
             left: 28,
-            top: 150,
+            top: 112,
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: const BoxDecoration(
@@ -289,9 +292,9 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
             ),
           ),
           Positioned(
-            left: 185,
-            right: 24,
-            top: 260,
+            left: 190,
+            right: 28,
+            top: 112,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -327,7 +330,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        status,
+                        status.isEmpty ? 'En línea' : status,
                         style: TextStyle(
                           color: online ? Colors.greenAccent : Colors.white60,
                         ),
@@ -358,9 +361,9 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
             ),
           ),
           Positioned(
-            left: 185,
-            right: 24,
-            top: 365,
+            left: 190,
+            right: 28,
+            top: 230,
             child: Row(
               children: [
                 _friendButton(),
@@ -371,54 +374,32 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
                   onPressed: () => _openMessages(profile),
                 ),
                 const SizedBox(width: 10),
+                _actionButton(
+                  icon: Icons.sports_esports_rounded,
+                  label: 'Invitar a jugar',
+                  onPressed: () => _inviteToPlay(profile),
+                ),
+                const SizedBox(width: 10),
                 IconButton(
-                  onPressed: () {},
+                  tooltip: 'Compartir perfil',
+                  onPressed: () => _shareProfile(profile),
+                  icon: const Icon(Icons.share_outlined, color: Colors.white),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF1C1A29),
+                    side: const BorderSide(color: Color(0xFF4A3B68)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Más opciones',
+                  onPressed: _showFriendMenu,
                   icon: const Icon(
                     Icons.more_horiz_rounded,
                     color: Colors.white70,
                   ),
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFF1C1A29),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 16,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _metric(
-                    Icons.article_outlined,
-                    '$postCount',
-                    'Publicaciones',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _metric(
-                    Icons.people_alt_outlined,
-                    '$friendCount',
-                    'Amigos',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _metric(
-                    Icons.sports_esports_outlined,
-                    '$gameCount',
-                    'Juegos',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _metric(
-                    Icons.emoji_events_outlined,
-                    _value(profile, 'achievements_count'),
-                    'Logros',
+                    side: const BorderSide(color: Color(0xFF4A3B68)),
                   ),
                 ),
               ],
@@ -436,6 +417,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       border: Border(bottom: BorderSide(color: Color(0xFF292638))),
     ),
     child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
         _publicTabLabels.length,
         (index) => _ProfileTab(
@@ -490,6 +472,38 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
         username: profile['username']?.toString() ?? 'Usuario',
         avatarUrl: profile['avatar_url']?.toString() ?? '',
       );
+
+  Future<void> _inviteToPlay(Map<String, dynamic> profile) async {
+    final game = profile['favorite_game']?.toString().trim();
+    try {
+      await DirectMessageService().sendMessage(
+        widget.userId,
+        'Te invito a jugar${game == null || game.isEmpty ? '' : ' $game'} 🎮',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invitación enviada por mensaje.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo enviar la invitación.')),
+      );
+    }
+  }
+
+  Future<void> _shareProfile(Map<String, dynamic> profile) async {
+    final name = profile['username']?.toString() ?? 'este jugador';
+    await Clipboard.setData(
+      ClipboardData(
+        text: 'Perfil de $name en nubzzz: usuario ${widget.userId}',
+      ),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Enlace del perfil copiado.')));
+  }
 
   Future<void> _loadRelationship() async {
     setState(() => _relationshipLoading = true);
@@ -1135,53 +1149,15 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           ),
         )
       else
-        ...posts.map(_postCard),
+        ...posts.asMap().entries.map(
+          (entry) => PostCard(
+            key: ValueKey(entry.value.id),
+            post: entry.value,
+            index: entry.key,
+            videoController: _videoController,
+          ),
+        ),
     ],
-  );
-
-  Widget _postCard(PostModel post) => Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFF171625),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFF2E2A40)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (post.content.isNotEmpty)
-          Text(
-            post.content,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
-          ),
-        if (post.game != null && post.game!.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            post.game!,
-            style: const TextStyle(color: Color(0xFFBDAAFF), fontSize: 12),
-          ),
-        ],
-        if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(9),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Image.network(
-                  post.imageUrl!,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
   );
 }
 

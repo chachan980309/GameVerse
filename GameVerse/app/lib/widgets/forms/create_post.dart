@@ -1,10 +1,13 @@
 import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../controllers/post_controller.dart';
+import '../../controllers/profile_controller.dart';
 import '../../services/post_service.dart';
+import '../../services/mention_service.dart';
 
 class CreatePost extends StatefulWidget {
   final VoidCallback onPostCreated;
@@ -38,6 +41,84 @@ class _CreatePostState extends State<CreatePost> {
   String? selectedVideoName;
 
   bool loading = false;
+  final MentionService _mentionService = MentionService();
+  Timer? _mentionDebounce;
+  List<Map<String, dynamic>> _mentionSuggestions = [];
+  int? _mentionStart;
+  bool _searchingMentions = false;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final selection = controller.selection;
+    final cursor = selection.baseOffset;
+    if (cursor < 0) return;
+    final beforeCursor = controller.text.substring(0, cursor);
+    final match = RegExp(r'@([A-Za-z0-9_.-]*)$').firstMatch(beforeCursor);
+    _mentionDebounce?.cancel();
+    if (match == null) {
+      if (_mentionSuggestions.isNotEmpty || _searchingMentions) {
+        setState(() {
+          _mentionSuggestions = [];
+          _searchingMentions = false;
+          _mentionStart = null;
+        });
+      }
+      return;
+    }
+    _mentionStart = match.start;
+    final query = match.group(1) ?? '';
+    if (query.isEmpty) {
+      setState(() {
+        _mentionSuggestions = [];
+        _searchingMentions = false;
+      });
+      return;
+    }
+    setState(() => _searchingMentions = true);
+    _mentionDebounce = Timer(
+      const Duration(milliseconds: 250),
+      () => _searchMentions(query),
+    );
+  }
+
+  Future<void> _searchMentions(String query) async {
+    try {
+      final users = await _mentionService.searchUsers(query);
+      if (!mounted ||
+          !controller.text
+              .substring(0, controller.selection.baseOffset)
+              .endsWith(query))
+        return;
+      setState(() => _mentionSuggestions = users);
+    } catch (_) {
+      if (mounted) setState(() => _mentionSuggestions = []);
+    } finally {
+      if (mounted) setState(() => _searchingMentions = false);
+    }
+  }
+
+  void _insertMention(Map<String, dynamic> user) {
+    final start = _mentionStart;
+    final cursor = controller.selection.baseOffset;
+    final username = user['username']?.toString() ?? '';
+    if (start == null || cursor < start || username.isEmpty) return;
+    final updated =
+        '${controller.text.substring(0, start)}@$username ${controller.text.substring(cursor)}';
+    final newOffset = start + username.length + 2;
+    controller.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+    setState(() {
+      _mentionSuggestions = [];
+      _mentionStart = null;
+    });
+  }
 
   Future<void> pickImage() async {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -183,6 +264,8 @@ class _CreatePostState extends State<CreatePost> {
 
   @override
   void dispose() {
+    _mentionDebounce?.cancel();
+    controller.removeListener(_onTextChanged);
     controller.dispose();
     super.dispose();
   }
@@ -193,57 +276,75 @@ class _CreatePostState extends State<CreatePost> {
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.all(widget.compact ? 12 : 16),
       decoration: BoxDecoration(
-        color: const Color(0xff211D2E),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF1C1A2A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF302C43)),
       ),
       child: Column(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 22,
-                backgroundColor: Color(0xff6438FF),
-                child: Icon(Icons.person, color: Colors.white),
+                backgroundColor: const Color(0xff6438FF),
+                backgroundImage:
+                    ProfileController.instance.avatarUrl?.isNotEmpty == true
+                    ? NetworkImage(ProfileController.instance.avatarUrl!)
+                    : null,
+                child: ProfileController.instance.avatarUrl?.isNotEmpty == true
+                    ? null
+                    : const Icon(Icons.person, color: Colors.white),
               ),
 
               const SizedBox(width: 12),
 
               Expanded(
-                child: TextField(
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: widget.compact ? 1 : 3,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: widget.placeholder,
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: const Color(0xff17141F),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      minLines: 1,
+                      maxLines: widget.compact ? 1 : 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: widget.placeholder,
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF14121E),
 
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 14,
-                    ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
 
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
 
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
 
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: const BorderSide(
-                        color: Color(0xff6438FF),
-                        width: 2,
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: const BorderSide(
+                            color: Color(0xff6438FF),
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    if (_searchingMentions)
+                      const LinearProgressIndicator(
+                        minHeight: 2,
+                        color: Color(0xFF8B5CF6),
+                      ),
+                    if (_mentionSuggestions.isNotEmpty) _mentionMenu(),
+                  ],
                 ),
               ),
             ],
@@ -443,7 +544,7 @@ class _CreatePostState extends State<CreatePost> {
               ElevatedButton(
                 onPressed: loading ? null : publishPost,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff6438FF),
+                  backgroundColor: const Color(0xFF6D35F5),
                 ),
                 child: loading
                     ? const SizedBox(
@@ -465,4 +566,50 @@ class _CreatePostState extends State<CreatePost> {
       ),
     );
   }
+
+  Widget _mentionMenu() => Container(
+    margin: const EdgeInsets.only(top: 6),
+    constraints: const BoxConstraints(maxHeight: 190),
+    decoration: BoxDecoration(
+      color: const Color(0xFF211E2E),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFF4B3A73)),
+    ),
+    child: ListView.separated(
+      shrinkWrap: true,
+      itemCount: _mentionSuggestions.length,
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, color: Color(0xFF39324F)),
+      itemBuilder: (context, index) {
+        final user = _mentionSuggestions[index];
+        final name = user['username']?.toString() ?? 'Usuario';
+        final avatar = user['avatar_url']?.toString() ?? '';
+        return ListTile(
+          dense: true,
+          leading: CircleAvatar(
+            radius: 17,
+            backgroundColor: const Color(0xFF6438FF),
+            backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+            child: avatar.isEmpty
+                ? Text(
+                    name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
+          title: Text(
+            '@$name',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          onTap: () => _insertMention(user),
+        );
+      },
+    ),
+  );
 }

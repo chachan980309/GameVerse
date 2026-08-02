@@ -4,9 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../pages/feed_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/friends_page.dart';
+import '../services/profile_navigation_service.dart';
 
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
+import '../widgets/layout/feed_right_panel.dart';
 import '../widgets/layout/topbar.dart';
 import '../widgets/chat/friend_chat_panel.dart';
 
@@ -28,6 +30,23 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     cargarUsuario();
+    ProfileNavigationService.instance.addListener(_openPublicProfile);
+  }
+
+  @override
+  void dispose() {
+    ProfileNavigationService.instance.removeListener(_openPublicProfile);
+    super.dispose();
+  }
+
+  void _openPublicProfile() {
+    final profileId = ProfileNavigationService.instance.value;
+    if (profileId == null || !mounted) return;
+    setState(() {
+      selectedIndex = 1;
+      viewedProfileId = profileId;
+      activeFriendChat = null;
+    });
   }
 
   Future<void> cargarUsuario() async {
@@ -102,13 +121,17 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
 
-          Expanded(child: selectedIndex == 2 ? _friendsLayout() : _standardLayout()),
+          Expanded(
+            child: selectedIndex == 2 ? _friendsLayout() : _standardLayout(),
+          ),
 
           if (selectedIndex != 2)
             SizedBox(
-              width: 280,
+              width: selectedIndex == 0 ? 310 : 280,
               child: viewedProfileId == null
-                  ? (selectedIndex == 1 ? const MyProfilePanel() : const RightPanel())
+                  ? (selectedIndex == 0
+                        ? const FeedRightPanel()
+                        : const MyProfilePanel())
                   : PublicProfilePanel(userId: viewedProfileId!),
             ),
         ],
@@ -116,39 +139,39 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _topBar() => TopBar(
-        onProfileSelected: (profileId) {
-          setState(() {
-            selectedIndex = 1;
-            viewedProfileId = profileId;
-            activeFriendChat = null;
-          });
-        },
-      );
+  Widget _topBar() =>
+      TopBar(onProfileSelected: ProfileNavigationService.instance.openProfile);
 
-  Widget _standardLayout() => Column(children: [
-        _topBar(),
-        Expanded(child: currentPage()),
-      ]);
+  Widget _standardLayout() => Column(
+    children: [
+      _topBar(),
+      Expanded(child: currentPage()),
+    ],
+  );
 
-  Widget _friendsLayout() => Row(children: [
-        Expanded(
-          child: Column(children: [
+  Widget _friendsLayout() => Row(
+    children: [
+      Expanded(
+        child: Column(
+          children: [
             _topBar(),
             Expanded(
               child: FriendsPage(
                 showChat: false,
-                onFriendSelected: (profile) => setState(() => activeFriendChat = profile),
+                onFriendSelected: (profile) =>
+                    setState(() => activeFriendChat = profile),
               ),
             ),
-          ]),
+          ],
         ),
-        SizedBox(
-          width: 370,
-          child: FriendChatPanel(
-            profile: activeFriendChat,
-            onClose: () => setState(() => activeFriendChat = null),
-          ),
+      ),
+      SizedBox(
+        width: 370,
+        child: FriendChatPanel(
+          profile: activeFriendChat,
+          onClose: () => setState(() => activeFriendChat = null),
         ),
-      ]);
+      ),
+    ],
+  );
 }

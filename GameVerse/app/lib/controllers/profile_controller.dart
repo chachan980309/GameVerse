@@ -29,6 +29,11 @@ class ProfileController extends ChangeNotifier {
   String platform = "";
   String role = "";
   String favoriteGame = "";
+  int xp = 0;
+  int level = 1;
+
+  int get xpInCurrentLevel => xp % 250;
+  double get levelProgress => xpInCurrentLevel / 250;
 
   Future<void> loadProfile() async {
     final profile = await _profileService.getProfile();
@@ -39,7 +44,8 @@ class ProfileController extends ChangeNotifier {
 
     avatarUrl = profile["avatar_url"];
     bannerUrl = profile["banner_url"];
-    bannerPosition = (profile["banner_position"] as num?)
+    bannerPosition =
+        (profile["banner_position"] as num?)
             ?.toDouble()
             .clamp(-1.0, 1.0)
             .toDouble() ??
@@ -54,6 +60,8 @@ class ProfileController extends ChangeNotifier {
     platform = profile["platform"] ?? "";
     role = profile["role"] ?? "";
     favoriteGame = profile["favorite_game"] ?? "";
+    xp = (profile['xp'] as num?)?.toInt() ?? 0;
+    level = (profile['level'] as num?)?.toInt() ?? 1;
 
     notifyListeners();
   }

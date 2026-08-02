@@ -6,6 +6,7 @@ import '../../models/post_model.dart';
 import 'post_actions.dart';
 import 'post_header.dart';
 import 'post_media.dart';
+import '../mention_text.dart';
 
 class PostCard extends StatelessWidget {
   final PostModel post;
@@ -22,11 +23,19 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xff211D2E),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFF1C1A2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF302C43)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,8 +46,8 @@ class PostCard extends StatelessWidget {
           /// CONTENIDO
           if (post.content.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text(
-              post.content,
+            MentionText(
+              text: post.content,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/post_model.dart';
+import '../../services/profile_navigation_service.dart';
+import 'share_sheet.dart';
 
 class PostHeader extends StatelessWidget {
   final PostModel post;
@@ -34,15 +36,19 @@ class PostHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 23,
-          backgroundColor: const Color(0xff6438FF),
-          backgroundImage: post.avatarUrl.isNotEmpty
-              ? NetworkImage(post.avatarUrl)
-              : null,
-          child: post.avatarUrl.isEmpty
-              ? const Icon(Icons.person, color: Colors.white)
-              : null,
+        InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: () => _openProfile(context),
+          child: CircleAvatar(
+            radius: 23,
+            backgroundColor: const Color(0xff6438FF),
+            backgroundImage: post.avatarUrl.isNotEmpty
+                ? NetworkImage(post.avatarUrl)
+                : null,
+            child: post.avatarUrl.isEmpty
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
         ),
 
         const SizedBox(width: 12),
@@ -51,12 +57,15 @@ class PostHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                post.username,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              InkWell(
+                onTap: () => _openProfile(context),
+                child: Text(
+                  post.username,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
 
@@ -79,6 +88,7 @@ class PostHeader extends StatelessWidget {
                 break;
 
               case "share":
+                showShareSheet(context, post);
                 break;
             }
           },
@@ -90,4 +100,7 @@ class PostHeader extends StatelessWidget {
       ],
     );
   }
+
+  void _openProfile(BuildContext context) =>
+      ProfileNavigationService.instance.openProfile(post.userId);
 }

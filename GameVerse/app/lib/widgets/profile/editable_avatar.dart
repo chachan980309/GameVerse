@@ -83,8 +83,15 @@ class _EditableAvatarState extends State<EditableAvatar> {
                         profile.avatarUrl != null &&
                             profile.avatarUrl!.isNotEmpty
                         ? NetworkImage(profile.avatarUrl!)
-                        : const AssetImage("assets/images/avatar.png")
-                              as ImageProvider,
+                        : null,
+                    child:
+                        profile.avatarUrl == null || profile.avatarUrl!.isEmpty
+                        ? const Icon(
+                            Icons.person_rounded,
+                            color: Colors.white,
+                            size: 54,
+                          )
+                        : null,
                   ),
                 ),
 

@@ -42,7 +42,10 @@ class ProfileHeader extends StatelessWidget {
                   backgroundImage:
                       profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
                       ? NetworkImage(profile.avatarUrl!)
-                      : const AssetImage('assets/images/avatar.png'),
+                      : null,
+                  child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
+                      ? const Icon(Icons.person_rounded, color: Colors.white)
+                      : null,
                 ),
               ),
             ),

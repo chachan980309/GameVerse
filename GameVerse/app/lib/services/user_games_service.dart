@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_game.dart';
 import '../models/game_search_result.dart';
+import '../controllers/profile_controller.dart';
 
 class UserGamesService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -45,6 +46,7 @@ class UserGamesService {
       'logo_url': game.coverUrl ?? '',
       'game_source': 'igdb',
     });
+    await ProfileController.instance.loadProfile();
   }
 
   Future<void> removeGame(String id) =>

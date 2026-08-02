@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import '../services/comment_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../services/comment_service.dart';
+import '../services/profile_navigation_service.dart';
+import 'mention_text.dart';
 
 class CommentsSheet extends StatefulWidget {
   final String postId;
+  final VoidCallback? onCommentAdded;
 
-  const CommentsSheet({super.key, required this.postId});
+  const CommentsSheet({super.key, required this.postId, this.onCommentAdded});
 
   @override
   State<CommentsSheet> createState() => _CommentsSheetState();
@@ -27,7 +31,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   Future<void> loadComments() async {
     final data = await commentService.getComments(widget.postId);
-
+    if (!mounted) return;
     setState(() {
       comments = data;
     });
@@ -40,25 +44,20 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
     if (user == null) return;
 
-    final profile = await Supabase.instance.client
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    final username = profile?['username'] ?? 'Usuario';
-
     try {
       await commentService.addComment(
         postId: widget.postId,
-        username: username,
         content: controller.text.trim(),
       );
 
       controller.clear();
-      loadComments();
+      await loadComments();
+      widget.onCommentAdded?.call();
     } catch (e) {
-      print("ERROR COMENTARIO: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo publicar el comentario.')),
+      );
     }
   }
 
@@ -109,25 +108,31 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
               itemBuilder: (context, index) {
                 final comment = comments[index];
+                final profile = comment['profiles'] as Map<String, dynamic>?;
+                final userId = comment['user_id']?.toString();
+                final username =
+                    profile?['username']?.toString() ??
+                    comment['username']?.toString() ??
+                    'Usuario';
+                final avatarUrl = profile?['avatar_url']?.toString() ?? '';
 
                 return ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.deepPurple,
-                  ),
-
+                  onTap: userId == null
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          ProfileNavigationService.instance.openProfile(userId);
+                        },
+                  leading: _avatar(avatarUrl, username),
                   title: Text(
-                    comment['username'] ?? '',
-
+                    username,
                     style: const TextStyle(
                       color: Colors.white,
-
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
-                  subtitle: Text(
-                    comment['content'] ?? '',
-
+                  subtitle: MentionText(
+                    text: comment['content']?.toString() ?? '',
                     style: const TextStyle(color: Colors.white70),
                   ),
                 );
@@ -183,5 +188,25 @@ class _CommentsSheetState extends State<CommentsSheet> {
         ],
       ),
     );
+  }
+
+  Widget _avatar(String avatarUrl, String username) => CircleAvatar(
+    backgroundColor: const Color(0xff6438FF),
+    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+    child: avatarUrl.isEmpty
+        ? Text(
+            username.isEmpty ? '?' : username.characters.first.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        : null,
+  );
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/post_model.dart';
+import '../controllers/profile_controller.dart';
 
 class PostService {
   final SupabaseClient supabase = Supabase.instance.client;
@@ -133,6 +134,7 @@ class PostService {
       'video': videoUrl,
       'type': type,
     });
+    await ProfileController.instance.loadProfile();
 
     debugPrint("========== INSERT OK ==========");
   }
