@@ -99,7 +99,10 @@ class ProfileService {
   // Banner
   // ==========================
 
-  Future<String> uploadBanner(Uint8List bytes) async {
+  Future<String> uploadBanner(
+    Uint8List bytes, {
+    required double verticalPosition,
+  }) async {
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
@@ -150,6 +153,16 @@ class ProfileService {
           .from("profiles")
           .update({"banner_url": publicUrl})
           .eq("id", user.id);
+
+      // Keep working for existing databases until the migration is applied.
+      try {
+        await _supabase
+            .from("profiles")
+            .update({"banner_position": verticalPosition})
+            .eq("id", user.id);
+      } catch (_) {
+        // The current session still uses the selected position locally.
+      }
 
       print("Banner actualizado correctamente.");
       print("======================================");
