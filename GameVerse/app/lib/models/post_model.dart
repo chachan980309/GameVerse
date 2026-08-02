@@ -15,6 +15,7 @@ class PostModel {
   // Datos del perfil
   final String username;
   final String avatarUrl;
+  final String? sharedPostId;
   final PostModel? sharedPost;
 
   const PostModel({
@@ -28,6 +29,7 @@ class PostModel {
     this.game,
     this.imageUrl,
     this.videoUrl,
+    this.sharedPostId,
     this.sharedPost,
   });
 
@@ -50,9 +52,16 @@ class PostModel {
 
       username: profile?["username"] ?? "Usuario",
       avatarUrl: profile?["avatar_url"] ?? "",
+      sharedPostId: map['shared_post_id']?.toString(),
       sharedPost: shared is Map<String, dynamic>
           ? PostModel.fromMap(shared)
           : null,
     );
   }
+
+  bool get isSharedPost =>
+      sharedPost != null ||
+      sharedPostId != null ||
+      type == 'share' ||
+      content.toLowerCase().startsWith('comparti');
 }

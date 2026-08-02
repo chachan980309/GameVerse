@@ -7,33 +7,40 @@ import '../controllers/profile_controller.dart';
 class PostService {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  static const _postSelect = '''
+    *,
+    profiles (
+      username,
+      avatar_url
+    )
+  ''';
+
+  static const _postSelectWithShared = '''
+    *,
+    profiles (
+      username,
+      avatar_url
+    ),
+    shared_post:posts!posts_shared_post_id_fkey (
+      *,
+      profiles (
+        username,
+        avatar_url
+      )
+    )
+  ''';
+
   // ==========================
   // OBTENER FEED
   // ==========================
 
   Future<List<PostModel>> getFeedPosts() async {
-    final response = await supabase
-        .from('posts')
-        .select('''
-          *,
-          profiles (
-            username,
-            avatar_url
-          ),
-          shared_post:posts!posts_shared_post_id_fkey (
-            *,
-            profiles (
-              username,
-              avatar_url
-            )
-          )
-        ''')
-        .order('created_at', ascending: false);
+    final response = await _getFeedRows();
 
     debugPrint("===== FEED =====");
     debugPrint(response.toString());
 
-    return response.map<PostModel>((e) => PostModel.fromMap(e)).toList();
+    return _mapPosts(response);
   }
 
   // ==========================
@@ -41,26 +48,80 @@ class PostService {
   // ==========================
 
   Future<List<PostModel>> getUserPosts(String userId) async {
-    final response = await supabase
-        .from('posts')
-        .select('''
-          *,
-          profiles (
-            username,
-            avatar_url
-          ),
-          shared_post:posts!posts_shared_post_id_fkey (
-            *,
-            profiles (
-              username,
-              avatar_url
-            )
-          )
-        ''')
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
+    final response = await _getUserRows(userId);
 
-    return response.map<PostModel>((e) => PostModel.fromMap(e)).toList();
+    return _mapPosts(response);
+  }
+
+  /// Hydrates shared posts when PostgREST cannot expose the nested relation.
+  Future<List<PostModel>> _mapPosts(List<dynamic> response) async {
+    final rows = response
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+
+    final sourceIds = rows
+        .where(
+          (row) => row['shared_post'] == null && row['shared_post_id'] != null,
+        )
+        .map((row) => row['shared_post_id'].toString())
+        .toSet()
+        .toList();
+
+    if (sourceIds.isNotEmpty) {
+      try {
+        final sourceRows = await supabase
+            .from('posts')
+            .select(_postSelect)
+            .inFilter('id', sourceIds);
+        final sourcesById = <String, Map<String, dynamic>>{
+          for (final source in sourceRows)
+            source['id'].toString(): Map<String, dynamic>.from(source as Map),
+        };
+
+        for (final row in rows) {
+          final sourceId = row['shared_post_id']?.toString();
+          if (sourceId != null && sourcesById.containsKey(sourceId)) {
+            row['shared_post'] = sourcesById[sourceId];
+          }
+        }
+      } catch (error) {
+        debugPrint('Unable to hydrate shared posts: $error');
+      }
+    }
+
+    return rows.map(PostModel.fromMap).toList();
+  }
+
+  Future<List<dynamic>> _getFeedRows() async {
+    try {
+      return await supabase
+          .from('posts')
+          .select(_postSelectWithShared)
+          .order('created_at', ascending: false);
+    } on PostgrestException catch (error) {
+      debugPrint('Shared-post relation unavailable, using base feed: $error');
+      return await supabase
+          .from('posts')
+          .select(_postSelect)
+          .order('created_at', ascending: false);
+    }
+  }
+
+  Future<List<dynamic>> _getUserRows(String userId) async {
+    try {
+      return await supabase
+          .from('posts')
+          .select(_postSelectWithShared)
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+    } on PostgrestException catch (error) {
+      debugPrint('Shared-post relation unavailable, using base wall: $error');
+      return await supabase
+          .from('posts')
+          .select(_postSelect)
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+    }
   }
 
   // ==========================

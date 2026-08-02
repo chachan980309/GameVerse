@@ -44,7 +44,9 @@ class PostCard extends StatelessWidget {
           PostHeader(post: post),
 
           /// CONTENIDO
-          if (post.content.isNotEmpty) ...[
+          // En un compartido, el contenido real vive exclusivamente dentro de
+          // la tarjeta original para mantener ambas publicaciones separadas.
+          if (post.content.isNotEmpty && !post.isSharedPost) ...[
             const SizedBox(height: 16),
             MentionText(
               text: post.content,
@@ -67,6 +69,13 @@ class PostCard extends StatelessWidget {
             ),
           ],
 
+          // Old shares did not retain the original post id. Keep their text
+          // separated visually instead of repeating it in the outer post.
+          if (post.isSharedPost && post.sharedPost == null) ...[
+            const SizedBox(height: 14),
+            _LegacySharedPostCard(content: post.content),
+          ],
+
           /// MEDIA
           if ((post.imageUrl != null && post.imageUrl!.isNotEmpty) ||
               (post.videoUrl != null && post.videoUrl!.isNotEmpty)) ...[
@@ -86,6 +95,40 @@ class PostCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LegacySharedPostCard extends StatelessWidget {
+  const _LegacySharedPostCard({required this.content});
+
+  final String content;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: const Color(0xFF151321),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFF6237B8)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.article_outlined, color: Color(0xFF9A78FF)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: MentionText(
+            text: content,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SharedPostCard extends StatelessWidget {
