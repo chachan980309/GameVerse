@@ -4,19 +4,24 @@ import '../../models/post_model.dart';
 import '../../services/friend_service.dart';
 import '../../services/share_service.dart';
 
-Future<void> showShareSheet(BuildContext context, PostModel post) =>
+Future<void> showShareSheet(
+  BuildContext context,
+  PostModel post, {
+  VoidCallback? onShared,
+}) =>
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1B1927),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (_) => _ShareSheet(post: post),
+      builder: (_) => _ShareSheet(post: post, onShared: onShared),
     );
 
 class _ShareSheet extends StatefulWidget {
-  const _ShareSheet({required this.post});
+  const _ShareSheet({required this.post, this.onShared});
   final PostModel post;
+  final VoidCallback? onShared;
 
   @override
   State<_ShareSheet> createState() => _ShareSheetState();
@@ -33,6 +38,7 @@ class _ShareSheetState extends State<_ShareSheet> {
     setState(() => _sharing = true);
     try {
       await _service.shareToProfile(widget.post);
+      widget.onShared?.call();
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +65,7 @@ class _ShareSheetState extends State<_ShareSheet> {
     setState(() => _sharing = true);
     try {
       await _service.shareByMessage(widget.post, friendId);
+      widget.onShared?.call();
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(

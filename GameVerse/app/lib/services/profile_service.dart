@@ -102,6 +102,7 @@ class ProfileService {
   Future<String> uploadBanner(
     Uint8List bytes, {
     required double verticalPosition,
+    required double scale,
   }) async {
     final user = _supabase.auth.currentUser;
 
@@ -158,7 +159,10 @@ class ProfileService {
       try {
         await _supabase
             .from("profiles")
-            .update({"banner_position": verticalPosition})
+            .update({
+              "banner_position": verticalPosition,
+              "banner_scale": scale,
+            })
             .eq("id", user.id);
       } catch (_) {
         // The current session still uses the selected position locally.

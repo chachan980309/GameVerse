@@ -22,6 +22,7 @@ class ShareService {
           ? 'video'
           : (post.imageUrl?.isNotEmpty == true ? 'image' : 'text'),
     );
+    await _recordShare(post.id);
 
     try {
       await _notifyAuthor(post);
@@ -35,10 +36,36 @@ class ShareService {
       receiverId,
       'Compartió una publicación de @${post.username}:\n${post.content}',
     );
+    await _recordShare(post.id);
     try {
       await _notifyAuthor(post);
     } catch (_) {
       // Sending the message is the primary action.
+    }
+  }
+
+  Future<int> getShareCount(String postId) async {
+    try {
+      final data = await _supabase
+          .from('post_shares')
+          .select('id')
+          .eq('post_id', postId);
+      return data.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> _recordShare(String postId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    try {
+      await _supabase.from('post_shares').insert({
+        'post_id': postId,
+        'user_id': user.id,
+      });
+    } catch (_) {
+      // Sharing still succeeds for databases that have not run the migration.
     }
   }
 

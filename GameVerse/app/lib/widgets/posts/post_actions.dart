@@ -4,13 +4,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/post_model.dart';
 import '../../services/comment_service.dart';
 import '../../services/like_service.dart';
+import '../../services/share_service.dart';
 import '../comments_sheet.dart';
 import 'share_sheet.dart';
 
 class PostActions extends StatefulWidget {
-  const PostActions({super.key, required this.post});
+  const PostActions({
+    super.key,
+    required this.post,
+    this.onCommentChanged,
+  });
 
   final PostModel post;
+  final VoidCallback? onCommentChanged;
 
   @override
   State<PostActions> createState() => _PostActionsState();
@@ -21,12 +27,14 @@ class _PostActionsState extends State<PostActions> {
 
   final LikeService likeService = LikeService();
   final CommentService commentService = CommentService();
+  final ShareService shareService = ShareService();
   RealtimeChannel? _channel;
   bool liked = false;
   bool loading = false;
   bool _hasData = false;
   int likes = 0;
   int comments = 0;
+  int shares = 0;
 
   @override
   void initState() {
@@ -36,6 +44,7 @@ class _PostActionsState extends State<PostActions> {
       liked = cached.liked;
       likes = cached.likes;
       comments = cached.comments;
+      shares = cached.shares;
       _hasData = true;
     }
     _refreshInteractions();
@@ -52,6 +61,7 @@ class _PostActionsState extends State<PostActions> {
       liked = cached?.liked ?? false;
       likes = cached?.likes ?? 0;
       comments = cached?.comments ?? 0;
+      shares = cached?.shares ?? 0;
       _hasData = cached != null;
     });
     _refreshInteractions();
@@ -64,18 +74,21 @@ class _PostActionsState extends State<PostActions> {
         likeService.getLikes(widget.post.id),
         likeService.hasLiked(postId: widget.post.id),
         commentService.getCommentCount(widget.post.id),
+        shareService.getShareCount(widget.post.id),
       ]);
       if (!mounted) return;
       final updated = _InteractionData(
         likes: values[0] as int,
         liked: values[1] as bool,
         comments: values[2] as int,
+        shares: values[3] as int,
       );
       _cache[widget.post.id] = updated;
       setState(() {
         likes = updated.likes;
         liked = updated.liked;
         comments = updated.comments;
+        shares = updated.shares;
         _hasData = true;
       });
     } catch (_) {
@@ -90,6 +103,17 @@ class _PostActionsState extends State<PostActions> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'post_likes',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: widget.post.id,
+          ),
+          callback: (_) => _refreshInteractions(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'post_shares',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'post_id',
@@ -129,6 +153,7 @@ class _PostActionsState extends State<PostActions> {
       likes: likes,
       liked: liked,
       comments: comments,
+      shares: shares,
     );
     setState(() {
       loading = true;
@@ -140,6 +165,7 @@ class _PostActionsState extends State<PostActions> {
       likes: likes,
       liked: liked,
       comments: comments,
+      shares: shares,
     );
 
     try {
@@ -155,6 +181,7 @@ class _PostActionsState extends State<PostActions> {
           liked = previous.liked;
           likes = previous.likes;
           comments = previous.comments;
+          shares = previous.shares;
         });
         _cache[widget.post.id] = previous;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -167,84 +194,131 @@ class _PostActionsState extends State<PostActions> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 420;
+      final interactionColor = liked ? Colors.redAccent : Colors.white70;
+
+      return Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: compact ? 7 : 14,
+              runSpacing: 4,
+              children: [
+                _counter(
+                  icon: Icons.favorite,
+                  label: _hasData ? '$likes' : '…',
+                  color: liked ? Colors.redAccent : Colors.white54,
+                ),
+                _counter(
+                  icon: Icons.chat_bubble_outline,
+                  label: _hasData ? '$comments' : '…',
+                ),
+                _counter(
+                  icon: Icons.share_outlined,
+                  label: _hasData ? '$shares' : '…',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: _action(
+                  compact: compact,
+                  tooltip: 'Me gusta',
+                  onPressed: loading ? null : toggleLike,
+                  icon: liked ? Icons.favorite : Icons.favorite_border,
+                  label: 'Me gusta',
+                  color: interactionColor,
+                ),
+              ),
+              Expanded(
+                child: _action(
+                  compact: compact,
+                  tooltip: 'Comentar',
+                  onPressed: _openComments,
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Comentar',
+                ),
+              ),
+              Expanded(
+                child: _action(
+                  compact: compact,
+                  tooltip: 'Compartir',
+                  onPressed: () => showShareSheet(
+                    context,
+                    widget.post,
+                    onShared: _refreshInteractions,
+                  ),
+                  icon: Icons.share_outlined,
+                  label: 'Compartir',
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    },
+  );
+
+  Future<void> _openComments() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CommentsSheet(
+        postId: widget.post.id,
+        onCommentAdded: () {
+          _refreshInteractions();
+          widget.onCommentChanged?.call();
+        },
+      ),
+    );
+  }
+
+  Widget _counter({
+    required IconData icon,
+    required String label,
+    Color color = Colors.white54,
+  }) => Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
-      Row(
-        children: [
-          Icon(
-            Icons.favorite,
-            color: liked ? Colors.redAccent : Colors.white54,
-            size: 18,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            _hasData ? '$likes Me gusta' : 'Cargando...',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          const Spacer(),
-          Text(
-            _hasData
-                ? '$comments ${comments == 1 ? 'comentario' : 'comentarios'}'
-                : '',
-            style: const TextStyle(color: Colors.white54),
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
-      const Divider(color: Colors.white12, height: 1),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          Expanded(
-            child: TextButton.icon(
-              onPressed: loading ? null : toggleLike,
-              icon: Icon(
-                liked ? Icons.favorite : Icons.favorite_border,
-                color: liked ? Colors.redAccent : Colors.white70,
-              ),
-              label: Text(
-                'Me gusta',
-                style: TextStyle(
-                  color: liked ? Colors.redAccent : Colors.white70,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TextButton.icon(
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => CommentsSheet(
-                  postId: widget.post.id,
-                  onCommentAdded: _refreshInteractions,
-                ),
-              ),
-              icon: const Icon(
-                Icons.chat_bubble_outline,
-                color: Colors.white70,
-              ),
-              label: const Text(
-                'Comentar',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TextButton.icon(
-              onPressed: () => showShareSheet(context, widget.post),
-              icon: const Icon(Icons.share_outlined, color: Colors.white70),
-              label: const Text(
-                'Compartir',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ),
-        ],
-      ),
+      Icon(icon, size: 15, color: color),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(color: color, fontSize: 12)),
     ],
   );
+
+  Widget _action({
+    required bool compact,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    required IconData icon,
+    required String label,
+    Color color = Colors.white70,
+  }) {
+    if (compact) {
+      return Tooltip(
+        message: tooltip,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, color: color, size: 20),
+        ),
+      );
+    }
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, color: color, size: 19),
+      label: Text(label, style: TextStyle(color: color)),
+    );
+  }
 }
 
 class _InteractionData {
@@ -252,8 +326,10 @@ class _InteractionData {
     required this.likes,
     required this.liked,
     required this.comments,
+    required this.shares,
   });
   final int likes;
   final bool liked;
   final int comments;
+  final int shares;
 }

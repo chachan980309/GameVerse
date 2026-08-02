@@ -19,6 +19,7 @@ class ProfileController extends ChangeNotifier {
   String? avatarUrl;
   String? bannerUrl;
   double bannerPosition = 0;
+  double bannerScale = 1;
 
   String username = "Usuario";
   String status = "En línea";
@@ -50,6 +51,12 @@ class ProfileController extends ChangeNotifier {
             .clamp(-1.0, 1.0)
             .toDouble() ??
         0;
+    bannerScale =
+        (profile["banner_scale"] as num?)
+            ?.toDouble()
+            .clamp(1.0, 2.4)
+            .toDouble() ??
+        1;
 
     username = profile["username"] ?? "Usuario";
     status = profile["status"] ?? "En línea";
@@ -71,12 +78,18 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setBanner(bytes, {required double verticalPosition}) async {
+  Future<void> setBanner(
+    bytes, {
+    required double verticalPosition,
+    required double scale,
+  }) async {
     bannerUrl = await _profileService.uploadBanner(
       bytes,
       verticalPosition: verticalPosition,
+      scale: scale,
     );
     bannerPosition = verticalPosition.clamp(-1.0, 1.0).toDouble();
+    bannerScale = scale.clamp(1.0, 2.4).toDouble();
     notifyListeners();
   }
 

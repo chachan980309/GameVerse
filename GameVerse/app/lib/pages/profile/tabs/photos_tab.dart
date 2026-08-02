@@ -4,6 +4,7 @@ import '../../../controllers/profile_controller.dart';
 import '../../../models/post_model.dart';
 import '../../image_viewer_page.dart';
 import '../../../services/post_service.dart';
+import '../../../widgets/posts/post_actions.dart';
 
 class PhotosTab extends StatefulWidget {
   const PhotosTab({super.key});
@@ -32,18 +33,60 @@ class _PhotosTabState extends State<PhotosTab> {
           return GridView.builder(
             padding: const EdgeInsets.all(28),
             itemCount: photos.length,
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 280, mainAxisSpacing: 14, crossAxisSpacing: 14),
-            itemBuilder: (context, index) => InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ImageViewerPage(imageUrl: photos[index].imageUrl!))),
-              borderRadius: BorderRadius.circular(12),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Hero(
-                  tag: photos[index].imageUrl!,
-                  child: Image.network(photos[index].imageUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF211E2E))),
-                ),
-              ),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 330,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: .72,
             ),
+            itemBuilder: (context, index) {
+              final photo = photos[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1A2A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF302C43)),
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).push(
+                          PageRouteBuilder<void>(
+                            pageBuilder: (_, __, ___) => ImageViewerPage(
+                              imageUrl: photo.imageUrl!,
+                              post: photo,
+                            ),
+                            transitionDuration: const Duration(milliseconds: 160),
+                            reverseTransitionDuration: const Duration(milliseconds: 120),
+                            transitionsBuilder: (_, animation, __, child) => FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                          ),
+                        ),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          child: Image.network(
+                            photo.imageUrl!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            cacheWidth: 660,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF211E2E)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                      child: PostActions(post: photo),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       );
