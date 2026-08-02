@@ -92,8 +92,9 @@ class _CreatePostState extends State<CreatePost> {
       if (!mounted ||
           !controller.text
               .substring(0, controller.selection.baseOffset)
-              .endsWith(query))
+              .endsWith(query)) {
         return;
+      }
       setState(() => _mentionSuggestions = users);
     } catch (_) {
       if (mounted) setState(() => _mentionSuggestions = []);

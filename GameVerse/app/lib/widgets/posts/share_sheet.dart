@@ -8,15 +8,14 @@ Future<void> showShareSheet(
   BuildContext context,
   PostModel post, {
   VoidCallback? onShared,
-}) =>
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1B1927),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (_) => _ShareSheet(post: post, onShared: onShared),
-    );
+}) => showModalBottomSheet<void>(
+  context: context,
+  backgroundColor: const Color(0xFF1B1927),
+  shape: const RoundedRectangleBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+  ),
+  builder: (_) => _ShareSheet(post: post, onShared: onShared),
+);
 
 class _ShareSheet extends StatefulWidget {
   const _ShareSheet({required this.post, this.onShared});
@@ -30,7 +29,8 @@ class _ShareSheet extends StatefulWidget {
 class _ShareSheetState extends State<_ShareSheet> {
   final _service = ShareService();
   final _friends = FriendService();
-  late Future<List<Map<String, dynamic>>> _friendList = _friends.getFriends();
+  late final Future<List<Map<String, dynamic>>> _friendList = _friends
+      .getFriends();
   bool _sharing = false;
 
   Future<void> _shareToProfile() async {
@@ -149,7 +149,7 @@ class _ShareSheetState extends State<_ShareSheet> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: friends.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final friendship = friends[index];
                     final currentId = _friends.currentUserId;

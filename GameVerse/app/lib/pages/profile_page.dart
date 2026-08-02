@@ -38,8 +38,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.userId != null)
+    if (widget.userId != null) {
       return _PublicProfilePage(userId: widget.userId!);
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF17141F),
@@ -943,7 +944,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     final photos = posts
         .where((post) => post.imageUrl?.isNotEmpty == true)
         .toList();
-    if (photos.isEmpty)
+    if (photos.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 36),
         child: Center(
@@ -953,6 +954,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           ),
         ),
       );
+    }
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -988,7 +990,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     final clips = posts
         .where((post) => post.videoUrl?.isNotEmpty == true)
         .toList();
-    if (clips.isEmpty)
+    if (clips.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 36),
         child: Center(
@@ -998,6 +1000,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           ),
         ),
       );
+    }
     return Column(
       children: clips
           .map(

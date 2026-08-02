@@ -21,8 +21,9 @@ class FriendService {
   Future<String> sendFriendRequest(String receiverId) async {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Usuario no autenticado.');
-    if (user.id == receiverId)
+    if (user.id == receiverId) {
       throw Exception('No puedes agregarte a ti mismo.');
+    }
 
     final existing = await _supabase
         .from('friendships')

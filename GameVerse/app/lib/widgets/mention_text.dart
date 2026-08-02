@@ -24,10 +24,11 @@ class MentionText extends StatelessWidget {
     final spans = <InlineSpan>[];
     var cursor = 0;
     for (final match in _mentions.allMatches(text)) {
-      if (match.start > cursor)
+      if (match.start > cursor) {
         spans.add(
           TextSpan(text: text.substring(cursor, match.start), style: style),
         );
+      }
       final username = match.group(1)!;
       spans.add(
         WidgetSpan(
@@ -47,8 +48,9 @@ class MentionText extends StatelessWidget {
       );
       cursor = match.end;
     }
-    if (cursor < text.length)
+    if (cursor < text.length) {
       spans.add(TextSpan(text: text.substring(cursor), style: style));
+    }
     return Text.rich(
       TextSpan(
         children: spans.isEmpty ? [TextSpan(text: text, style: style)] : spans,
@@ -63,10 +65,11 @@ class MentionText extends StatelessWidget {
       final userId = await MentionService().userIdForUsername(username);
       if (userId != null) ProfileNavigationService.instance.openProfile(userId);
     } catch (_) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No pudimos abrir este perfil.')),
         );
+      }
     }
   }
 }

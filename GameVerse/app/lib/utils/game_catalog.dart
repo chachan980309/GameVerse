@@ -6,10 +6,11 @@ class GameCatalog {
         .where((word) => word.isNotEmpty)
         .toList();
     if (words.isEmpty) return 'GV';
-    if (words.length == 1)
+    if (words.length == 1) {
       return words.first
-          .substring(0, words.first.length.clamp(1, 3) as int)
+          .substring(0, words.first.length.clamp(1, 3))
           .toUpperCase();
+    }
     return words.take(3).map((word) => word[0]).join().toUpperCase();
   }
 }

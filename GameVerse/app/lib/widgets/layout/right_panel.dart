@@ -602,7 +602,7 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
         width: 38,
         height: 38,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
+        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }
@@ -939,16 +939,18 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
           future: _posts,
           builder: (context, snapshot) {
             final posts = snapshot.data ?? [];
-            if (snapshot.connectionState != ConnectionState.done)
+            if (snapshot.connectionState != ConnectionState.done) {
               return const Padding(
                 padding: EdgeInsets.all(8),
                 child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               );
-            if (posts.isEmpty)
+            }
+            if (posts.isEmpty) {
               return const Text(
                 'Aún no has publicado actividad.',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               );
+            }
             return Column(
               children: posts
                   .take(3)
@@ -1017,21 +1019,23 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
         FutureBuilder<List<UserGame>>(
           future: _games,
           builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done)
+            if (snapshot.connectionState != ConnectionState.done) {
               return const Padding(
                 padding: EdgeInsets.all(8),
                 child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               );
+            }
             final games = snapshot.data ?? [];
             final favorites = games.where((game) => game.isFavorite).toList();
             final shown = favorites.isEmpty
                 ? games.take(3).toList()
                 : favorites.take(4).toList();
-            if (shown.isEmpty)
+            if (shown.isEmpty) {
               return const Text(
                 'Añade juegos desde la pestaña Juegos.',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               );
+            }
             return Column(
               children: shown
                   .map(

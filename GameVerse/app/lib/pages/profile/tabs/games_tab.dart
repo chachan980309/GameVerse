@@ -318,8 +318,9 @@ class _GameDialogState extends State<_GameDialog> {
         });
       }
     } finally {
-      if (mounted && _name.text.trim() == query)
+      if (mounted && _name.text.trim() == query) {
         setState(() => _searching = false);
+      }
     }
   }
 
@@ -358,10 +359,11 @@ class _GameDialogState extends State<_GameDialog> {
       );
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No se pudo guardar el juego: $error')),
         );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -528,8 +530,9 @@ class _GameDialogState extends State<_GameDialog> {
         _search(value.trim());
       },
       validator: (value) {
-        if (value == null || value.trim().isEmpty)
+        if (value == null || value.trim().isEmpty) {
           return 'Completa este campo.';
+        }
         return null;
       },
       decoration: InputDecoration(
@@ -557,8 +560,9 @@ class _GameDialogState extends State<_GameDialog> {
 
   Widget _suggestionLogo(GameSearchResult game) {
     final url = game.coverUrl;
-    if (url == null || !url.startsWith('http'))
+    if (url == null || !url.startsWith('http')) {
       return _suggestionBadge(game.name);
+    }
     return Image.network(
       url,
       fit: BoxFit.cover,
@@ -592,10 +596,12 @@ class _GameDialogState extends State<_GameDialog> {
       keyboardType: number ? TextInputType.number : TextInputType.text,
       style: const TextStyle(color: Colors.white),
       validator: (value) {
-        if (required && (value == null || value.trim().isEmpty))
+        if (required && (value == null || value.trim().isEmpty)) {
           return 'Completa este campo.';
-        if (number && int.tryParse(value ?? '') == null)
+        }
+        if (number && int.tryParse(value ?? '') == null) {
           return 'Escribe un número válido.';
+        }
         return null;
       },
       decoration: InputDecoration(

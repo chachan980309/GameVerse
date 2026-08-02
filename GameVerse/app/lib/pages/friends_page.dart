@@ -155,11 +155,13 @@ class _FriendsPageState extends State<FriendsPage> {
             const SizedBox(height: 20),
             Expanded(
               child: widget.showChat
-                  ? Row(children: [
-                      Expanded(child: body),
-                      const SizedBox(width: 18),
-                      SizedBox(width: 370, child: _chatPanel()),
-                    ])
+                  ? Row(
+                      children: [
+                        Expanded(child: body),
+                        const SizedBox(width: 18),
+                        SizedBox(width: 370, child: _chatPanel()),
+                      ],
+                    )
                   : body,
             ),
           ],
@@ -228,16 +230,18 @@ class _FriendsPageState extends State<FriendsPage> {
             color: const Color(0xFF242332),
             icon: const Icon(Icons.more_horiz, color: Colors.white70),
             onSelected: (action) {
-              if (action == 'remove')
+              if (action == 'remove') {
                 _runAction(
                   _friendService.removeFriend(friendship['id'] as String),
                   'Amigo eliminado',
                 );
-              if (action == 'block')
+              }
+              if (action == 'block') {
                 _runAction(
                   _friendService.blockUser(friendship['id'] as String),
                   'Usuario bloqueado',
                 );
+              }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'remove', child: Text('Eliminar amigo')),
@@ -250,8 +254,9 @@ class _FriendsPageState extends State<FriendsPage> {
   }
 
   Widget _pendingList() {
-    if (_pending.isEmpty)
+    if (_pending.isEmpty) {
       return _emptyState('No tienes solicitudes recibidas.');
+    }
     return ListView.separated(
       itemCount: _pending.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -286,8 +291,9 @@ class _FriendsPageState extends State<FriendsPage> {
   }
 
   Widget _blockedList() {
-    if (_blocked.isEmpty)
+    if (_blocked.isEmpty) {
       return _emptyState('No has bloqueado a ningún usuario.');
+    }
     return ListView.separated(
       itemCount: _blocked.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -330,50 +336,53 @@ class _FriendsPageState extends State<FriendsPage> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
-        children: [
-          _avatar(profile),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            children: [
+              _avatar(profile),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        _name(profile),
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (online)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Text(
-                          '• En línea',
-                          style: TextStyle(
-                            color: Color(0xFF1ED760),
-                            fontSize: 11,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _name(profile),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
+                        if (online)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Text(
+                              '• En línea',
+                              style: TextStyle(
+                                color: Color(0xFF1ED760),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      displaySubtitle,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
                       ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  displaySubtitle,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          trailing,
-        ],
+              ),
+              const SizedBox(width: 10),
+              trailing,
+            ],
           ),
         ),
       ),
@@ -410,7 +419,10 @@ class _FriendsPageState extends State<FriendsPage> {
 
   Future<void> _sendChatMessage() async {
     final userId = _activeChatProfile?['id']?.toString();
-    if (_sendingMessage || userId == null || _messageController.text.trim().isEmpty) return;
+    if (_sendingMessage ||
+        userId == null ||
+        _messageController.text.trim().isEmpty)
+      return;
     setState(() => _sendingMessage = true);
     try {
       await _messageService.sendMessage(userId, _messageController.text);
@@ -430,15 +442,25 @@ class _FriendsPageState extends State<FriendsPage> {
     final profile = _activeChatProfile;
     if (profile == null) {
       return Container(
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: const Center(
           child: Padding(
             padding: EdgeInsets.all(26),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.forum_outlined, color: Color(0xFF9A78FF), size: 38),
-              SizedBox(height: 12),
-              Text('Selecciona un amigo para abrir el chat.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.forum_outlined, color: Color(0xFF9A78FF), size: 38),
+                SizedBox(height: 12),
+                Text(
+                  'Selecciona un amigo para abrir el chat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white60),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -446,78 +468,156 @@ class _FriendsPageState extends State<FriendsPage> {
     final userId = profile['id'].toString();
     final messages = _chatMessages ?? _messageService.getConversation(userId);
     return Container(
-      decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF312D3E))),
-      child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            _avatar(profile),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_name(profile), overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-              Text(_profileOnline(profile) ? 'En línea' : 'Desconectado', style: TextStyle(color: _profileOnline(profile) ? const Color(0xFF1ED760) : Colors.white54, fontSize: 12)),
-            ])),
-            IconButton(onPressed: () => setState(() => _activeChatProfile = null), icon: const Icon(Icons.close_rounded, color: Colors.white54)),
-          ]),
-        ),
-        const Divider(height: 1, color: Color(0xFF312D3E)),
-        Expanded(
-          child: FutureBuilder<List<DirectMessage>>(
-            future: messages,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator(color: _purple));
-              if (snapshot.hasError) return const Center(child: Text('No se pudo cargar el chat.', style: TextStyle(color: Colors.white54)));
-              final chat = snapshot.data ?? [];
-              if (chat.isEmpty) return const Center(child: Text('Aún no hay mensajes.', style: TextStyle(color: Colors.white54)));
-              return ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: chat.length,
-                itemBuilder: (context, index) {
-                  final message = chat[index];
-                  final mine = message.senderId == _messageService.currentUserId;
-                  return Align(
-                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-                      constraints: const BoxConstraints(maxWidth: 260),
-                      decoration: BoxDecoration(color: mine ? _purple : const Color(0xFF2A2834), borderRadius: BorderRadius.circular(12)),
-                      child: Text(message.content, style: const TextStyle(color: Colors.white, fontSize: 13)),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF312D3E)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                _avatar(profile),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _name(profile),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        _profileOnline(profile) ? 'En línea' : 'Desconectado',
+                        style: TextStyle(
+                          color: _profileOnline(profile)
+                              ? const Color(0xFF1ED760)
+                              : Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _activeChatProfile = null),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFF312D3E)),
+          Expanded(
+            child: FutureBuilder<List<DirectMessage>>(
+              future: messages,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done)
+                  return const Center(
+                    child: CircularProgressIndicator(color: _purple),
+                  );
+                if (snapshot.hasError)
+                  return const Center(
+                    child: Text(
+                      'No se pudo cargar el chat.',
+                      style: TextStyle(color: Colors.white54),
                     ),
                   );
-                },
-              );
-            },
+                final chat = snapshot.data ?? [];
+                if (chat.isEmpty)
+                  return const Center(
+                    child: Text(
+                      'Aún no hay mensajes.',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  );
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: chat.length,
+                  itemBuilder: (context, index) {
+                    final message = chat[index];
+                    final mine =
+                        message.senderId == _messageService.currentUserId;
+                    return Align(
+                      alignment: mine
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 8,
+                        ),
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        decoration: BoxDecoration(
+                          color: mine ? _purple : const Color(0xFF2A2834),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          message.content,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                onSubmitted: (_) => _sendChatMessage(),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Escribe un mensaje...',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: const Color(0xFF15141D),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    onSubmitted: (_) => _sendChatMessage(),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Escribe un mensaje...',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: const Color(0xFF15141D),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 7),
+                IconButton(
+                  onPressed: _sendingMessage ? null : _sendChatMessage,
+                  icon: _sendingMessage
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  color: Colors.white,
+                  style: IconButton.styleFrom(backgroundColor: _purple),
+                ),
+              ],
             ),
-            const SizedBox(width: 7),
-            IconButton(
-              onPressed: _sendingMessage ? null : _sendChatMessage,
-              icon: _sendingMessage ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
-              color: Colors.white,
-              style: IconButton.styleFrom(backgroundColor: _purple),
-            ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
 
