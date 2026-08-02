@@ -7,9 +7,11 @@ import '../pages/image_viewer_page.dart';
 import '../services/friend_service.dart';
 import '../services/post_service.dart';
 import '../services/user_games_service.dart';
+import '../utils/game_catalog.dart';
 import '../widgets/profile/profile_header.dart';
 import '../widgets/profile/profile_tabs.dart';
 import '../widgets/posts/video_player_widget.dart';
+import '../widgets/chat/direct_message_sheet.dart';
 import 'profile/tabs/clips_tab.dart';
 import 'profile/tabs/games_tab.dart';
 import 'profile/tabs/information_tab.dart';
@@ -32,38 +34,47 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.userId != null) return _PublicProfilePage(userId: widget.userId!);
+    if (widget.userId != null)
+      return _PublicProfilePage(userId: widget.userId!);
 
     return Scaffold(
       backgroundColor: const Color(0xFF17141F),
       body: SafeArea(
-        child: Column(children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: _headerCollapsed ? 112 : 270,
-            child: ProfileHeader(collapsed: _headerCollapsed),
-          ),
-          ProfileTabs(
-            selectedIndex: _selectedTab,
-            onTabSelected: (index) => setState(() => _selectedTab = index),
-          ),
-          Expanded(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification.metrics.axis != Axis.vertical) return false;
-                final shouldCollapse = notification.metrics.pixels > 25;
-                if (shouldCollapse != _headerCollapsed) {
-                  setState(() => _headerCollapsed = shouldCollapse);
-                }
-                return false;
-              },
-              child: IndexedStack(
-                index: _selectedTab,
-                children: const [WallTab(), GamesTab(), ClipsTab(), PhotosTab(), InformationTab()],
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: _headerCollapsed ? 112 : 270,
+              child: ProfileHeader(collapsed: _headerCollapsed),
+            ),
+            ProfileTabs(
+              selectedIndex: _selectedTab,
+              onTabSelected: (index) => setState(() => _selectedTab = index),
+            ),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.metrics.axis != Axis.vertical) return false;
+                  final shouldCollapse = notification.metrics.pixels > 25;
+                  if (shouldCollapse != _headerCollapsed) {
+                    setState(() => _headerCollapsed = shouldCollapse);
+                  }
+                  return false;
+                },
+                child: IndexedStack(
+                  index: _selectedTab,
+                  children: const [
+                    WallTab(),
+                    GamesTab(),
+                    ClipsTab(),
+                    PhotosTab(),
+                    InformationTab(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -150,7 +161,10 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           }
           if (snapshot.hasError || snapshot.data == null) {
             return const Center(
-              child: Text('No pudimos cargar este perfil.', style: TextStyle(color: Colors.white70)),
+              child: Text(
+                'No pudimos cargar este perfil.',
+                style: TextStyle(color: Colors.white70),
+              ),
             );
           }
 
@@ -158,7 +172,12 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
           return ListView(
             padding: EdgeInsets.zero,
             children: [
-              _profileHeader(data.profile, data.posts.length, data.friendCount, data.gameCount),
+              _profileHeader(
+                data.profile,
+                data.posts.length,
+                data.friendCount,
+                data.gameCount,
+              ),
               _publicTabs(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
@@ -185,126 +204,248 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     );
   }
 
-  Widget _profileHeader(Map<String, dynamic> profile, int postCount, int friendCount, int gameCount) {
+  Widget _profileHeader(
+    Map<String, dynamic> profile,
+    int postCount,
+    int friendCount,
+    int gameCount,
+  ) {
     final bannerUrl = profile['banner_url']?.toString() ?? '';
     final avatarUrl = profile['avatar_url']?.toString() ?? '';
     final username = profile['username']?.toString() ?? 'Usuario';
     final status = profile['status']?.toString() ?? '';
     final handle = profile['handle']?.toString() ?? '';
     final motto = profile['motto']?.toString() ?? '';
-    final online = status.toLowerCase().contains('online') || status.toLowerCase().contains('línea');
+    final online =
+        status.toLowerCase().contains('online') ||
+        status.toLowerCase().contains('línea');
 
     return SizedBox(
       height: 500,
-      child: Stack(children: [
-        const Positioned.fill(child: ColoredBox(color: Color(0xFF111019))),
-        Positioned(
-          left: 0,
-          top: 0,
-          right: 0,
-          height: 245,
-          child: Stack(children: [
-            Positioned.fill(
-              child: Container(
-                color: const Color(0xFF211D2E),
-                child: bannerUrl.isEmpty
-                    ? null
-                    : Image.network(bannerUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox()),
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [const Color(0xFF111019).withValues(alpha: .9), Colors.transparent],
+      child: Stack(
+        children: [
+          const Positioned.fill(child: ColoredBox(color: Color(0xFF111019))),
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            height: 245,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    color: const Color(0xFF211D2E),
+                    child: bannerUrl.isEmpty
+                        ? null
+                        : Image.network(
+                            bannerUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox(),
+                          ),
                   ),
                 ),
-              ),
-            ),
-          ]),
-        ),
-        Positioned(
-          left: 28,
-          top: 150,
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF7C3AED)),
-            child: CircleAvatar(
-              radius: 67,
-              backgroundColor: const Color(0xFF29233A),
-              backgroundImage: avatarUrl.isEmpty ? null : NetworkImage(avatarUrl),
-              child: avatarUrl.isEmpty ? Text(username.isEmpty ? '?' : username[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 32)) : null,
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          const Color(0xFF111019).withValues(alpha: .9),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        Positioned(
-          left: 185,
-          right: 24,
-          top: 260,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(child: Text(username, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
-              const SizedBox(width: 8),
-              const Icon(Icons.verified_rounded, color: Color(0xFF8B5CF6), size: 20),
-            ]),
-            if (status.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(children: [
-                Icon(Icons.circle, size: 10, color: online ? Colors.greenAccent : Colors.white38),
-                const SizedBox(width: 6),
-                Text(status, style: TextStyle(color: online ? Colors.greenAccent : Colors.white60)),
-              ]),
-            ],
-            if (handle.isNotEmpty) ...[
-              const SizedBox(height: 5),
-              Text('@$handle', style: const TextStyle(color: Colors.white54)),
-            ],
-            if (motto.isNotEmpty) ...[
-              const SizedBox(height: 7),
-              Text(motto, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
-            ],
-          ]),
-        ),
-        Positioned(
-          left: 185, right: 24, top: 365,
-          child: Row(children: [
-            _friendButton(),
-            const SizedBox(width: 10),
-            _actionButton(icon: Icons.chat_bubble_outline_rounded, label: 'Mensaje', onPressed: () {}),
-            const SizedBox(width: 10),
-            IconButton(onPressed: () {}, icon: const Icon(Icons.more_horiz_rounded, color: Colors.white70), style: IconButton.styleFrom(backgroundColor: const Color(0xFF1C1A29))),
-          ]),
-        ),
-        Positioned(
-          left: 24, right: 24, bottom: 16,
-          child: Row(children: [
-            Expanded(child: _metric(Icons.article_outlined, '$postCount', 'Publicaciones')),
-            const SizedBox(width: 10),
-            Expanded(child: _metric(Icons.people_alt_outlined, '$friendCount', 'Amigos')),
-            const SizedBox(width: 10),
-            Expanded(child: _metric(Icons.sports_esports_outlined, '$gameCount', 'Juegos')),
-            const SizedBox(width: 10),
-            Expanded(child: _metric(Icons.emoji_events_outlined, _value(profile, 'achievements_count'), 'Logros')),
-          ]),
-        ),
-      ]),
+          Positioned(
+            left: 28,
+            top: 150,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF7C3AED),
+              ),
+              child: CircleAvatar(
+                radius: 67,
+                backgroundColor: const Color(0xFF29233A),
+                backgroundImage: avatarUrl.isEmpty
+                    ? null
+                    : NetworkImage(avatarUrl),
+                child: avatarUrl.isEmpty
+                    ? Text(
+                        username.isEmpty ? '?' : username[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 185,
+            right: 24,
+            top: 260,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        username,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF8B5CF6),
+                      size: 20,
+                    ),
+                  ],
+                ),
+                if (status.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 10,
+                        color: online ? Colors.greenAccent : Colors.white38,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        status,
+                        style: TextStyle(
+                          color: online ? Colors.greenAccent : Colors.white60,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (handle.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    '@$handle',
+                    style: const TextStyle(color: Colors.white54),
+                  ),
+                ],
+                if (motto.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    motto,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Positioned(
+            left: 185,
+            right: 24,
+            top: 365,
+            child: Row(
+              children: [
+                _friendButton(),
+                const SizedBox(width: 10),
+                _actionButton(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: 'Mensaje',
+                  onPressed: () => _openMessages(profile),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  onPressed: () {},
+                  icon: const Icon(
+                    Icons.more_horiz_rounded,
+                    color: Colors.white70,
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF1C1A29),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 16,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _metric(
+                    Icons.article_outlined,
+                    '$postCount',
+                    'Publicaciones',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _metric(
+                    Icons.people_alt_outlined,
+                    '$friendCount',
+                    'Amigos',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _metric(
+                    Icons.sports_esports_outlined,
+                    '$gameCount',
+                    'Juegos',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _metric(
+                    Icons.emoji_events_outlined,
+                    _value(profile, 'achievements_count'),
+                    'Logros',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _publicTabs() => Container(
-        height: 54,
-        decoration: const BoxDecoration(
-          color: Color(0xFF151420),
-          border: Border(bottom: BorderSide(color: Color(0xFF292638))),
-        ),
-        child: Row(children: List.generate(_publicTabLabels.length, (index) => _ProfileTab(
+    height: 54,
+    decoration: const BoxDecoration(
+      color: Color(0xFF151420),
+      border: Border(bottom: BorderSide(color: Color(0xFF292638))),
+    ),
+    child: Row(
+      children: List.generate(
+        _publicTabLabels.length,
+        (index) => _ProfileTab(
           label: _publicTabLabels[index],
           selected: _selectedTab == index,
           onTap: () => setState(() => _selectedTab = index),
-        ))),
-      );
+        ),
+      ),
+    ),
+  );
 
   static const _publicTabLabels = ['Muro', 'Juegos', 'Clips', 'Fotos', 'Info'];
 
@@ -324,16 +465,30 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
   }
 
   Widget _tabs() => Container(
-        height: 54,
-        decoration: const BoxDecoration(
-          color: Color(0xFF151420),
-          border: Border(bottom: BorderSide(color: Color(0xFF292638))),
+    height: 54,
+    decoration: const BoxDecoration(
+      color: Color(0xFF151420),
+      border: Border(bottom: BorderSide(color: Color(0xFF292638))),
+    ),
+    child: Row(
+      children: [
+        const SizedBox(width: 24),
+        _ProfileTab(
+          label: 'Muro',
+          selected: _selectedTab == 0,
+          onTap: () => setState(() => _selectedTab = 0),
         ),
-        child: Row(children: [
-          const SizedBox(width: 24),
-          _ProfileTab(label: 'Muro', selected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
-          _ProfileTab(label: 'Información'),
-        ]),
+        _ProfileTab(label: 'Información'),
+      ],
+    ),
+  );
+
+  Future<void> _openMessages(Map<String, dynamic> profile) =>
+      showDirectMessageSheet(
+        context,
+        userId: widget.userId,
+        username: profile['username']?.toString() ?? 'Usuario',
+        avatarUrl: profile['avatar_url']?.toString() ?? '',
       );
 
   Future<void> _loadRelationship() async {
@@ -348,49 +503,105 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
 
   Widget _friendButton() {
     if (_relationshipLoading) {
-      return _actionButton(icon: Icons.hourglass_top_rounded, label: 'Cargando...', primary: true, onPressed: null);
+      return _actionButton(
+        icon: Icons.hourglass_top_rounded,
+        label: 'Cargando...',
+        primary: true,
+        onPressed: null,
+      );
     }
 
     final status = _relationship?['status']?.toString();
-    final isOutgoing = _relationship?['sender_id'] == Supabase.instance.client.auth.currentUser?.id;
+    final isOutgoing =
+        _relationship?['sender_id'] ==
+        Supabase.instance.client.auth.currentUser?.id;
     if (status == 'accepted') {
-      return _actionButton(icon: Icons.people_alt_rounded, label: 'Amigos', primary: true, onPressed: _showFriendMenu);
+      return _actionButton(
+        icon: Icons.people_alt_rounded,
+        label: 'Amigos',
+        primary: true,
+        onPressed: _showFriendMenu,
+      );
     }
     if (status == 'blocked') {
-      return _actionButton(icon: Icons.block_rounded, label: 'Usuario bloqueado', primary: false, onPressed: null);
+      return _actionButton(
+        icon: Icons.block_rounded,
+        label: 'Usuario bloqueado',
+        primary: false,
+        onPressed: null,
+      );
     }
     if (status == 'pending' && isOutgoing) {
-      return _actionButton(icon: Icons.cancel_outlined, label: 'Solicitud enviada · Cancelar', primary: false, onPressed: _cancelFriendRequest);
+      return _actionButton(
+        icon: Icons.cancel_outlined,
+        label: 'Solicitud enviada · Cancelar',
+        primary: false,
+        onPressed: _cancelFriendRequest,
+      );
     }
     if (status == 'pending') {
-      return _actionButton(icon: Icons.mark_email_unread_outlined, label: 'Solicitud recibida', primary: true, onPressed: null);
+      return _actionButton(
+        icon: Icons.mark_email_unread_outlined,
+        label: 'Solicitud recibida',
+        primary: true,
+        onPressed: null,
+      );
     }
-    return _actionButton(icon: Icons.person_add_alt_1_rounded, label: 'Enviar solicitud', primary: true, onPressed: _sendingRequest ? null : _sendFriendRequest);
+    return _actionButton(
+      icon: Icons.person_add_alt_1_rounded,
+      label: 'Enviar solicitud',
+      primary: true,
+      onPressed: _sendingRequest ? null : _sendFriendRequest,
+    );
   }
 
   Future<void> _showFriendMenu() async {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: const Color(0xFF1A1827),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
       builder: (context) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
-            child: Text('Opciones de amistad', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_remove_outlined, color: Colors.white70),
-            title: const Text('Eliminar amigo', style: TextStyle(color: Colors.white)),
-            onTap: () => Navigator.pop(context, 'remove'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.block_rounded, color: Color(0xFFFF6B81)),
-            title: const Text('Bloquear usuario', style: TextStyle(color: Color(0xFFFF6B81))),
-            onTap: () => Navigator.pop(context, 'block'),
-          ),
-          const SizedBox(height: 8),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: Text(
+                'Opciones de amistad',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.person_remove_outlined,
+                color: Colors.white70,
+              ),
+              title: const Text(
+                'Eliminar amigo',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Navigator.pop(context, 'remove'),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.block_rounded,
+                color: Color(0xFFFF6B81),
+              ),
+              title: const Text(
+                'Bloquear usuario',
+                style: TextStyle(color: Color(0xFFFF6B81)),
+              ),
+              onTap: () => Navigator.pop(context, 'block'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
 
@@ -429,10 +640,17 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
         title: Text(title, style: const TextStyle(color: Colors.white)),
         content: Text(message, style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: destructive ? const Color(0xFFD9435F) : const Color(0xFF6D35F5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: destructive
+                  ? const Color(0xFFD9435F)
+                  : const Color(0xFF6D35F5),
+            ),
             child: Text(confirmLabel),
           ),
         ],
@@ -445,10 +663,16 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       await operation(id);
       if (!mounted) return;
       await _loadRelationship();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$confirmLabel completado.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$confirmLabel completado.')));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _sendingRequest = false);
     }
@@ -460,10 +684,16 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       await FriendService().sendFriendRequest(widget.userId);
       if (!mounted) return;
       await _loadRelationship();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud de amistad enviada.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud de amistad enviada.')),
+      );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _sendingRequest = false);
     }
@@ -477,113 +707,321 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       await FriendService().cancelFriendRequest(id);
       if (!mounted) return;
       await _loadRelationship();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud cancelada.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Solicitud cancelada.')));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _sendingRequest = false);
     }
   }
 
-  String _value(Map<String, dynamic> profile, String field) => (profile[field] ?? 0).toString();
+  String _value(Map<String, dynamic> profile, String field) =>
+      (profile[field] ?? 0).toString();
 
-  Widget _actionButton({required IconData icon, required String label, required VoidCallback? onPressed, bool primary = false}) => ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: _sendingRequest && primary ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Icon(icon, size: 18),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(elevation: 0, foregroundColor: Colors.white, backgroundColor: primary ? const Color(0xFF6D35F5) : const Color(0xFF1C1A29), padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
-      );
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    bool primary = false,
+  }) => ElevatedButton.icon(
+    onPressed: onPressed,
+    icon: _sendingRequest && primary
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
+        : Icon(icon, size: 18),
+    label: Text(label),
+    style: ElevatedButton.styleFrom(
+      elevation: 0,
+      foregroundColor: Colors.white,
+      backgroundColor: primary
+          ? const Color(0xFF6D35F5)
+          : const Color(0xFF1C1A29),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+    ),
+  );
 
   Widget _metric(IconData icon, String value, String label) => Container(
-        height: 62, padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(color: const Color(0xFF1A1827), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF302B42))),
-        child: Row(children: [
-          Icon(icon, color: const Color(0xFF9A78FF), size: 22), const SizedBox(width: 10),
-          Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-          ]),
-        ]),
-      );
+    height: 62,
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1827),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFF302B42)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: const Color(0xFF9A78FF), size: 22),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 
   Widget _statChip(IconData icon, String label) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1A29),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFF343044)),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1C1A29),
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: const Color(0xFF343044)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF9A78FF)),
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: const Color(0xFF9A78FF)),
-          const SizedBox(width: 7),
-          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        ]),
-      );
+      ],
+    ),
+  );
 
   Widget _publicGames(List<UserGame> games) {
     if (games.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 36),
-        child: Center(child: Text('Este jugador aún no ha añadido juegos.', style: TextStyle(color: Colors.white54))),
+        child: Center(
+          child: Text(
+            'Este jugador aún no ha añadido juegos.',
+            style: TextStyle(color: Colors.white54),
+          ),
+        ),
       );
     }
-    return Column(children: games.map((game) => Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF171625), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF2E2A40))),
-      child: Row(children: [
-        Container(width: 46, height: 46, decoration: BoxDecoration(color: const Color(0xFF30274B), borderRadius: BorderRadius.circular(11)), child: const Icon(Icons.sports_esports_rounded, color: Color(0xFFAF8CFF))),
-        const SizedBox(width: 13),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Flexible(child: Text(game.gameName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700))),
-            if (game.isFavorite) const Padding(padding: EdgeInsets.only(left: 7), child: Icon(Icons.star_rounded, size: 18, color: Color(0xFFFFC14D))),
-          ]),
-          const SizedBox(height: 4),
-          Text([if (game.platform.isNotEmpty) game.platform, if (game.rank?.isNotEmpty == true) game.rank!, '${game.hoursPlayed} horas'].join(' · '), style: const TextStyle(color: Colors.white54)),
-        ])),
-      ]),
-    )).toList());
+    return Column(
+      children: games
+          .map(
+            (game) => Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171625),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2E2A40)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF30274B),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _publicGameLogo(game),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                game.gameName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (game.isFavorite)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 7),
+                                child: Icon(
+                                  Icons.star_rounded,
+                                  size: 18,
+                                  color: Color(0xFFFFC14D),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (game.platform.isNotEmpty) game.platform,
+                            if (game.rank?.isNotEmpty == true) game.rank!,
+                            '${game.hoursPlayed} horas',
+                          ].join(' · '),
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                        if (game.gamerTag.isNotEmpty)
+                          Text(
+                            'Usuario: ${game.gamerTag}',
+                            style: const TextStyle(
+                              color: Color(0xFFBDAAFF),
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _publicGameLogo(UserGame game) {
+    final gameName = game.gameName;
+    final fallback = Container(
+      color: const Color(0xFF30274B),
+      alignment: Alignment.center,
+      child: Text(
+        GameCatalog.badgeFor(gameName),
+        style: const TextStyle(
+          color: Color(0xFFBDAAFF),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    if (!game.imageUrl.startsWith('http')) return fallback;
+    return Image.network(
+      game.imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => fallback,
+    );
   }
 
   Widget _publicPhotos(List<PostModel> posts) {
-    final photos = posts.where((post) => post.imageUrl?.isNotEmpty == true).toList();
-    if (photos.isEmpty) return const Padding(padding: EdgeInsets.symmetric(vertical: 36), child: Center(child: Text('Este jugador aún no tiene fotos.', style: TextStyle(color: Colors.white54))));
+    final photos = posts
+        .where((post) => post.imageUrl?.isNotEmpty == true)
+        .toList();
+    if (photos.isEmpty)
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(
+          child: Text(
+            'Este jugador aún no tiene fotos.',
+            style: TextStyle(color: Colors.white54),
+          ),
+        ),
+      );
     return Wrap(
       spacing: 12,
       runSpacing: 12,
-      children: photos.map((post) => SizedBox(
-        width: 220,
-        height: 160,
-        child: InkWell(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ImageViewerPage(imageUrl: post.imageUrl!))),
-          child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(post.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF211E2E)))),
-        ),
-      )).toList(),
+      children: photos
+          .map(
+            (post) => SizedBox(
+              width: 220,
+              height: 160,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ImageViewerPage(imageUrl: post.imageUrl!),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    post.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        const ColoredBox(color: Color(0xFF211E2E)),
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
   Widget _publicClips(List<PostModel> posts) {
-    final clips = posts.where((post) => post.videoUrl?.isNotEmpty == true).toList();
-    if (clips.isEmpty) return const Padding(padding: EdgeInsets.symmetric(vertical: 36), child: Center(child: Text('Este jugador aún no tiene clips.', style: TextStyle(color: Colors.white54))));
-    return Column(children: clips.map((clip) => Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF171625), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF2E2A40))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (clip.content.isNotEmpty) ...[
-          Text(clip.content, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-        ],
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: SizedBox(height: 360, child: VideoPlayerWidget(url: clip.videoUrl!)),
+    final clips = posts
+        .where((post) => post.videoUrl?.isNotEmpty == true)
+        .toList();
+    if (clips.isEmpty)
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(
+          child: Text(
+            'Este jugador aún no tiene clips.',
+            style: TextStyle(color: Colors.white54),
+          ),
         ),
-      ]),
-    )).toList());
+      );
+    return Column(
+      children: clips
+          .map(
+            (clip) => Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171625),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2E2A40)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (clip.content.isNotEmpty) ...[
+                    Text(
+                      clip.content,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 360,
+                      child: VideoPlayerWidget(url: clip.videoUrl!),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 
   Widget _aboutCard(Map<String, dynamic> profile) {
@@ -601,94 +1039,150 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF2E2A40)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.person_outline, color: Color(0xFF9A78FF), size: 19),
-          const SizedBox(width: 8),
-          Text('Acerca de $username', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        ]),
-        if (bio.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(bio, style: const TextStyle(color: Colors.white70, height: 1.4)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.person_outline,
+                color: Color(0xFF9A78FF),
+                size: 19,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Acerca de $username',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          if (bio.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              bio,
+              style: const TextStyle(color: Colors.white70, height: 1.4),
+            ),
+          ],
+          if (status.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.circle, size: 10, color: Colors.greenAccent),
+                const SizedBox(width: 8),
+                Text(status, style: const TextStyle(color: Colors.white60)),
+              ],
+            ),
+          ],
+          if (location.isNotEmpty ||
+              platform.isNotEmpty ||
+              role.isNotEmpty ||
+              favoriteGame.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                if (location.isNotEmpty)
+                  _publicInfoItem(Icons.location_on_outlined, location),
+                if (platform.isNotEmpty)
+                  _publicInfoItem(Icons.desktop_windows_outlined, platform),
+                if (role.isNotEmpty)
+                  _publicInfoItem(Icons.shield_outlined, role),
+                if (favoriteGame.isNotEmpty)
+                  _publicInfoItem(Icons.sports_esports_outlined, favoriteGame),
+              ],
+            ),
+          ],
         ],
-        if (status.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Row(children: [
-            const Icon(Icons.circle, size: 10, color: Colors.greenAccent),
-            const SizedBox(width: 8),
-            Text(status, style: const TextStyle(color: Colors.white60)),
-          ]),
-        ],
-        if (location.isNotEmpty || platform.isNotEmpty || role.isNotEmpty || favoriteGame.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Wrap(spacing: 24, runSpacing: 12, children: [
-            if (location.isNotEmpty) _publicInfoItem(Icons.location_on_outlined, location),
-            if (platform.isNotEmpty) _publicInfoItem(Icons.desktop_windows_outlined, platform),
-            if (role.isNotEmpty) _publicInfoItem(Icons.shield_outlined, role),
-            if (favoriteGame.isNotEmpty) _publicInfoItem(Icons.sports_esports_outlined, favoriteGame),
-          ]),
-        ],
-      ]),
+      ),
     );
   }
 
-  Widget _publicInfoItem(IconData icon, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 16, color: const Color(0xFF9A78FF)),
-        const SizedBox(width: 7),
-        Text(text, style: const TextStyle(color: Colors.white60)),
-      ]);
+  Widget _publicInfoItem(IconData icon, String text) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 16, color: const Color(0xFF9A78FF)),
+      const SizedBox(width: 7),
+      Text(text, style: const TextStyle(color: Colors.white60)),
+    ],
+  );
 
   Widget _wall(Map<String, dynamic> profile, List<PostModel> posts) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _aboutCard(profile),
-          const SizedBox(height: 22),
-          const Text('Publicaciones', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          if (posts.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Center(child: Text('Este usuario aún no tiene publicaciones.', style: TextStyle(color: Colors.white54))),
-            )
-          else
-            ...posts.map(_postCard),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _aboutCard(profile),
+      const SizedBox(height: 22),
+      const Text(
+        'Publicaciones',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 12),
+      if (posts.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(
+            child: Text(
+              'Este usuario aún no tiene publicaciones.',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+        )
+      else
+        ...posts.map(_postCard),
+    ],
+  );
 
   Widget _postCard(PostModel post) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF171625),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF2E2A40)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (post.content.isNotEmpty) Text(post.content, style: const TextStyle(color: Colors.white, fontSize: 15)),
-          if (post.game != null && post.game!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(post.game!, style: const TextStyle(color: Color(0xFFBDAAFF), fontSize: 12)),
-          ],
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Image.network(
-                    post.imageUrl!,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const SizedBox(),
-                  ),
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFF171625),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFF2E2A40)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (post.content.isNotEmpty)
+          Text(
+            post.content,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+        if (post.game != null && post.game!.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            post.game!,
+            style: const TextStyle(color: Color(0xFFBDAAFF), fontSize: 12),
+          ),
+        ],
+        if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Image.network(
+                  post.imageUrl!,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox(),
                 ),
               ),
             ),
-          ],
-        ]),
-      );
+          ),
+        ],
+      ],
+    ),
+  );
 }
 
 class _ProfileTab extends StatelessWidget {
@@ -700,17 +1194,27 @@ class _ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 54,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            border: selected ? const Border(bottom: BorderSide(color: Color(0xFF8B5CF6), width: 3)) : null,
-          ),
-          child: Text(label, style: TextStyle(color: selected ? const Color(0xFFBDAAFF) : Colors.white60, fontWeight: FontWeight.w600)),
+    onTap: onTap,
+    child: Container(
+      height: 54,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        border: selected
+            ? const Border(
+                bottom: BorderSide(color: Color(0xFF8B5CF6), width: 3),
+              )
+            : null,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? const Color(0xFFBDAAFF) : Colors.white60,
+          fontWeight: FontWeight.w600,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _PublicProfileData {

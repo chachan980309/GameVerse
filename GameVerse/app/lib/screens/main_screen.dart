@@ -8,6 +8,7 @@ import '../pages/friends_page.dart';
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
 import '../widgets/layout/topbar.dart';
+import '../widgets/chat/friend_chat_panel.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,6 +20,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int selectedIndex = 0;
   String? viewedProfileId;
+  Map<String, dynamic>? activeFriendChat;
 
   String usernameActual = "Usuario";
 
@@ -94,36 +96,59 @@ class _MainScreenState extends State<MainScreen> {
                   selectedIndex = index;
                   // Sidebar navigation returns to the user's own profile/panels.
                   viewedProfileId = null;
+                  if (index != 2) activeFriendChat = null;
                 });
               },
             ),
           ),
 
-          Expanded(
-            child: Column(
-              children: [
-                TopBar(
-                  onProfileSelected: (profileId) {
-                    setState(() {
-                      selectedIndex = 1;
-                      viewedProfileId = profileId;
-                    });
-                  },
-                ),
+          Expanded(child: selectedIndex == 2 ? _friendsLayout() : _standardLayout()),
 
-                Expanded(child: currentPage()),
-              ],
+          if (selectedIndex != 2)
+            SizedBox(
+              width: 280,
+              child: viewedProfileId == null
+                  ? (selectedIndex == 1 ? const MyProfilePanel() : const RightPanel())
+                  : PublicProfilePanel(userId: viewedProfileId!),
             ),
-          ),
-
-          SizedBox(
-            width: 280,
-            child: viewedProfileId == null
-                ? const RightPanel()
-                : PublicProfilePanel(userId: viewedProfileId!),
-          ),
         ],
       ),
     );
   }
+
+  Widget _topBar() => TopBar(
+        onProfileSelected: (profileId) {
+          setState(() {
+            selectedIndex = 1;
+            viewedProfileId = profileId;
+            activeFriendChat = null;
+          });
+        },
+      );
+
+  Widget _standardLayout() => Column(children: [
+        _topBar(),
+        Expanded(child: currentPage()),
+      ]);
+
+  Widget _friendsLayout() => Row(children: [
+        Expanded(
+          child: Column(children: [
+            _topBar(),
+            Expanded(
+              child: FriendsPage(
+                showChat: false,
+                onFriendSelected: (profile) => setState(() => activeFriendChat = profile),
+              ),
+            ),
+          ]),
+        ),
+        SizedBox(
+          width: 370,
+          child: FriendChatPanel(
+            profile: activeFriendChat,
+            onClose: () => setState(() => activeFriendChat = null),
+          ),
+        ),
+      ]);
 }

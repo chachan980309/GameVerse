@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_game.dart';
+import '../models/game_search_result.dart';
 
 class UserGamesService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -22,23 +23,30 @@ class UserGamesService {
   }
 
   Future<void> addGame({
-    required String gameName,
+    required GameSearchResult game,
     required String platform,
     required int hoursPlayed,
     String? rank,
     required bool isFavorite,
+    required String gamerTag,
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Usuario no autenticado.');
     await _supabase.from('user_games').insert({
       'user_id': user.id,
-      'game_name': gameName,
+      'game_name': game.name,
       'platform': platform,
       'hours_played': hoursPlayed,
       'rank': rank?.isEmpty == true ? null : rank,
       'is_favorite': isFavorite,
+      'gamer_tag': gamerTag.trim(),
+      'igdb_id': game.id,
+      'cover_url': game.coverUrl,
+      'logo_url': game.coverUrl ?? '',
+      'game_source': 'igdb',
     });
   }
 
-  Future<void> removeGame(String id) => _supabase.from('user_games').delete().eq('id', id);
+  Future<void> removeGame(String id) =>
+      _supabase.from('user_games').delete().eq('id', id);
 }

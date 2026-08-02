@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../controllers/profile_controller.dart';
+import '../../models/post_model.dart';
+import '../../models/user_game.dart';
+import '../../services/post_service.dart';
+import '../../services/user_games_service.dart';
+import '../profile/edit_profile_dialog.dart';
+
 
 
 class RightPanel extends StatelessWidget {
@@ -892,7 +899,9 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
   void didUpdateWidget(covariant PublicProfilePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userId != widget.userId) {
-      setState(() => _profile = _loadProfile());
+      setState(() {
+        _profile = _loadProfile();
+      });
     }
   }
 
@@ -976,4 +985,165 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
         const SizedBox(width: 8),
         Expanded(child: Text(text, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60))),
       ]);
+}
+
+class MyProfilePanel extends StatefulWidget {
+  const MyProfilePanel({super.key});
+
+  @override
+  State<MyProfilePanel> createState() => _MyProfilePanelState();
+}
+
+class _MyProfilePanelState extends State<MyProfilePanel> {
+  final _profile = ProfileController.instance;
+  late Future<List<UserGame>> _games = UserGamesService().getMyGames();
+  late Future<List<PostModel>> _posts = _loadPosts();
+  String? _loadedProfileId;
+
+  Future<List<PostModel>> _loadPosts() async {
+    final id = _profile.userId;
+    if (id == null) return [];
+    return PostService().getUserPosts(id);
+  }
+
+  void _refresh() {
+    setState(() {
+      _games = UserGamesService().getMyGames();
+      _posts = _loadPosts();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _ensureProfileData();
+    return Container(
+        color: const Color(0xFF111019),
+        padding: const EdgeInsets.all(14),
+        child: AnimatedBuilder(
+          animation: _profile,
+          builder: (context, _) => ListView(children: [
+            _aboutCard(context),
+            const SizedBox(height: 14),
+            _activityCard(),
+            const SizedBox(height: 14),
+            _gamesCard(context),
+          ]),
+        ),
+      );
+  }
+
+  void _ensureProfileData() {
+    if (_loadedProfileId == _profile.userId) return;
+    _loadedProfileId = _profile.userId;
+    _games = UserGamesService().getMyGames();
+    _posts = _loadPosts();
+  }
+
+  Widget _aboutCard(BuildContext context) => _card(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text('Acerca de ${_profile.username}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+            IconButton(
+              tooltip: 'Editar perfil',
+              onPressed: () async {
+                await showEditProfileDialog(context);
+                _refresh();
+              },
+              icon: const Icon(Icons.edit_outlined, color: Color(0xFFAF8CFF), size: 19),
+            ),
+          ]),
+          if (_profile.bio.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(_profile.bio, style: const TextStyle(color: Colors.white70, height: 1.35)),
+          ],
+          const SizedBox(height: 14),
+          _detail(Icons.circle, _profile.status, color: Colors.greenAccent),
+          if (_profile.location.isNotEmpty) _detail(Icons.location_on_outlined, _profile.location),
+          if (_profile.platform.isNotEmpty) _detail(Icons.desktop_windows_outlined, _profile.platform),
+          if (_profile.role.isNotEmpty) _detail(Icons.shield_outlined, _profile.role),
+          if (_profile.favoriteGame.isNotEmpty) _detail(Icons.sports_esports_outlined, _profile.favoriteGame),
+        ]),
+      );
+
+  Widget _activityCard() => _card(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Actividad reciente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          FutureBuilder<List<PostModel>>(
+            future: _posts,
+            builder: (context, snapshot) {
+              final posts = snapshot.data ?? [];
+              if (snapshot.connectionState != ConnectionState.done) return const Padding(padding: EdgeInsets.all(8), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+              if (posts.isEmpty) return const Text('Aún no has publicado actividad.', style: TextStyle(color: Colors.white54, fontSize: 12));
+              return Column(children: posts.take(3).map((post) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const CircleAvatar(radius: 15, backgroundColor: Color(0xFF30274B), child: Icon(Icons.article_outlined, color: Color(0xFFAF8CFF), size: 16)),
+                  const SizedBox(width: 9),
+                  Expanded(child: Text(post.content.isEmpty ? 'Publicó contenido nuevo' : post.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                ]),
+              )).toList());
+            },
+          ),
+        ]),
+      );
+
+  Widget _gamesCard(BuildContext context) => _card(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Expanded(child: Text('Juegos favoritos', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+            TextButton(onPressed: () => _showAllGames(context), child: const Text('Ver todos')),
+          ]),
+          FutureBuilder<List<UserGame>>(
+            future: _games,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) return const Padding(padding: EdgeInsets.all(8), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+              final games = snapshot.data ?? [];
+              final favorites = games.where((game) => game.isFavorite).toList();
+              final shown = favorites.isEmpty ? games.take(3).toList() : favorites.take(4).toList();
+              if (shown.isEmpty) return const Text('Añade juegos desde la pestaña Juegos.', style: TextStyle(color: Colors.white54, fontSize: 12));
+              return Column(children: shown.map((game) => Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(children: [
+                  Container(width: 30, height: 30, decoration: BoxDecoration(color: const Color(0xFF30274B), borderRadius: BorderRadius.circular(7)), child: const Icon(Icons.sports_esports_rounded, color: Color(0xFFAF8CFF), size: 17)),
+                  const SizedBox(width: 9),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(game.gameName, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text('${game.hoursPlayed} horas', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  ])),
+                ]),
+              )).toList());
+            },
+          ),
+        ]),
+      );
+
+  Future<void> _showAllGames(BuildContext context) async {
+    final games = await UserGamesService().getMyGames();
+    if (!context.mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1B1828),
+      builder: (context) => SafeArea(child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(18),
+        children: [
+          const Text('Mis juegos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          ...games.map((game) => ListTile(leading: const Icon(Icons.sports_esports_rounded, color: Color(0xFFAF8CFF)), title: Text(game.gameName, style: const TextStyle(color: Colors.white)), subtitle: Text('${game.hoursPlayed} horas', style: const TextStyle(color: Colors.white54)))),
+        ],
+      )),
+    );
+  }
+
+  Widget _card({required Widget child}) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: const Color(0xFF1B1927), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF2D2940))),
+        child: child,
+      );
+
+  Widget _detail(IconData icon, String text, {Color color = const Color(0xFFAF8CFF)}) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [Icon(icon, color: color, size: 16), const SizedBox(width: 8), Expanded(child: Text(text, style: const TextStyle(color: Colors.white60, fontSize: 12)))]),
+      );
 }
