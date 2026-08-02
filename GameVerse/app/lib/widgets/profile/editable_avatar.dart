@@ -73,11 +73,11 @@ class _EditableAvatarState extends State<EditableAvatar> {
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: const Color(0xff6438FF),
-                      width: 5,
+                      width: 4,
                     ),
                   ),
                   child: CircleAvatar(
-                    radius: 85,
+                    radius: 64,
 
                     backgroundImage:
                         profile.avatarUrl != null &&
@@ -95,8 +95,8 @@ class _EditableAvatarState extends State<EditableAvatar> {
                   duration: const Duration(milliseconds: 200),
                   opacity: _hover ? 1 : 0,
                   child: Container(
-                    width: 170,
-                    height: 170,
+                    width: 128,
+                    height: 128,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: .55),
                       shape: BoxShape.circle,

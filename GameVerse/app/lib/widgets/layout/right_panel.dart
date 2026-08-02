@@ -1105,7 +1105,7 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
               return Column(children: shown.map((game) => Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Row(children: [
-                  Container(width: 30, height: 30, decoration: BoxDecoration(color: const Color(0xFF30274B), borderRadius: BorderRadius.circular(7)), child: const Icon(Icons.sports_esports_rounded, color: Color(0xFFAF8CFF), size: 17)),
+                  _gameArtwork(game),
                   const SizedBox(width: 9),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(game.gameName, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -1130,9 +1130,39 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
         children: [
           const Text('Mis juegos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          ...games.map((game) => ListTile(leading: const Icon(Icons.sports_esports_rounded, color: Color(0xFFAF8CFF)), title: Text(game.gameName, style: const TextStyle(color: Colors.white)), subtitle: Text('${game.hoursPlayed} horas', style: const TextStyle(color: Colors.white54)))),
+          ...games.map((game) => ListTile(leading: _gameArtwork(game, size: 42), title: Text(game.gameName, style: const TextStyle(color: Colors.white)), subtitle: Text('${game.hoursPlayed} horas', style: const TextStyle(color: Colors.white54)))),
         ],
       )),
+    );
+  }
+
+  Widget _gameArtwork(UserGame game, {double size = 30}) {
+    final imageUrl = game.imageUrl.trim();
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF30274B),
+        borderRadius: BorderRadius.circular(size * .22),
+      ),
+      child: Icon(
+        Icons.sports_esports_rounded,
+        color: const Color(0xFFAF8CFF),
+        size: size * .56,
+      ),
+    );
+
+    if (imageUrl.isEmpty) return fallback;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * .22),
+      child: Image.network(
+        imageUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      ),
     );
   }
 

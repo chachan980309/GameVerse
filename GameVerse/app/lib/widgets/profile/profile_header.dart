@@ -101,7 +101,7 @@ class ProfileHeader extends StatelessWidget {
     BuildContext context,
     ProfileController profile,
   ) => SizedBox(
-    height: 270,
+    height: 216,
     child: Stack(
       clipBehavior: Clip.none,
       children: [
@@ -109,13 +109,13 @@ class ProfileHeader extends StatelessWidget {
           left: 0,
           right: 0,
           top: 0,
-          height: 185,
+          height: 210,
           child: EditableBanner(),
         ),
-        const Positioned(left: 34, top: 90, child: EditableAvatar()),
+        const Positioned(left: 34, top: 58, child: EditableAvatar()),
         Positioned(
           left: 215,
-          top: 197,
+          top: 90,
           right: 290,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +182,7 @@ class ProfileHeader extends StatelessWidget {
         ),
         Positioned(
           right: 30,
-          top: 207,
+          top: 156,
           child: Row(
             children: [
               ElevatedButton.icon(

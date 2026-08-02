@@ -44,7 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              height: _headerCollapsed ? 112 : 270,
+              height: _headerCollapsed ? 112 : 216,
               child: ProfileHeader(collapsed: _headerCollapsed),
             ),
             ProfileTabs(

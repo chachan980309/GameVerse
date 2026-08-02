@@ -51,7 +51,7 @@ class _EditableBannerState extends State<EditableBanner> {
         onTap: _pickBanner,
         child: SizedBox(
           width: double.infinity,
-          height: 220,
+          height: 210,
           child: Stack(
             fit: StackFit.expand,
             children: [
