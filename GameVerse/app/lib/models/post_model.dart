@@ -15,6 +15,7 @@ class PostModel {
   // Datos del perfil
   final String username;
   final String avatarUrl;
+  final PostModel? sharedPost;
 
   const PostModel({
     required this.id,
@@ -27,10 +28,12 @@ class PostModel {
     this.game,
     this.imageUrl,
     this.videoUrl,
+    this.sharedPost,
   });
 
   factory PostModel.fromMap(Map<String, dynamic> map) {
     final profile = map["profiles"] as Map<String, dynamic>?;
+    final shared = map['shared_post'];
 
     return PostModel(
       id: map["id"],
@@ -47,6 +50,9 @@ class PostModel {
 
       username: profile?["username"] ?? "Usuario",
       avatarUrl: profile?["avatar_url"] ?? "",
+      sharedPost: shared is Map<String, dynamic>
+          ? PostModel.fromMap(shared)
+          : null,
     );
   }
 }

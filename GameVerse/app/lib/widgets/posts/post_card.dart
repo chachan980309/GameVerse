@@ -56,6 +56,17 @@ class PostCard extends StatelessWidget {
             ),
           ],
 
+          // El compartido se presenta como una publicación independiente,
+          // no mezclado con la publicación de quien la compartió.
+          if (post.sharedPost != null) ...[
+            const SizedBox(height: 14),
+            _SharedPostCard(
+              post: post.sharedPost!,
+              index: index,
+              videoController: videoController,
+            ),
+          ],
+
           /// MEDIA
           if ((post.imageUrl != null && post.imageUrl!.isNotEmpty) ||
               (post.videoUrl != null && post.videoUrl!.isNotEmpty)) ...[
@@ -75,4 +86,56 @@ class PostCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SharedPostCard extends StatelessWidget {
+  const _SharedPostCard({
+    required this.post,
+    required this.index,
+    required this.videoController,
+  });
+
+  final PostModel post;
+  final int index;
+  final VideoFeedController videoController;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: const Color(0xFF151321),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFF6237B8)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PostHeader(post: post),
+        if (post.content.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          MentionText(
+            text: post.content,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+        ],
+        if ((post.imageUrl?.isNotEmpty ?? false) ||
+            (post.videoUrl?.isNotEmpty ?? false)) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: PostMedia(
+              post: post,
+              index: index,
+              videoController: videoController,
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
 }

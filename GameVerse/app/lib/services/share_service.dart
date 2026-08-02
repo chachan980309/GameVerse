@@ -9,38 +9,34 @@ class ShareService {
 
   Future<void> shareToProfile(PostModel post) async {
     final user = _supabase.auth.currentUser;
-    if (user == null) throw Exception('Usuario no autenticado.');
+    if (user == null) throw StateError('Usuario no autenticado.');
 
-    // This is intentionally the same path used by the normal post composer.
-    // It uses the existing posts schema and refreshes the feed immediately.
+    final original = post.sharedPost ?? post;
     await PostController.instance.createPost(
-      content:
-          'Compartió una publicación de @${post.username}\n\n${post.content}',
-      imageUrl: post.imageUrl,
-      videoUrl: post.videoUrl,
-      type: post.videoUrl?.isNotEmpty == true
-          ? 'video'
-          : (post.imageUrl?.isNotEmpty == true ? 'image' : 'text'),
+      content: 'Compartió una publicación de @${original.username}',
+      type: 'share',
+      sharedPostId: original.id,
     );
-    await _recordShare(post.id);
+    await _recordShare(original.id);
 
     try {
-      await _notifyAuthor(post);
+      await _notifyAuthor(original);
     } catch (_) {
-      // The share is already published; a notification failure must not undo it.
+      // La publicación ya fue creada: un fallo de notificación no la revierte.
     }
   }
 
   Future<void> shareByMessage(PostModel post, String receiverId) async {
+    final original = post.sharedPost ?? post;
     await DirectMessageService().sendMessage(
       receiverId,
-      'Compartió una publicación de @${post.username}:\n${post.content}',
+      'Compartió una publicación de @${original.username}:\n${original.content}',
     );
-    await _recordShare(post.id);
+    await _recordShare(original.id);
     try {
-      await _notifyAuthor(post);
+      await _notifyAuthor(original);
     } catch (_) {
-      // Sending the message is the primary action.
+      // El mensaje ya fue enviado aunque la notificación no pueda crearse.
     }
   }
 
@@ -65,7 +61,7 @@ class ShareService {
         'user_id': user.id,
       });
     } catch (_) {
-      // Sharing still succeeds for databases that have not run the migration.
+      // Compatibilidad si la migración de conteos todavía no se aplicó.
     }
   }
 

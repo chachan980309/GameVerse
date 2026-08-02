@@ -19,6 +19,13 @@ class PostService {
           profiles (
             username,
             avatar_url
+          ),
+          shared_post:posts!posts_shared_post_id_fkey (
+            *,
+            profiles (
+              username,
+              avatar_url
+            )
           )
         ''')
         .order('created_at', ascending: false);
@@ -41,6 +48,13 @@ class PostService {
           profiles (
             username,
             avatar_url
+          ),
+          shared_post:posts!posts_shared_post_id_fkey (
+            *,
+            profiles (
+              username,
+              avatar_url
+            )
           )
         ''')
         .eq('user_id', userId)
@@ -114,6 +128,7 @@ class PostService {
     String? imageUrl,
     String? videoUrl,
     String type = "text",
+    String? sharedPostId,
   }) async {
     final user = supabase.auth.currentUser;
 
@@ -133,6 +148,7 @@ class PostService {
       'image': imageUrl,
       'video': videoUrl,
       'type': type,
+      'shared_post_id': sharedPostId,
     });
     await ProfileController.instance.loadProfile();
 
