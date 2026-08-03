@@ -357,7 +357,7 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF111019),
+      color: const Color.fromRGBO(10, 9, 18, 0.88),
       padding: const EdgeInsets.all(16),
       child: FutureBuilder<Map<String, dynamic>?>(
         future: _profile,
@@ -851,7 +851,7 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
   Widget build(BuildContext context) {
     _ensureProfileData();
     return Container(
-      color: const Color(0xFF111019),
+      color: const Color.fromRGBO(10, 9, 18, 0.88),
       padding: const EdgeInsets.all(14),
       child: AnimatedBuilder(
         animation: _profile,

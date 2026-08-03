@@ -12,6 +12,8 @@ class ProfileController extends ChangeNotifier {
   }
 
   final ProfileService _profileService = ProfileService();
+  int _bannerRevision = 0;
+  bool _hasLocalBannerFraming = false;
 
   /// ID del usuario logueado
   String? userId;
@@ -37,6 +39,7 @@ class ProfileController extends ChangeNotifier {
   double get levelProgress => xpInCurrentLevel / 250;
 
   Future<void> loadProfile() async {
+    final bannerRevisionAtLoad = _bannerRevision;
     final profile = await _profileService.getProfile();
 
     if (profile == null) return;
@@ -44,19 +47,21 @@ class ProfileController extends ChangeNotifier {
     userId = profile["id"];
 
     avatarUrl = profile["avatar_url"];
-    bannerUrl = profile["banner_url"];
-    bannerPosition =
-        (profile["banner_position"] as num?)
-            ?.toDouble()
-            .clamp(-1.0, 1.0)
-            .toDouble() ??
-        0;
-    bannerScale =
-        (profile["banner_scale"] as num?)
-            ?.toDouble()
-            .clamp(1.0, 2.4)
-            .toDouble() ??
-        1;
+    if (!_hasLocalBannerFraming && bannerRevisionAtLoad == _bannerRevision) {
+      bannerUrl = profile["banner_url"];
+      bannerPosition =
+          (profile["banner_position"] as num?)
+              ?.toDouble()
+              .clamp(-1.0, 1.0)
+              .toDouble() ??
+          0;
+      bannerScale =
+          (profile["banner_scale"] as num?)
+              ?.toDouble()
+              .clamp(1.0, 2.4)
+              .toDouble() ??
+          1;
+    }
 
     username = profile["username"] ?? "Usuario";
     status = profile["status"] ?? "En línea";
@@ -83,14 +88,36 @@ class ProfileController extends ChangeNotifier {
     required double verticalPosition,
     required double scale,
   }) async {
-    bannerUrl = await _profileService.uploadBanner(
-      bytes,
-      verticalPosition: verticalPosition,
-      scale: scale,
-    );
-    bannerPosition = verticalPosition.clamp(-1.0, 1.0).toDouble();
-    bannerScale = scale.clamp(1.0, 2.4).toDouble();
+    final normalizedPosition = verticalPosition.clamp(-1.0, 1.0).toDouble();
+    final normalizedScale = scale.clamp(1.0, 2.4).toDouble();
+    final previousUrl = bannerUrl;
+    final previousPosition = bannerPosition;
+    final previousScale = bannerScale;
+    final previouslyHadLocalBannerFraming = _hasLocalBannerFraming;
+
+    _bannerRevision++;
+    _hasLocalBannerFraming = true;
+    bannerPosition = normalizedPosition;
+    bannerScale = normalizedScale;
     notifyListeners();
+
+    try {
+      bannerUrl = await _profileService.uploadBanner(
+        bytes,
+        verticalPosition: normalizedPosition,
+        scale: normalizedScale,
+      );
+      _bannerRevision++;
+      notifyListeners();
+    } catch (_) {
+      bannerUrl = previousUrl;
+      bannerPosition = previousPosition;
+      bannerScale = previousScale;
+      _hasLocalBannerFraming = previouslyHadLocalBannerFraming;
+      _bannerRevision++;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> updateProfile({

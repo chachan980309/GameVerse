@@ -24,6 +24,7 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
   late Future<List<Map<String, dynamic>>> _activity;
   Timer? _refreshTimer;
   RealtimeChannel? _notificationChannel;
+  OverlayEntry? _messagesOverlay;
 
   @override
   void initState() {
@@ -48,6 +49,28 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
             ),
             callback: (_) => _reload(),
           )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'direct_messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'sender_id',
+              value: userId,
+            ),
+            callback: (_) => _reload(),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'direct_messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'receiver_id',
+              value: userId,
+            ),
+            callback: (_) => _reload(),
+          )
           .subscribe();
     }
   }
@@ -55,6 +78,7 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _messagesOverlay?.remove();
     final channel = _notificationChannel;
     if (channel != null) Supabase.instance.client.removeChannel(channel);
     super.dispose();
@@ -80,7 +104,7 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
       final activity =
           snapshot.data?[2] as List<Map<String, dynamic>>? ?? const [];
       final unread = inbox
-          .where((message) => message['read_at'] == null)
+          .where((message) => message['has_unread'] == true)
           .length;
       return Row(
         children: [
@@ -106,17 +130,50 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
   );
 
   Widget _messagesMenu(List<Map<String, dynamic>> messages, int unread) =>
-      MenuAnchor(
-        style: _menuStyle,
-        menuChildren: [SizedBox(width: 340, child: _messagesContent(messages))],
-        builder: (context, controller, _) => _alertButton(
-          icon: Icons.chat_bubble_outline_rounded,
-          count: unread,
-          tooltip: 'Mensajes',
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
-        ),
+      _alertButton(
+        icon: Icons.chat_bubble_outline_rounded,
+        count: unread,
+        tooltip: 'Mensajes',
+        onTap: () => _toggleMessagesPanel(messages),
       );
+
+  void _toggleMessagesPanel(List<Map<String, dynamic>> messages) {
+    if (_messagesOverlay != null) {
+      _closeMessagesPanel();
+      return;
+    }
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    _messagesOverlay = OverlayEntry(
+      builder: (overlayContext) => Positioned(
+        top: 72,
+        right: screenWidth > 1200 ? 300 : 16,
+        child: TapRegion(
+          onTapOutside: (_) => _closeMessagesPanel(),
+          child: Material(
+            color: const Color(0xFF171520),
+            elevation: 16,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: 360,
+              constraints: const BoxConstraints(maxHeight: 520),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF39324F)),
+              ),
+              child: _messagesContent(messages),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_messagesOverlay!);
+  }
+
+  void _closeMessagesPanel() {
+    _messagesOverlay?.remove();
+    _messagesOverlay = null;
+  }
 
   Widget _notificationsMenu(
     List<Map<String, dynamic>> requests,
@@ -198,72 +255,137 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
     }).toList(),
   );
 
-  Widget _messagesContent(List<Map<String, dynamic>> messages) => _menuShell(
-    title: 'Mensajes',
-    empty: 'Aún no tienes mensajes.',
-    children: messages.map((message) {
-      final sender = Map<String, dynamic>.from(
-        message['sender'] as Map? ?? const {},
-      );
-      final name = sender['username']?.toString() ?? 'Usuario';
-      final avatar = sender['avatar_url']?.toString() ?? '';
-      final preview = message['content']?.toString() ?? '';
-      return InkWell(
-        borderRadius: BorderRadius.circular(9),
-        onTap: () async {
-          // El chat debe poder abrirse aunque aún no se haya aplicado la
-          // política SQL que permite marcar mensajes como leídos.
-          try {
-            await _messages.markMessagesFromRead(
-              message['sender_id'].toString(),
-            );
-          } catch (_) {}
-          if (!mounted) return;
-          _reload();
-          await showDirectMessageSheet(
-            context,
-            userId: message['sender_id'].toString(),
-            username: name,
-            avatarUrl: avatar,
+  Widget _messagesContent(List<Map<String, dynamic>> messages) {
+    var query = '';
+
+    return StatefulBuilder(
+      builder: (context, setMenuState) {
+        final filtered = messages.where((message) {
+          final user = Map<String, dynamic>.from(
+            message['other_user'] as Map? ?? const {},
           );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
+          final name = user['username']?.toString().toLowerCase() ?? '';
+          return name.contains(query.toLowerCase());
+        }).toList();
+
+        return Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _avatar(name, avatar),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+              const Text(
+                'Chats',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              if (message['read_at'] == null)
-                const Icon(Icons.circle, size: 9, color: Color(0xFF8B5CF6)),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 36,
+                child: TextField(
+                  onChanged: (value) => setMenuState(() => query = value),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar chat',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 18,
+                      color: Colors.white38,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF211D2E),
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const Divider(color: Color(0xFF39324F), height: 22),
+              if (filtered.isEmpty)
+                const Text(
+                  'No se encontraron chats.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 390),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: filtered.map(_conversationTile).toList(),
+                  ),
+                ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _conversationTile(Map<String, dynamic> message) {
+    final user = Map<String, dynamic>.from(
+      message['other_user'] as Map? ?? const {},
+    );
+    final name = user['username']?.toString() ?? 'Usuario';
+    final avatar = user['avatar_url']?.toString() ?? '';
+    final content = message['content']?.toString() ?? '';
+    final preview = message['is_mine'] == true ? 'Tú: $content' : content;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: () async {
+        final otherUserId = message['other_user_id'].toString();
+        try {
+          await _messages.markMessagesFromRead(otherUserId);
+        } catch (_) {}
+        if (!mounted) return;
+        _reload();
+        _closeMessagesPanel();
+        await showDirectMessageSheet(
+          context,
+          userId: otherUserId,
+          username: name,
+          avatarUrl: avatar,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            _avatar(name, avatar),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            if (message['has_unread'] == true)
+              const Icon(Icons.circle, size: 9, color: Color(0xFF8B5CF6)),
+          ],
         ),
-      );
-    }).toList(),
-  );
+      ),
+    );
+  }
 
   Widget _notificationsContent(
     List<Map<String, dynamic>> requests,
@@ -283,9 +405,9 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
         ),
       );
     }
-    for (final message in inbox.where((item) => item['read_at'] == null)) {
+    for (final message in inbox.where((item) => item['has_unread'] == true)) {
       final sender = Map<String, dynamic>.from(
-        message['sender'] as Map? ?? const {},
+        message['other_user'] as Map? ?? const {},
       );
       notifications.add(
         _notice(

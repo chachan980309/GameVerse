@@ -53,7 +53,9 @@ class Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: 240,
-    color: const Color(0xff0D0E15),
+    color: selected == 0 || selected == 1 || selected == 3
+        ? const Color.fromRGBO(8, 9, 16, 0.88)
+        : const Color(0xff0D0E15),
     child: SafeArea(
       child: Column(
         children: [
@@ -151,7 +153,11 @@ class Sidebar extends StatelessWidget {
           _menuItem(icon: Icons.home_rounded, title: 'Inicio', index: 0),
           _menuItem(icon: Icons.person_rounded, title: 'Perfil', index: 1),
           _menuItem(icon: Icons.people_rounded, title: 'Amigos', index: 2),
-          _menuItem(icon: Icons.chat_bubble_rounded, title: 'Chats', index: 3),
+          _menuItem(
+            icon: Icons.graphic_eq_rounded,
+            title: 'Canales de voz',
+            index: 3,
+          ),
           _menuItem(icon: Icons.settings_rounded, title: 'Ajustes', index: 4),
           const Spacer(),
           const Text(

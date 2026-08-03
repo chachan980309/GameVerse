@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../controllers/post_controller.dart';
 import '../services/post_navigation_service.dart';
 import '../widgets/forms/create_post.dart';
-import '../widgets/layout/feed_background.dart';
 import '../widgets/posts/post_list.dart';
 
 class FeedPage extends StatefulWidget {
@@ -76,7 +75,6 @@ class _FeedPageState extends State<FeedPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const FeedBackground(),
             Scrollbar(
               controller: _feedScrollController,
               thumbVisibility: hasLateralSpace,

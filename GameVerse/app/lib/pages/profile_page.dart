@@ -46,7 +46,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF17141F),
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -62,7 +62,9 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
-                  if (notification.metrics.axis != Axis.vertical) return false;
+                  if (notification.metrics.axis != Axis.vertical) {
+                    return false;
+                  }
                   final shouldCollapse = notification.metrics.pixels > 25;
                   if (shouldCollapse != _headerCollapsed) {
                     setState(() => _headerCollapsed = shouldCollapse);
@@ -167,7 +169,7 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0F0E17),
+      color: Colors.transparent,
       child: FutureBuilder<_PublicProfileData?>(
         future: _profileData,
         builder: (context, snapshot) {
@@ -1156,11 +1158,17 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
         )
       else
         ...posts.asMap().entries.map(
-          (entry) => PostCard(
-            key: ValueKey(entry.value.id),
-            post: entry.value,
-            index: entry.key,
-            videoController: _videoController,
+          (entry) => Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: 820,
+              child: PostCard(
+                key: ValueKey(entry.value.id),
+                post: entry.value,
+                index: entry.key,
+                videoController: _videoController,
+              ),
+            ),
           ),
         ),
     ],

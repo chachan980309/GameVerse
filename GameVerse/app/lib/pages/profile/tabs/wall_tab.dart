@@ -56,11 +56,18 @@ class _WallTabState extends State<WallTab> {
             const SizedBox(height: 20),
 
             Expanded(
-              child: PostList(
-                posts: postController.userPosts,
-                loading: postController.isLoading,
-                onRefresh: _loadPosts,
-                emptyMessage: "Aún no tienes publicaciones.",
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: 820,
+                  height: double.infinity,
+                  child: PostList(
+                    posts: postController.userPosts,
+                    loading: postController.isLoading,
+                    onRefresh: _loadPosts,
+                    emptyMessage: "Aún no tienes publicaciones.",
+                  ),
+                ),
               ),
             ),
           ],

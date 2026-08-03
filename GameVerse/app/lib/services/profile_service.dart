@@ -10,11 +10,19 @@ class ProfileService {
 
     if (user == null) return null;
 
-    return await _supabase
+    final profile = await _supabase
         .from('profiles')
         .select()
         .eq('id', user.id)
         .maybeSingle();
+
+    if (profile == null) return null;
+
+    final metadata = user.userMetadata;
+    profile['banner_position'] ??= metadata?['banner_position'];
+    profile['banner_scale'] ??= metadata?['banner_scale'];
+
+    return profile;
   }
 
   // ==========================
@@ -94,14 +102,12 @@ class ProfileService {
       throw Exception("Usuario no autenticado");
     }
 
-    // Eliminar banner anterior
+    // Conservamos el banner anterior hasta que el nuevo archivo y su
+    // encuadre hayan quedado guardados correctamente en el perfil.
     final files = await _supabase.storage.from("banners").list(path: user.id);
-
-    if (files.isNotEmpty) {
-      final paths = files.map((file) => "${user.id}/${file.name}").toList();
-
-      await _supabase.storage.from("banners").remove(paths);
-    }
+    final previousPaths = files
+        .map((file) => "${user.id}/${file.name}")
+        .toList();
 
     // Nuevo nombre único
     final fileName = "${DateTime.now().millisecondsSinceEpoch}.png";
@@ -134,22 +140,43 @@ class ProfileService {
 
       print("Actualizando perfil...");
 
-      await _supabase
-          .from("profiles")
-          .update({"banner_url": publicUrl})
-          .eq("id", user.id);
-
-      // Keep working for existing databases until the migration is applied.
       try {
         await _supabase
             .from("profiles")
             .update({
+              "banner_url": publicUrl,
               "banner_position": verticalPosition,
               "banner_scale": scale,
             })
             .eq("id", user.id);
-      } catch (_) {
-        // The current session still uses the selected position locally.
+      } on PostgrestException catch (error) {
+        if (error.code != 'PGRST204') rethrow;
+
+        await _supabase
+            .from("profiles")
+            .update({"banner_url": publicUrl})
+            .eq("id", user.id);
+
+        await _supabase.auth.updateUser(
+          UserAttributes(
+            data: {
+              "banner_position": verticalPosition,
+              "banner_scale": scale,
+            },
+          ),
+        );
+      }
+
+      final stalePaths = previousPaths
+          .where((oldPath) => oldPath != path)
+          .toList();
+      if (stalePaths.isNotEmpty) {
+        try {
+          await _supabase.storage.from("banners").remove(stalePaths);
+        } catch (_) {
+          // El banner nuevo ya es válido; una limpieza pendiente no debe
+          // deshacer el cambio visible del usuario.
+        }
       }
 
       print("Banner actualizado correctamente.");

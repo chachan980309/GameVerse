@@ -39,11 +39,18 @@ class _EditableBannerState extends State<EditableBanner> {
     final framing = await _showPreview(bytes);
     if (framing == null) return;
 
-    await _profile.setBanner(
-      bytes,
-      verticalPosition: framing.verticalPosition,
-      scale: framing.scale,
-    );
+    try {
+      await _profile.setBanner(
+        bytes,
+        verticalPosition: framing.verticalPosition,
+        scale: framing.scale,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar el banner: $error')),
+      );
+    }
   }
 
   Future<_BannerFraming?> _showPreview(Uint8List bytes) {

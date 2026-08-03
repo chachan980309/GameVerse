@@ -45,14 +45,34 @@ class DirectMessageService {
     final data = await _supabase
         .from('direct_messages')
         .select(
-          'id, sender_id, content, created_at, read_at, sender:profiles!direct_messages_sender_id_fkey(id, username, avatar_url)',
+          'id, sender_id, receiver_id, content, created_at, read_at, sender:profiles!direct_messages_sender_id_fkey(id, username, avatar_url), receiver:profiles!direct_messages_receiver_id_fkey(id, username, avatar_url)',
         )
-        .eq('receiver_id', userId)
+        .or('sender_id.eq.$userId,receiver_id.eq.$userId')
         .order('created_at', ascending: false);
-    final uniqueSenders = <String>{};
-    return List<Map<String, dynamic>>.from(data)
-        .where((message) => uniqueSenders.add(message['sender_id'].toString()))
-        .toList();
+
+    final conversations = <String, Map<String, dynamic>>{};
+    for (final raw in List<Map<String, dynamic>>.from(data)) {
+      final sentByMe = raw['sender_id']?.toString() == userId;
+      final otherUserId = sentByMe
+          ? raw['receiver_id']?.toString() ?? ''
+          : raw['sender_id']?.toString() ?? '';
+      if (otherUserId.isEmpty) continue;
+
+      final conversation = conversations.putIfAbsent(otherUserId, () {
+        final message = Map<String, dynamic>.from(raw);
+        message['other_user_id'] = otherUserId;
+        message['other_user'] = sentByMe ? raw['receiver'] : raw['sender'];
+        message['is_mine'] = sentByMe;
+        message['has_unread'] = false;
+        return message;
+      });
+
+      if (!sentByMe && raw['read_at'] == null) {
+        conversation['has_unread'] = true;
+      }
+    }
+
+    return conversations.values.toList();
   }
 
   Future<void> markMessagesFromRead(String senderId) async {

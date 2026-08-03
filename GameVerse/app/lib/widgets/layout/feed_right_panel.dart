@@ -136,7 +136,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
 
   @override
   Widget build(BuildContext context) => Container(
-    color: const Color(0xFF0F0E17),
+    color: const Color.fromRGBO(10, 9, 18, 0.88),
     padding: const EdgeInsets.all(14),
     child: ListView(
       children: [

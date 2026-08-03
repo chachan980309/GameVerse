@@ -4,12 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../pages/feed_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/friends_page.dart';
+import '../pages/voice_channels_page.dart';
 import '../services/profile_navigation_service.dart';
 import '../services/post_navigation_service.dart';
 
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
 import '../widgets/layout/feed_right_panel.dart';
+import '../widgets/layout/feed_background.dart';
 import '../widgets/layout/topbar.dart';
 import '../widgets/chat/friend_chat_panel.dart';
 
@@ -96,12 +98,7 @@ class _MainScreenState extends State<MainScreen> {
         return const FriendsPage();
 
       case 3:
-        return const Center(
-          child: Text(
-            "Chats",
-            style: TextStyle(color: Colors.white, fontSize: 30),
-          ),
-        );
+        return const VoiceChannelsPage();
 
       case 4:
         return const Center(
@@ -120,41 +117,50 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff17141F),
-      body: Row(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          SizedBox(
-            width: 250,
-            child: Sidebar(
-              selected: selectedIndex,
-              username: usernameActual,
-              onSelected: (index) {
-                setState(() {
-                  selectedIndex = index;
-                  // Sidebar navigation returns to the user's own profile/panels.
-                  viewedProfileId = null;
-                  if (index != 2) activeFriendChat = null;
-                });
-                ProfileNavigationService.instance.clear();
-              },
-            ),
-          ),
+          if (selectedIndex == 0 || selectedIndex == 1 || selectedIndex == 3)
+            const FeedBackground(),
+          Row(
+            children: [
+              SizedBox(
+                width: 250,
+                child: Sidebar(
+                  selected: selectedIndex,
+                  username: usernameActual,
+                  onSelected: (index) {
+                    setState(() {
+                      selectedIndex = index;
+                      // Sidebar navigation returns to the user's own profile/panels.
+                      viewedProfileId = null;
+                      if (index != 2) activeFriendChat = null;
+                    });
+                    ProfileNavigationService.instance.clear();
+                  },
+                ),
+              ),
 
-          Expanded(
-            child: selectedIndex == 2 ? _friendsLayout() : _standardLayout(),
-          ),
+              Expanded(
+                child: selectedIndex == 2
+                    ? _friendsLayout()
+                    : _standardLayout(),
+              ),
 
-          if (selectedIndex != 2)
-            SizedBox(
-              width: selectedIndex == 0 ? 310 : 280,
-              child: viewedProfileId == null
-                  ? (selectedIndex == 0
-                        ? const FeedRightPanel()
-                        : const MyProfilePanel())
-                  : PublicProfilePanel(
-                      key: ValueKey('public-panel-$viewedProfileId'),
-                      userId: viewedProfileId!,
-                    ),
-            ),
+              if (selectedIndex != 2)
+                SizedBox(
+                  width: selectedIndex == 0 ? 310 : 280,
+                  child: viewedProfileId == null
+                      ? (selectedIndex == 0
+                            ? const FeedRightPanel()
+                            : const MyProfilePanel())
+                      : PublicProfilePanel(
+                          key: ValueKey('public-panel-$viewedProfileId'),
+                          userId: viewedProfileId!,
+                        ),
+                ),
+            ],
+          ),
         ],
       ),
     );
