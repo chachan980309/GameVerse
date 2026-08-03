@@ -87,4 +87,25 @@ class PostController extends ChangeNotifier {
       await loadUserPosts(_currentUserId!);
     }
   }
+
+  // ==========================
+  // ELIMINAR PUBLICACIÓN
+  // ==========================
+
+  Future<void> deletePost(String postId) async {
+    await _postService.deletePost(postId);
+
+    // Actualización optimista para que desaparezca inmediatamente del feed
+    // y de cualquier muro ya abierto.
+    feedPosts = feedPosts.where((post) => post.id != postId).toList();
+    userPosts = userPosts.where((post) => post.id != postId).toList();
+    notifyListeners();
+
+    // Relee los datos del servidor para mantener contadores y compartidos
+    // sincronizados entre vistas.
+    await loadFeed();
+    if (_currentUserId != null) {
+      await loadUserPosts(_currentUserId!);
+    }
+  }
 }

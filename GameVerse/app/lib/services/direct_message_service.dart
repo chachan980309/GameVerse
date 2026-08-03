@@ -16,13 +16,17 @@ class DirectMessageService {
         .or(
           'and(sender_id.eq.$userId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$userId)',
         )
-        .order('created_at');
+        .order('created_at', ascending: true);
     return data
         .map<DirectMessage>((item) => DirectMessage.fromMap(item))
         .toList();
   }
 
-  Future<void> sendMessage(String receiverId, String content) async {
+  Future<void> sendMessage(
+    String receiverId,
+    String content, {
+    String? sharedPostId,
+  }) async {
     final userId = currentUserId;
     final text = content.trim();
     if (userId.isEmpty) throw Exception('Usuario no autenticado.');
@@ -31,6 +35,7 @@ class DirectMessageService {
       'sender_id': userId,
       'receiver_id': receiverId,
       'content': text,
+      'shared_post_id': sharedPostId,
     });
   }
 

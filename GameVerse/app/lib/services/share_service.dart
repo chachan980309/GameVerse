@@ -11,7 +11,7 @@ class ShareService {
     final user = _supabase.auth.currentUser;
     if (user == null) throw StateError('Usuario no autenticado.');
 
-    final original = post.sharedPost ?? post;
+    final original = await _resolveOriginal(post);
     await PostController.instance.createPost(
       content: 'Compartió una publicación de @${original.username}',
       type: 'share',
@@ -27,10 +27,11 @@ class ShareService {
   }
 
   Future<void> shareByMessage(PostModel post, String receiverId) async {
-    final original = post.sharedPost ?? post;
+    final original = await _resolveOriginal(post);
     await DirectMessageService().sendMessage(
       receiverId,
-      'Compartió una publicación de @${original.username}:\n${original.content}',
+      'Compartió una publicación de @${original.username}',
+      sharedPostId: original.id,
     );
     await _recordShare(original.id);
     try {
@@ -50,6 +51,32 @@ class ShareService {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// A share must always reference the root post, never another share.
+  /// This keeps the feed flat and displays the real original author/content.
+  Future<PostModel> _resolveOriginal(PostModel post) async {
+    var current = post.sharedPost ?? post;
+    final visitedIds = <String>{post.id};
+
+    for (var depth = 0; depth < 8; depth++) {
+      final parentId = current.sharedPostId;
+      if (parentId == null || !visitedIds.add(parentId)) return current;
+
+      try {
+        final row = await _supabase
+            .from('posts')
+            .select('*, profiles(username, avatar_url)')
+            .eq('id', parentId)
+            .maybeSingle();
+        if (row == null) return current;
+        current = PostModel.fromMap(Map<String, dynamic>.from(row));
+      } catch (_) {
+        return current;
+      }
+    }
+
+    return current;
   }
 
   Future<void> _recordShare(String postId) async {

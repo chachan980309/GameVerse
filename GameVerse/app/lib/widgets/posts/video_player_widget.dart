@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -37,6 +38,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Duration duration = Duration.zero;
 
+  double? videoAspectRatio;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +61,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         setState(() {
           duration = value;
         });
+      }
+    });
+
+    player.stream.videoParams.listen((value) {
+      final ratio = value.aspect;
+      if (mounted && ratio != null && ratio > 0) {
+        setState(() => videoAspectRatio = ratio);
       }
     });
 
@@ -180,160 +190,173 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         .clamp(0, maxValue.toInt())
         .toDouble();
 
-    return VisibilityDetector(
-      key: Key(widget.url),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ratio = videoAspectRatio ?? (16 / 9);
+        // Los videos verticales quedan compactos, y los horizontales ocupan
+        // el ancho disponible sin forzar grandes bandas negras laterales.
+        final maxHeight = ratio < 0.9 ? 520.0 : 420.0;
+        final width = math.min(constraints.maxWidth, maxHeight * ratio);
+        final height = width / ratio;
 
-      onVisibilityChanged: visibilityChanged,
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: VisibilityDetector(
+              key: Key(widget.url),
+              onVisibilityChanged: visibilityChanged,
+              child: MouseRegion(
+                onEnter: (_) => showVideoControls(),
+                child: GestureDetector(
+                  onTap: showVideoControls,
+                  onDoubleTap: togglePlay,
+                  child: Stack(
+                    alignment: Alignment.center,
 
-      child: MouseRegion(
-        onEnter: (_) {
-          showVideoControls();
-        },
-
-        onHover: (_) {},
-
-        child: GestureDetector(
-          onTap: showVideoControls,
-
-          onDoubleTap: () {
-            togglePlay();
-          },
-
-          child: Stack(
-            alignment: Alignment.center,
-
-            children: [
-              Video(
-                controller: controller,
-
-                fit: BoxFit.contain,
-
-                controls: NoVideoControls,
-              ),
-
-              if (loading) const CircularProgressIndicator(color: Colors.white),
-
-              if (showControls)
-                Positioned(
-                  left: 10,
-
-                  right: 10,
-
-                  bottom: 5,
-
-                  child: Column(
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              playing ? Icons.pause : Icons.play_arrow,
-                              color: Colors.white,
-                              size: 25,
-                            ),
-                            onPressed: togglePlay,
-                          ),
+                      Video(
+                        controller: controller,
 
-                          Text(
-                            "${formatTime(position)} / ${formatTime(duration)}",
+                        fit: BoxFit.contain,
 
-                            style: const TextStyle(
-                              color: Colors.white,
-
-                              fontSize: 12,
-                            ),
-                          ),
-
-                          const Spacer(),
-
-                          IconButton(
-                            icon: Icon(
-                              volume == 0 ? Icons.volume_off : Icons.volume_up,
-
-                              color: Colors.white,
-                            ),
-
-                            onPressed: toggleMute,
-                          ),
-
-                          SizedBox(
-                            width: 120,
-
-                            child: Slider(
-                              value: volume,
-
-                              min: 0,
-
-                              max: 100,
-
-                              onChanged: changeVolume,
-
-                              activeColor: const Color(0xff8B5CFF),
-
-                              inactiveColor: Colors.white24,
-                            ),
-                          ),
-
-                          IconButton(
-                            icon: const Icon(
-                              Icons.fullscreen,
-
-                              color: Colors.white,
-                            ),
-
-                            onPressed: goFullscreen,
-                          ),
-                        ],
+                        controls: NoVideoControls,
                       ),
 
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 7,
+                      if (loading)
+                        const CircularProgressIndicator(color: Colors.white),
 
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 8,
+                      if (showControls)
+                        Positioned(
+                          left: 10,
+
+                          right: 10,
+
+                          bottom: 5,
+
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      playing ? Icons.pause : Icons.play_arrow,
+                                      color: Colors.white,
+                                      size: 25,
+                                    ),
+                                    onPressed: togglePlay,
+                                  ),
+
+                                  Text(
+                                    "${formatTime(position)} / ${formatTime(duration)}",
+
+                                    style: const TextStyle(
+                                      color: Colors.white,
+
+                                      fontSize: 12,
+                                    ),
+                                  ),
+
+                                  const Spacer(),
+
+                                  IconButton(
+                                    icon: Icon(
+                                      volume == 0
+                                          ? Icons.volume_off
+                                          : Icons.volume_up,
+
+                                      color: Colors.white,
+                                    ),
+
+                                    onPressed: toggleMute,
+                                  ),
+
+                                  SizedBox(
+                                    width: 120,
+
+                                    child: Slider(
+                                      value: volume,
+
+                                      min: 0,
+
+                                      max: 100,
+
+                                      onChanged: changeVolume,
+
+                                      activeColor: const Color(0xff8B5CFF),
+
+                                      inactiveColor: Colors.white24,
+                                    ),
+                                  ),
+
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.fullscreen,
+
+                                      color: Colors.white,
+                                    ),
+
+                                    onPressed: goFullscreen,
+                                  ),
+                                ],
+                              ),
+
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 7,
+
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 8,
+                                  ),
+
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 14,
+                                  ),
+
+                                  activeTrackColor: const Color(0xff8B5CFF),
+
+                                  inactiveTrackColor: Colors.white24,
+
+                                  thumbColor: const Color(0xff8B5CFF),
+                                ),
+
+                                child: Slider(
+                                  value: currentValue,
+
+                                  max: maxValue,
+
+                                  onChangeStart: (_) {
+                                    seeking = true;
+                                  },
+
+                                  onChanged: (value) {
+                                    setState(() {
+                                      position = Duration(
+                                        milliseconds: value.toInt(),
+                                      );
+                                    });
+                                  },
+
+                                  onChangeEnd: (value) {
+                                    player.seek(
+                                      Duration(milliseconds: value.toInt()),
+                                    );
+
+                                    seeking = false;
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 14,
-                          ),
-
-                          activeTrackColor: const Color(0xff8B5CFF),
-
-                          inactiveTrackColor: Colors.white24,
-
-                          thumbColor: const Color(0xff8B5CFF),
                         ),
-
-                        child: Slider(
-                          value: currentValue,
-
-                          max: maxValue,
-
-                          onChangeStart: (_) {
-                            seeking = true;
-                          },
-
-                          onChanged: (value) {
-                            setState(() {
-                              position = Duration(milliseconds: value.toInt());
-                            });
-                          },
-
-                          onChangeEnd: (value) {
-                            player.seek(Duration(milliseconds: value.toInt()));
-
-                            seeking = false;
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 ),
-            ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

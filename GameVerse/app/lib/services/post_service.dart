@@ -53,35 +53,88 @@ class PostService {
     return _mapPosts(response);
   }
 
+  /// Obtiene una publicación concreta para abrirla desde un mensaje.
+  Future<PostModel?> getPostById(String postId) async {
+    try {
+      final row = await supabase
+          .from('posts')
+          .select(_postSelectWithShared)
+          .eq('id', postId)
+          .maybeSingle();
+      if (row == null) return null;
+      return _mapPosts([
+        row,
+      ]).then((posts) => posts.isEmpty ? null : posts.first);
+    } on PostgrestException {
+      final row = await supabase
+          .from('posts')
+          .select(_postSelect)
+          .eq('id', postId)
+          .maybeSingle();
+      if (row == null) return null;
+      return PostModel.fromMap(Map<String, dynamic>.from(row));
+    }
+  }
+
   /// Hydrates shared posts when PostgREST cannot expose the nested relation.
   Future<List<PostModel>> _mapPosts(List<dynamic> response) async {
     final rows = response
         .map((row) => Map<String, dynamic>.from(row as Map))
         .toList();
 
+    // Incluso cuando PostgREST ya entrega `shared_post`, esa relación solo
+    // incluye un nivel. Siempre cargamos desde el id para resolver una cadena
+    // completa de compartidos hasta la publicación raíz.
     final sourceIds = rows
-        .where(
-          (row) => row['shared_post'] == null && row['shared_post_id'] != null,
-        )
+        .where((row) => row['shared_post_id'] != null)
         .map((row) => row['shared_post_id'].toString())
         .toSet()
         .toList();
 
     if (sourceIds.isNotEmpty) {
       try {
-        final sourceRows = await supabase
-            .from('posts')
-            .select(_postSelect)
-            .inFilter('id', sourceIds);
-        final sourcesById = <String, Map<String, dynamic>>{
-          for (final source in sourceRows)
-            source['id'].toString(): Map<String, dynamic>.from(source as Map),
-        };
+        final sourcesById = <String, Map<String, dynamic>>{};
+        var idsToLoad = sourceIds.toSet();
+
+        // Load the chain in batches. A shared post may itself refer to an
+        // older shared post, but the UI should always show the root original.
+        for (var depth = 0; depth < 8 && idsToLoad.isNotEmpty; depth++) {
+          final sourceRows = await supabase
+              .from('posts')
+              .select(_postSelect)
+              .inFilter('id', idsToLoad.toList());
+
+          idsToLoad = <String>{};
+          for (final source in sourceRows) {
+            final sourceMap = Map<String, dynamic>.from(source as Map);
+            final sourceId = sourceMap['id'].toString();
+            if (sourcesById.containsKey(sourceId)) continue;
+            sourcesById[sourceId] = sourceMap;
+
+            final parentId = sourceMap['shared_post_id']?.toString();
+            if (parentId != null && !sourcesById.containsKey(parentId)) {
+              idsToLoad.add(parentId);
+            }
+          }
+        }
 
         for (final row in rows) {
           final sourceId = row['shared_post_id']?.toString();
-          if (sourceId != null && sourcesById.containsKey(sourceId)) {
-            row['shared_post'] = sourcesById[sourceId];
+          if (sourceId == null) continue;
+
+          var root = sourcesById[sourceId];
+          final visitedIds = <String>{row['id'].toString()};
+          while (root != null) {
+            final rootId = root['id'].toString();
+            final parentId = root['shared_post_id']?.toString();
+            if (parentId == null || !visitedIds.add(rootId)) break;
+            final parent = sourcesById[parentId];
+            if (parent == null) break;
+            root = parent;
+          }
+
+          if (root != null) {
+            row['shared_post'] = root;
           }
         }
       } catch (error) {
@@ -214,5 +267,26 @@ class PostService {
     await ProfileController.instance.loadProfile();
 
     debugPrint("========== INSERT OK ==========");
+  }
+
+  // ==========================
+  // ELIMINAR PUBLICACIÓN
+  // ==========================
+
+  /// El filtro por [user_id] es una capa adicional de seguridad en el cliente.
+  /// La policy de Supabase sigue siendo la autoridad que impide borrar posts
+  /// de otra persona.
+  Future<void> deletePost(String postId) async {
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId)
+        .eq('user_id', user.id);
   }
 }

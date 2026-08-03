@@ -1,7 +1,10 @@
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart';
 
 import '../controllers/post_controller.dart';
+import '../services/post_navigation_service.dart';
 import '../widgets/forms/create_post.dart';
+import '../widgets/layout/feed_background.dart';
 import '../widgets/posts/post_list.dart';
 
 class FeedPage extends StatefulWidget {
@@ -13,30 +16,115 @@ class FeedPage extends StatefulWidget {
 
 class _FeedPageState extends State<FeedPage> {
   final PostController postController = PostController.instance;
+  final ScrollController _feedScrollController = ScrollController();
   int _selectedFeed = 0;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-    child: Column(
-      children: [
-        CreatePost(onPostCreated: postController.loadFeed),
-        const SizedBox(height: 12),
-        _feedTabs(),
-        const SizedBox(height: 12),
-        Expanded(
-          child: AnimatedBuilder(
-            animation: postController,
-            builder: (context, _) => PostList(
-              posts: postController.feedPosts,
-              loading: postController.isLoading,
-              onRefresh: postController.loadFeed,
-              emptyMessage: 'Aún no hay publicaciones.',
+  void initState() {
+    super.initState();
+    PostNavigationService.instance.addListener(_onPostRequested);
+  }
+
+  @override
+  void dispose() {
+    PostNavigationService.instance.removeListener(_onPostRequested);
+    _feedScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onPostRequested() {
+    if (mounted) setState(() {});
+  }
+
+  void _scrollFeed(double delta) {
+    if (!_feedScrollController.hasClients) return;
+
+    final position = _feedScrollController.position;
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+
+    if (target != position.pixels) {
+      _feedScrollController.jumpTo(target);
+    }
+  }
+
+  Widget _scrollSide() => Listener(
+    behavior: HitTestBehavior.opaque,
+    onPointerSignal: (event) {
+      if (event is PointerScrollEvent) {
+        _scrollFeed(event.scrollDelta.dy);
+      }
+    },
+    child: const SizedBox.expand(),
+  );
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // La tarjeta individual mide 820 px. Se añaden 28 px para el padding
+      // propio del feed, manteniendo la misma proporción visual.
+      final feedWidth = constraints.maxWidth > 900
+          ? 848.0
+          : constraints.maxWidth;
+
+      final hasLateralSpace = constraints.maxWidth > 900;
+
+      return SizedBox(
+        width: double.infinity,
+        height: constraints.maxHeight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const FeedBackground(),
+            Scrollbar(
+              controller: _feedScrollController,
+              thumbVisibility: hasLateralSpace,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (hasLateralSpace) Expanded(child: _scrollSide()),
+                  SizedBox(
+                    width: feedWidth,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                      child: Column(
+                        children: [
+                          CreatePost(onPostCreated: postController.loadFeed),
+                          const SizedBox(height: 12),
+                          _feedTabs(),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: AnimatedBuilder(
+                              animation: postController,
+                              builder: (context, _) => ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(
+                                  context,
+                                ).copyWith(scrollbars: false),
+                                child: PostList(
+                                  posts: postController.feedPosts,
+                                  loading: postController.isLoading,
+                                  onRefresh: postController.loadFeed,
+                                  emptyMessage: 'Aún no hay publicaciones.',
+                                  focusPostId:
+                                      PostNavigationService.instance.postId,
+                                  scrollController: _feedScrollController,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (hasLateralSpace) Expanded(child: _scrollSide()),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 
   Widget _feedTabs() => Container(

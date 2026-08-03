@@ -10,6 +10,8 @@ class PostList extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final bool loading;
   final String emptyMessage;
+  final String? focusPostId;
+  final ScrollController? scrollController;
 
   const PostList({
     super.key,
@@ -17,6 +19,8 @@ class PostList extends StatefulWidget {
     required this.onRefresh,
     required this.loading,
     required this.emptyMessage,
+    this.focusPostId,
+    this.scrollController,
   });
 
   @override
@@ -25,6 +29,40 @@ class PostList extends StatefulWidget {
 
 class _PostListState extends State<PostList> {
   final VideoFeedController videoController = VideoFeedController();
+  final _postKeys = <String, GlobalKey>{};
+  String? _lastFocusedPostId;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastFocusedPostId = widget.focusPostId;
+    if (widget.focusPostId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusPost());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PostList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusPostId != null &&
+        widget.focusPostId != _lastFocusedPostId) {
+      _lastFocusedPostId = widget.focusPostId;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusPost());
+    }
+  }
+
+  void _focusPost() {
+    final key = _postKeys[widget.focusPostId];
+    final targetContext = key?.currentContext;
+    if (targetContext != null) {
+      Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: .12,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -45,6 +83,7 @@ class _PostListState extends State<PostList> {
         color: const Color(0xff6438FF),
         onRefresh: widget.onRefresh,
         child: ListView(
+          controller: widget.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             const SizedBox(height: 150),
@@ -63,11 +102,13 @@ class _PostListState extends State<PostList> {
       color: const Color(0xff6438FF),
       onRefresh: widget.onRefresh,
       child: ListView.builder(
+        controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         itemCount: widget.posts.length,
         itemBuilder: (context, index) {
           return PostCard(
+            key: _postKeys.putIfAbsent(widget.posts[index].id, GlobalKey.new),
             post: widget.posts[index],
             index: index,
             videoController: videoController,

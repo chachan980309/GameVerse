@@ -39,7 +39,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (widget.userId != null) {
-      return _PublicProfilePage(userId: widget.userId!);
+      return _PublicProfilePage(
+        key: ValueKey('public-profile-${widget.userId}'),
+        userId: widget.userId!,
+      );
     }
 
     return Scaffold(
@@ -86,7 +89,7 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _PublicProfilePage extends StatefulWidget {
-  const _PublicProfilePage({required this.userId});
+  const _PublicProfilePage({super.key, required this.userId});
 
   final String userId;
 

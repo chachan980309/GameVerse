@@ -55,5 +55,4 @@ flutter:
   assets:
     - assets/images/
     - assets/images/nubzzz_logo.png
-
-   # PRUEBA
+    - assets/images/nubzzz_default_feed_background.png

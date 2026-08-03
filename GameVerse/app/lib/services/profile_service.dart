@@ -28,37 +28,23 @@ class ProfileService {
       throw Exception("Usuario no autenticado");
     }
 
-    // Eliminar avatar anterior
-    final files = await _supabase.storage.from("avatars").list(path: user.id);
-
-    if (files.isNotEmpty) {
-      final paths = files.map((file) => "${user.id}/${file.name}").toList();
-
-      await _supabase.storage.from("avatars").remove(paths);
+    // Conservamos el avatar anterior hasta que la nueva imagen esté subida y
+    // el perfil apunte a ella. Eliminarlo antes podía dejar el perfil con una
+    // URL rota si la subida se interrumpía.
+    List<String> previousPaths = const [];
+    try {
+      final files = await _supabase.storage.from("avatars").list(path: user.id);
+      previousPaths = files.map((file) => "${user.id}/${file.name}").toList();
+    } catch (_) {
+      // La carga del avatar no debe fallar solo porque no se puedan limpiar
+      // versiones antiguas.
     }
 
     // Nuevo nombre único
     final fileName = "${DateTime.now().millisecondsSinceEpoch}.png";
     final path = "${user.id}/$fileName";
 
-    print("======================================");
-    print("INICIANDO SUBIDA DE AVATAR");
-    print("USER ID: ${user.id}");
-    print("EMAIL: ${user.email}");
-    print("PATH: $path");
-    print("SESSION ACTIVA: ${_supabase.auth.currentSession != null}");
-
-    final session = _supabase.auth.currentSession;
-
-    if (session != null) {
-      print("TOKEN: ${session.accessToken.substring(0, 20)}...");
-    }
-
-    print("======================================");
-
     try {
-      print("Subiendo imagen...");
-
       await _supabase.storage
           .from("avatars")
           .uploadBinary(
@@ -67,30 +53,28 @@ class ProfileService {
             fileOptions: const FileOptions(contentType: "image/png"),
           );
 
-      print("Imagen subida correctamente.");
-
       final publicUrl = _supabase.storage.from("avatars").getPublicUrl(path);
-
-      print("URL PUBLICA:");
-      print(publicUrl);
-
-      print("Actualizando perfil...");
 
       await _supabase
           .from("profiles")
           .update({"avatar_url": publicUrl})
           .eq("id", user.id);
 
-      print("Perfil actualizado correctamente.");
-      print("======================================");
+      // Ya existe una URL válida en el perfil: ahora sí es seguro liberar
+      // archivos previos. Si esta limpieza falla, la foto actual sigue sana.
+      final stalePaths = previousPaths
+          .where((oldPath) => oldPath != path)
+          .toList();
+      if (stalePaths.isNotEmpty) {
+        try {
+          await _supabase.storage.from("avatars").remove(stalePaths);
+        } catch (_) {}
+      }
 
       return publicUrl;
     } catch (e, stack) {
-      print("======================================");
-      print("ERROR AL SUBIR AVATAR");
       print(e);
       print(stack);
-      print("======================================");
       rethrow;
     }
   }

@@ -5,6 +5,7 @@ import '../pages/feed_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/friends_page.dart';
 import '../services/profile_navigation_service.dart';
+import '../services/post_navigation_service.dart';
 
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
@@ -31,11 +32,13 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     cargarUsuario();
     ProfileNavigationService.instance.addListener(_openPublicProfile);
+    PostNavigationService.instance.addListener(_openPost);
   }
 
   @override
   void dispose() {
     ProfileNavigationService.instance.removeListener(_openPublicProfile);
+    PostNavigationService.instance.removeListener(_openPost);
     super.dispose();
   }
 
@@ -45,6 +48,15 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       selectedIndex = 1;
       viewedProfileId = profileId;
+      activeFriendChat = null;
+    });
+  }
+
+  void _openPost() {
+    if (PostNavigationService.instance.postId == null || !mounted) return;
+    setState(() {
+      selectedIndex = 0;
+      viewedProfileId = null;
       activeFriendChat = null;
     });
   }
@@ -73,7 +85,12 @@ class _MainScreenState extends State<MainScreen> {
         return const FeedPage();
 
       case 1:
-        return ProfilePage(userId: viewedProfileId);
+        // La key evita reutilizar el estado/FutureBuilder del perfil anterior
+        // al navegar muy rápido entre usuarios distintos.
+        return ProfilePage(
+          key: ValueKey('profile-${viewedProfileId ?? 'me'}'),
+          userId: viewedProfileId,
+        );
 
       case 2:
         return const FriendsPage();
@@ -117,6 +134,7 @@ class _MainScreenState extends State<MainScreen> {
                   viewedProfileId = null;
                   if (index != 2) activeFriendChat = null;
                 });
+                ProfileNavigationService.instance.clear();
               },
             ),
           ),
@@ -132,7 +150,10 @@ class _MainScreenState extends State<MainScreen> {
                   ? (selectedIndex == 0
                         ? const FeedRightPanel()
                         : const MyProfilePanel())
-                  : PublicProfilePanel(userId: viewedProfileId!),
+                  : PublicProfilePanel(
+                      key: ValueKey('public-panel-$viewedProfileId'),
+                      userId: viewedProfileId!,
+                    ),
             ),
         ],
       ),

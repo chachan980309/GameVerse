@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -30,12 +31,7 @@ class PostMedia extends StatelessWidget {
         post.videoUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: double.infinity,
-          height: 420,
-          color: Colors.black,
-          child: VideoPlayerWidget(url: post.videoUrl!),
-        ),
+        child: VideoPlayerWidget(url: post.videoUrl!),
       );
     }
 
@@ -48,63 +44,67 @@ class PostMedia extends StatelessWidget {
         child: FutureBuilder<ImageInfo>(
           future: _loadImage(post.imageUrl!),
           builder: (context, snapshot) {
-            double height = 420;
-
             if (snapshot.hasData) {
               final image = snapshot.data!.image;
               final ratio = image.width / image.height;
 
-              if (ratio > 1.35) {
-                // Horizontal
-                height = 320;
-              } else if (ratio < 0.8) {
-                // Vertical
-                height = 650;
-              } else {
-                // Cuadrada
-                height = 450;
-              }
-            }
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  // La imagen conserva siempre su proporción. Los retratos no
+                  // estiran la tarjeta completa ni dejan bandas laterales.
+                  const maxMediaHeight = 520.0;
+                  final width = math.min(
+                    constraints.maxWidth,
+                    maxMediaHeight * ratio,
+                  );
+                  final height = width / ratio;
 
-            return MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ImageViewerPage(imageUrl: post.imageUrl!),
+                  return Center(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ImageViewerPage(imageUrl: post.imageUrl!),
+                            ),
+                          );
+                        },
+                        child: SizedBox(
+                          width: width,
+                          height: height,
+                          child: Image.network(
+                            post.imageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.white54,
+                                  size: 60,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
-                child: Container(
-                  width: double.infinity,
-                  height: height,
-                  color: Colors.transparent,
-                  child: Image.network(
-                    post.imageUrl!,
-                    width: double.infinity,
-                    height: height,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) {
-                        return child;
-                      }
+              );
+            }
 
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white54,
-                          size: 60,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
+            return const SizedBox(
+              height: 280,
+              child: Center(child: CircularProgressIndicator()),
             );
           },
         ),

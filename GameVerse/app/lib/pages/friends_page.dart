@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/direct_message.dart';
 import '../services/direct_message_service.dart';
 import '../services/friend_service.dart';
+import '../widgets/chat/shared_post_message_card.dart';
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key, this.showChat = true, this.onFriendSelected});
@@ -22,6 +23,7 @@ class _FriendsPageState extends State<FriendsPage> {
   final FriendService _friendService = FriendService();
   final DirectMessageService _messageService = DirectMessageService();
   final TextEditingController _messageController = TextEditingController();
+  final ScrollController _chatScrollController = ScrollController();
 
   bool _loading = true;
   int _selectedTab = 0;
@@ -32,10 +34,12 @@ class _FriendsPageState extends State<FriendsPage> {
   Map<String, dynamic>? _activeChatProfile;
   Future<List<DirectMessage>>? _chatMessages;
   bool _sendingMessage = false;
+  bool _didInitialChatScroll = false;
 
   @override
   void dispose() {
     _messageController.dispose();
+    _chatScrollController.dispose();
     super.dispose();
   }
 
@@ -413,6 +417,7 @@ class _FriendsPageState extends State<FriendsPage> {
     if (userId == null || userId.isEmpty) return;
     setState(() {
       _activeChatProfile = profile;
+      _didInitialChatScroll = false;
       _chatMessages = _messageService.getConversation(userId);
     });
   }
@@ -429,13 +434,31 @@ class _FriendsPageState extends State<FriendsPage> {
       _messageController.clear();
       if (!mounted) return;
       setState(() {
+        _didInitialChatScroll = false;
         _chatMessages = _messageService.getConversation(userId);
       });
+      _scrollChatToLatest(animated: true);
     } catch (error) {
       if (mounted) _showMessage('No se pudo enviar: $error', isError: true);
     } finally {
       if (mounted) setState(() => _sendingMessage = false);
     }
+  }
+
+  void _scrollChatToLatest({bool animated = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_chatScrollController.hasClients) return;
+      final offset = _chatScrollController.position.maxScrollExtent;
+      if (animated) {
+        _chatScrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _chatScrollController.jumpTo(offset);
+      }
+    });
   }
 
   Widget _chatPanel() {
@@ -536,7 +559,12 @@ class _FriendsPageState extends State<FriendsPage> {
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
+                if (!_didInitialChatScroll) {
+                  _didInitialChatScroll = true;
+                  _scrollChatToLatest();
+                }
                 return ListView.builder(
+                  controller: _chatScrollController,
                   padding: const EdgeInsets.all(12),
                   itemCount: chat.length,
                   itemBuilder: (context, index) {
@@ -547,25 +575,7 @@ class _FriendsPageState extends State<FriendsPage> {
                       alignment: mine
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 8,
-                        ),
-                        constraints: const BoxConstraints(maxWidth: 260),
-                        decoration: BoxDecoration(
-                          color: mine ? _purple : const Color(0xFF2A2834),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          message.content,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
+                      child: ChatMessageBubble(message: message, mine: mine),
                     );
                   },
                 );
