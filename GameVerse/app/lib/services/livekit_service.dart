@@ -62,7 +62,24 @@ class LiveKitService {
       }
 
       final room = Room(
-        roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
+        roomOptions: const RoomOptions(
+          adaptiveStream: false,
+          dynacast: false,
+          defaultAudioPublishOptions: AudioPublishOptions(
+            encoding: AudioEncoding(maxBitrate: 128000),
+          ),
+          defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
+            params: VideoParametersPresets.screenShareH1080FPS30,
+            captureScreenAudio: true,
+          ),
+          defaultVideoPublishOptions: VideoPublishOptions(
+            simulcast: false,
+            videoEncoding: VideoEncoding(
+              maxBitrate: 6000000,
+              maxFramerate: 30,
+            ),
+          ),
+        ),
       );
       _room = room;
       await room.prepareConnection(url, token);
@@ -164,7 +181,14 @@ class LiveKitService {
     final participant = _room?.localParticipant;
     if (participant == null) return false;
     final enabled = !participant.isScreenShareEnabled();
-    await participant.setScreenShareEnabled(enabled);
+    await participant.setScreenShareEnabled(
+      enabled,
+      captureScreenAudio: true,
+      screenShareCaptureOptions: const ScreenShareCaptureOptions(
+        params: VideoParametersPresets.screenShareH1080FPS30,
+        captureScreenAudio: true,
+      ),
+    );
     return enabled;
   }
 
