@@ -23,6 +23,7 @@ class VoiceParticipantState {
     required this.isMuted,
     required this.isSpeaking,
     required this.joinedAt,
+    required this.isScreenSharing,
   });
 
   final String id;
@@ -32,6 +33,7 @@ class VoiceParticipantState {
   final bool isMuted;
   final bool isSpeaking;
   final DateTime joinedAt;
+  final bool isScreenSharing;
 
   Duration get connectedFor => DateTime.now().toUtc().difference(joinedAt);
 }
@@ -52,6 +54,7 @@ class VoiceRoomController extends ChangeNotifier {
   bool speakerEnabled = false;
   bool deafened = false;
   bool pushToTalkEnabled = false;
+  bool isScreenSharing = false;
 
   bool get isConnected =>
       status == VoiceConnectionStatus.connected ||
@@ -60,6 +63,20 @@ class VoiceRoomController extends ChangeNotifier {
       .where((participant) => participant.isSpeaking)
       .map((participant) => participant.id)
       .firstOrNull;
+
+  VideoTrack? get remoteScreenShareTrack {
+    final room = _room;
+    if (room == null) return null;
+    for (final participant in room.remoteParticipants.values) {
+      for (final pub in participant.videoTrackPublications) {
+        final track = pub.track;
+        if (track != null && !pub.muted) {
+          return track as VideoTrack;
+        }
+      }
+    }
+    return null;
+  }
 
   Future<bool> connect(String roomName) async {
     if (status == VoiceConnectionStatus.connecting) return false;
@@ -126,6 +143,7 @@ class VoiceRoomController extends ChangeNotifier {
     participants = const [];
     microphoneMuted = false;
     deafened = false;
+    isScreenSharing = false;
     notifyListeners();
   }
 
@@ -141,6 +159,25 @@ class VoiceRoomController extends ChangeNotifier {
   }
 
   Future<void> toggleMute() => toggleMicrophone();
+
+  Future<bool> toggleScreenShare() async {
+    try {
+      final enabled = await _service.toggleScreenShare();
+      isScreenSharing = enabled;
+      notifyListeners();
+      return enabled;
+    } catch (error) {
+      final message = error.toString().toLowerCase();
+      if (!message.contains('cancel') && !message.contains('abort') &&
+          !message.contains('dismissed') && !message.contains('notallowed')) {
+        errorMessage = 'No se pudo iniciar la transmisión de pantalla.';
+        notifyListeners();
+      }
+      isScreenSharing = _service.isScreenSharing;
+      notifyListeners();
+      return false;
+    }
+  }
 
   Future<void> toggleSpeaker() async {
     try {
@@ -228,6 +265,7 @@ class VoiceRoomController extends ChangeNotifier {
     final hasActiveMicrophone = audioPublications.any(
       (publication) => !publication.muted,
     );
+    final isScreenSharing = participant.videoTrackPublications.isNotEmpty;
     return VoiceParticipantState(
       id: participant.identity,
       name: participant.name.trim().isEmpty ? 'Usuario' : participant.name,
@@ -236,6 +274,7 @@ class VoiceRoomController extends ChangeNotifier {
       isMuted: !hasActiveMicrophone,
       isSpeaking: participant.isSpeaking,
       joinedAt: participant.joinedAt,
+      isScreenSharing: isScreenSharing,
     );
   }
 

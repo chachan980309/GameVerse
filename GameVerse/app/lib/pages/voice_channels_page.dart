@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 import '../controllers/voice_room_controller.dart';
 import '../models/voice_channel.dart';
@@ -28,6 +29,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   bool _muted = false;
   bool _deafened = false;
   bool _streaming = false;
+  bool _watchingScreenShare = false;
+  String? _screenSharerId;
 
   Color get _purple => const Color(0xff8B4DFF);
 
@@ -51,6 +54,12 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     setState(() {
       _muted = _voiceController.microphoneMuted;
       _deafened = _voiceController.deafened;
+      _streaming = _voiceController.isScreenSharing;
+      _screenSharerId = _voiceController.participants
+          .where((p) => p.isScreenSharing)
+          .map((p) => p.id)
+          .firstOrNull;
+      if (_screenSharerId == null) _watchingScreenShare = false;
     });
     final error = _voiceController.errorMessage;
     if (error != null) {
@@ -634,7 +643,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   ],
                 ),
               ),
-              if (_streaming)
+              if (_streaming || _screenSharerId != null)
                 Container(
                   margin: const EdgeInsets.only(right: 12),
                   padding: const EdgeInsets.symmetric(
@@ -654,25 +663,52 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                     ),
                   ),
                 ),
-              OutlinedButton.icon(
-                onPressed: _screenShareUnavailable,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(
-                    color: _streaming ? const Color(0xffD9485F) : _purple,
+              if (_streaming)
+                OutlinedButton.icon(
+                  onPressed: _toggleScreenShare,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xffD9485F)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+                  icon: const Icon(Icons.stop_screen_share_rounded),
+                  label: const Text('Detener directo'),
+                )
+              else if (_screenSharerId != null)
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _watchingScreenShare = !_watchingScreenShare),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: _watchingScreenShare ? const Color(0xffD9485F) : _purple,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
-                ),
-                icon: Icon(
-                  _streaming
+                  icon: Icon(_watchingScreenShare
                       ? Icons.stop_screen_share_rounded
-                      : Icons.screen_share_rounded,
+                      : Icons.screen_share_rounded),
+                  label: Text(_watchingScreenShare ? 'Dejar de ver' : 'Ver transmisión'),
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: _toggleScreenShare,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: _purple),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  icon: const Icon(Icons.screen_share_rounded),
+                  label: const Text('Transmitir'),
                 ),
-                label: Text(_streaming ? 'Detener directo' : 'Transmitir'),
-              ),
             ],
           ),
         ),
@@ -708,7 +744,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                       ),
                       const SizedBox(height: 14),
                       Expanded(
-                        child: _streaming ? _liveStage() : _participantsGrid(),
+                        child: _streaming
+                            ? _liveStage(isOwner: true)
+                            : _watchingScreenShare
+                                ? _liveStage(isOwner: false)
+                                : _participantsGrid(),
                       ),
                     ],
                   ),
@@ -753,22 +793,47 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 38,
-                backgroundColor: const Color(0xff5D3487),
-                backgroundImage: user.avatarUrl.isNotEmpty
-                    ? NetworkImage(user.avatarUrl)
-                    : null,
-                child: user.avatarUrl.isEmpty
-                    ? Text(
-                        user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 27,
-                          fontWeight: FontWeight.bold,
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 38,
+                    backgroundColor: const Color(0xff5D3487),
+                    backgroundImage: user.avatarUrl.isNotEmpty
+                        ? NetworkImage(user.avatarUrl)
+                        : null,
+                    child: user.avatarUrl.isEmpty
+                        ? Text(
+                            user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 27,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (user.isScreenSharing)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: _purple,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xff16121F),
+                            width: 2,
+                          ),
                         ),
-                      )
-                    : null,
+                        child: const Icon(
+                          Icons.screen_share_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 11),
               Text(
@@ -799,42 +864,64 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  Widget _liveStage() => Column(
-    children: [
-      Expanded(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xff08070C),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xff68419B)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.screen_share_rounded, color: _purple, size: 70),
-              const SizedBox(height: 15),
-              const Text(
-                'Estás transmitiendo tu pantalla',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 7),
-              const Text(
-                'Los miembros del canal pueden ver tu directo',
-                style: TextStyle(color: Color(0xff96909F)),
-              ),
-            ],
+  Widget _liveStage({required bool isOwner}) {
+    final remoteTrack = isOwner ? null : _voiceController.remoteScreenShareTrack;
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xff08070C),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xff68419B)),
+            ),
+            child: isOwner
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.screen_share_rounded, color: _purple, size: 70),
+                      const SizedBox(height: 15),
+                      const Text(
+                        'Estás transmitiendo tu pantalla',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      const Text(
+                        'Los miembros del canal pueden ver tu directo',
+                        style: TextStyle(color: Color(0xff96909F)),
+                      ),
+                    ],
+                  )
+                : remoteTrack != null
+                    ? VideoTrackRenderer(remoteTrack)
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.screen_share_rounded, color: _purple, size: 60),
+                          const SizedBox(height: 14),
+                          Text(
+                            '${_voiceController.participants.where((p) => p.id == _screenSharerId).map((p) => p.name).firstOrNull ?? "Alguien"} está transmitiendo',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
           ),
         ),
-      ),
-      const SizedBox(height: 12),
-      SizedBox(height: 105, child: _participantsGrid()),
-    ],
-  );
+        const SizedBox(height: 12),
+        SizedBox(height: 105, child: _participantsGrid()),
+      ],
+    );
+  }
 
   String _connectedTime(Duration duration) {
     final hours = duration.inHours;
@@ -945,7 +1032,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         _controlButton(
           icon: Icons.screen_share_rounded,
           active: _streaming,
-          onTap: _screenShareUnavailable,
+          onTap: _toggleScreenShare,
         ),
         const SizedBox(width: 12),
         FilledButton.icon(
@@ -975,6 +1062,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       _activeChannel = null;
       _roomChannel = null;
       _streaming = false;
+      _watchingScreenShare = false;
+      _screenSharerId = null;
     });
   }
 
@@ -1080,14 +1169,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     }
   }
 
-  void _screenShareUnavailable() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Este canal tiene permisos de voz. La transmisión requiere habilitar screen_share en el token.',
-        ),
-      ),
-    );
+  Future<void> _toggleScreenShare() async {
+    if (!_voiceController.isConnected) return;
+    await _voiceController.toggleScreenShare();
   }
 
   Widget _dialogField({

@@ -14,6 +14,8 @@ class LiveKitService {
       _room?.localParticipant?.isMicrophoneEnabled() ?? false;
   bool get speakerEnabled => AudioManager.instance.isSpeakerOutputPreferred;
   bool get canPlaybackAudio => _room?.canPlaybackAudio ?? false;
+  bool get isScreenSharing =>
+      _room?.localParticipant?.isScreenShareEnabled() ?? false;
 
   Future<Room> connect(String roomName) async {
     final user = _supabase.auth.currentUser;
@@ -156,6 +158,14 @@ class LiveKitService {
         }
       }
     }
+  }
+
+  Future<bool> toggleScreenShare() async {
+    final participant = _room?.localParticipant;
+    if (participant == null) return false;
+    final enabled = !participant.isScreenShareEnabled();
+    await participant.setScreenShareEnabled(enabled);
+    return enabled;
   }
 
   Future<List<MediaDevice>> audioInputs() => Hardware.instance.audioInputs();
