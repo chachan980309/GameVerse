@@ -39,8 +39,11 @@ class VoiceParticipantState {
 }
 
 class VoiceRoomController extends ChangeNotifier {
-  VoiceRoomController({LiveKitService? service})
-    : _service = service ?? LiveKitService();
+  static final VoiceRoomController instance = VoiceRoomController._internal();
+
+  factory VoiceRoomController({LiveKitService? service}) => instance;
+
+  VoiceRoomController._internal() : _service = LiveKitService();
 
   final LiveKitService _service;
   EventsListener<RoomEvent>? _events;
@@ -278,13 +281,19 @@ class VoiceRoomController extends ChangeNotifier {
     );
   }
 
-  @override
-  void dispose() {
+  /// Limpieza completa al cerrar la app. No llamar desde dispose() de una página.
+  Future<void> shutdown() async {
     _durationTicker?.cancel();
     final room = _room;
     if (room != null) room.removeListener(_syncParticipants);
-    unawaited(_events?.dispose());
-    unawaited(_service.dispose());
+    await _events?.dispose();
+    await _service.dispose();
+  }
+
+  @override
+  void dispose() {
+    // El singleton NO debe destruirse al hacer pop de una página.
+    // La conexión de voz sigue activa mientras el usuario no salga manualmente.
     super.dispose();
   }
 }

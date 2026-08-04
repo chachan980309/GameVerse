@@ -69,6 +69,7 @@ class PostController extends ChangeNotifier {
     String? videoUrl,
     String type = "text",
     String? sharedPostId,
+    String? streamId,
   }) async {
     await _postService.createPost(
       content: content,
@@ -76,6 +77,7 @@ class PostController extends ChangeNotifier {
       videoUrl: videoUrl,
       type: type,
       sharedPostId: sharedPostId,
+      streamId: streamId,
     );
 
     // Actualiza el feed

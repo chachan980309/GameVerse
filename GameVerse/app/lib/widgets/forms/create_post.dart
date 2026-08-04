@@ -3,11 +3,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../controllers/post_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../services/post_service.dart';
 import '../../services/mention_service.dart';
+import '../../services/live_stream_service.dart';
+import '../../pages/live_stream_page.dart';
 
 class CreatePost extends StatefulWidget {
   final VoidCallback onPostCreated;
@@ -153,10 +156,124 @@ class _CreatePostState extends State<CreatePost> {
     });
   }
 
-  void startStream() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Próximamente transmisiones 🔴")),
+  Future<void> startStream() async {
+    final titleController = TextEditingController(
+      text: controller.text.trim(),
     );
+    final title = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xff191525),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Iniciar directo',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Transmite tu pantalla en tiempo real. Tus seguidores podrán verlo en el feed.',
+              style: TextStyle(color: Color(0xffA39DAD), fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleController,
+              autofocus: true,
+              maxLength: 80,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Título del directo',
+                hintText: 'Ej. Jugando Valorant ranked',
+                labelStyle: const TextStyle(color: Color(0xffBFA8E8)),
+                hintStyle: const TextStyle(color: Color(0xff777383)),
+                counterStyle: const TextStyle(color: Color(0xff777383)),
+                filled: true,
+                fillColor: const Color(0xff100D1A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xff49306B)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xff49306B)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(
+                    color: Color(0xff8B4DFF),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final t = titleController.text.trim();
+              if (t.isNotEmpty) Navigator.pop(ctx, t);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xffD9485F),
+            ),
+            icon: const Icon(Icons.wifi_tethering_rounded),
+            label: const Text('Ir en directo'),
+          ),
+        ],
+      ),
+    );
+    titleController.dispose();
+    if (title == null || !mounted) return;
+
+    setState(() => loading = true);
+    try {
+      final liveService = LiveStreamService();
+      final roomName =
+          'live-${Supabase.instance.client.auth.currentUser!.id.substring(0, 8)}-${DateTime.now().millisecondsSinceEpoch}';
+
+      final stream = await liveService.startLiveStream(
+        title: title,
+        roomName: roomName,
+      );
+
+      await postController.createPost(
+        content: title,
+        type: 'live',
+        streamId: stream['id'] as String,
+      );
+
+      controller.clear();
+      widget.onPostCreated();
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LiveStreamPage(
+            streamId: stream['id'] as String,
+            roomName: roomName,
+            title: title,
+            isHost: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('No se pudo iniciar el directo: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   void createPoll() {

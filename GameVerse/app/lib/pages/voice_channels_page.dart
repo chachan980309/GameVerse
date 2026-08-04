@@ -45,7 +45,6 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   void dispose() {
     _searchDebounce?.cancel();
     _voiceController.removeListener(_onVoiceChanged);
-    _voiceController.dispose();
     super.dispose();
   }
 

@@ -9,7 +9,9 @@ import '../../services/post_service.dart';
 import '../../services/user_games_service.dart';
 
 class FeedRightPanel extends StatefulWidget {
-  const FeedRightPanel({super.key});
+  const FeedRightPanel({super.key, this.onOpenChat});
+
+  final void Function(Map<String, dynamic> profile)? onOpenChat;
 
   @override
   State<FeedRightPanel> createState() => _FeedRightPanelState();
@@ -246,17 +248,20 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Abre Amigos para chatear con ${friend.name}.',
-                              ),
-                            ),
-                          ),
+                      onPressed: () {
+                        final callback = widget.onOpenChat;
+                        if (callback != null) {
+                          callback({
+                            'id': friend.id,
+                            'username': friend.name,
+                            'avatar_url': friend.avatarUrl,
+                            'is_online': friend.isOnline,
+                          });
+                        }
+                      },
                       icon: const Icon(
                         Icons.chat_bubble_outline_rounded,
-                        color: Colors.white70,
+                        color: Color(0xff8B4DFF),
                         size: 18,
                       ),
                     ),
@@ -550,23 +555,20 @@ class _FriendInfo {
     required this.id,
     required this.name,
     required this.avatarUrl,
-    required this.status,
+    required this.isOnline,
     required this.favoriteGame,
+    required this.status,
   });
   factory _FriendInfo.fromMap(Map<String, dynamic> map) => _FriendInfo(
     id: map['id']?.toString() ?? '',
     name: map['username']?.toString() ?? 'Usuario',
     avatarUrl: map['avatar_url']?.toString() ?? '',
-    status: map['status']?.toString() ?? '',
+    isOnline: map['is_online'] == true,
     favoriteGame: map['favorite_game']?.toString() ?? '',
+    status: map['status']?.toString() ?? '',
   );
-  final String id, name, avatarUrl, status, favoriteGame;
-  bool get isOnline {
-    final value = status.toLowerCase();
-    return value.contains('línea') ||
-        value.contains('linea') ||
-        value.contains('online');
-  }
+  final String id, name, avatarUrl, favoriteGame, status;
+  final bool isOnline;
 
   String get initial => name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
   String get gameOrStatus => favoriteGame.isNotEmpty

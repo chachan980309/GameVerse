@@ -99,17 +99,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   void visibilityChanged(VisibilityInfo info) {
-    if (info.visibleFraction > 0.65) {
-      if (!playing) {
-        player.play();
-
-        setState(() {
-          playing = true;
-        });
-      }
-    } else {
+    if (info.visibleFraction <= 0.3 && playing) {
       player.pause();
-
       setState(() {
         playing = false;
       });

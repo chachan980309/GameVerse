@@ -97,6 +97,7 @@ Deno.serve(async (req: Request) => {
       room?: unknown;
       userId?: unknown;
       username?: unknown;
+      roomType?: unknown;
     };
     const room = typeof body.room === "string" ? body.room.trim() : "";
     if (!room || room.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(room)) {
@@ -104,14 +105,38 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Invalid room" }, 400);
     }
 
-    const { data: channel, error: channelError } = await supabase
-      .from("voice_channels")
-      .select("id")
-      .eq("room_name", room)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (channelError || !channel) {
-      return json({ error: "Voice channel not found" }, 404);
+    const roomTypeRaw = typeof body.roomType === "string" ? body.roomType.trim() : "";
+    // Si el room empieza con "live-" lo tratamos como directo automáticamente
+    const isLive = roomTypeRaw === "live" || room.startsWith("live-");
+
+    console.info("livekit-token room validation", { requestId, room, isLive, roomTypeRaw });
+
+    if (isLive) {
+      const { data: stream, error: streamError } = await supabase
+        .from("live_streams")
+        .select("id")
+        .eq("room_name", room)
+        .eq("is_live", true)
+        .maybeSingle();
+      console.info("livekit-token live stream check", {
+        requestId, room, streamError: streamError?.message, found: !!stream,
+      });
+      if (streamError || !stream) {
+        return json({ error: "Live stream not found" }, 404);
+      }
+    } else {
+      const { data: channel, error: channelError } = await supabase
+        .from("voice_channels")
+        .select("id")
+        .eq("room_name", room)
+        .eq("is_active", true)
+        .maybeSingle();
+      console.info("livekit-token voice channel check", {
+        requestId, room, channelError: channelError?.message, found: !!channel,
+      });
+      if (channelError || !channel) {
+        return json({ error: "Voice channel not found" }, 404);
+      }
     }
 
     const { data: profile } = await supabase

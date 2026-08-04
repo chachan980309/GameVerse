@@ -17,6 +17,7 @@ class PostModel {
   final String avatarUrl;
   final String? sharedPostId;
   final PostModel? sharedPost;
+  final String? streamId;
 
   const PostModel({
     required this.id,
@@ -31,6 +32,7 @@ class PostModel {
     this.videoUrl,
     this.sharedPostId,
     this.sharedPost,
+    this.streamId,
   });
 
   factory PostModel.fromMap(Map<String, dynamic> map) {
@@ -56,6 +58,7 @@ class PostModel {
       sharedPost: shared is Map<String, dynamic>
           ? PostModel.fromMap(shared)
           : null,
+      streamId: map['stream_id']?.toString(),
     );
   }
 

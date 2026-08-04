@@ -201,6 +201,7 @@ class PostService {
     String? videoUrl,
     String type = "text",
     String? sharedPostId,
+    String? streamId,
   }) async {
     final user = supabase.auth.currentUser;
 
@@ -221,6 +222,7 @@ class PostService {
       'video': videoUrl,
       'type': type,
       'shared_post_id': sharedPostId,
+      'stream_id': streamId,
     });
     await ProfileController.instance.loadProfile();
 
