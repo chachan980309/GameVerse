@@ -6,7 +6,6 @@ on:
 
 jobs:
   release:
-    # Solo correr si el commit NO viene del bot de CI (evita loop infinito)
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: windows-latest
     permissions:
@@ -51,22 +50,15 @@ jobs:
         run: npm install
         working-directory: GameVerse/electron
 
-      # ── Incrementar version patch automaticamente ────────────────────────
+      # ── Incrementar version patch con npm (sin BOM) ───────────────────────
       - name: Bump patch version
         id: bump
-        shell: powershell
+        working-directory: GameVerse/electron
         run: |
-          $pkgPath = "GameVerse\electron\package.json"
-          $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
-          $parts = $pkg.version -split "\."
-          $parts[2] = [int]$parts[2] + 1
-          $newVer = $parts -join "."
-          $pkg.version = $newVer
-          $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
-          echo "new_version=$newVer" >> $env:GITHUB_OUTPUT
-          Write-Host "Version bumped to $newVer"
+          npm version patch --no-git-tag-version
+          node -e "const v=require('./package.json').version; const fs=require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT,'new_version='+v+'\n');"
 
-      # ── Build y publicar en GitHub Releases ─────────────────────────────
+      # ── Build y publicar en GitHub Releases ──────────────────────────────
       - name: Build & Publish instalador
         run: npm run build:publish
         working-directory: GameVerse/electron
