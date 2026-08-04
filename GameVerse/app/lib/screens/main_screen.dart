@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/voice_room_controller.dart';
@@ -63,10 +64,13 @@ class _MainScreenState extends State<MainScreen> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('profiles').update({
-        'is_online': online,
-        'last_seen_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', userId);
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'is_online': online,
+            'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', userId);
     } catch (_) {}
   }
 
@@ -220,9 +224,7 @@ class _MainScreenState extends State<MainScreen> {
                   );
                 },
               ),
-              _SpotifyMiniPlayer(
-                spotify: _spotify,
-              ),
+              _SpotifyMiniPlayer(spotify: _spotify),
             ],
           ),
         ],
@@ -307,7 +309,10 @@ class _SpotifyMiniPlayer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  track?.title ?? (isConnected ? 'Sin reproducción activa' : 'Conecta Spotify'),
+                  track?.title ??
+                      (isConnected
+                          ? 'Sin reproducción activa'
+                          : 'Conecta Spotify'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -317,10 +322,16 @@ class _SpotifyMiniPlayer extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  track?.artist ?? (isConnected ? 'Reproduce una canción en Spotify' : 'Escucha tu música aquí'),
+                  track?.artist ??
+                      (isConnected
+                          ? 'Reproduce una canción en Spotify'
+                          : 'Escucha tu música aquí'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xff9D96A7), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xff9D96A7),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -348,35 +359,342 @@ class _SpotifyMiniPlayer extends StatelessWidget {
             icon: const Icon(Icons.skip_next_rounded),
             color: const Color(0xffD4CFDA),
           ),
+          IconButton(
+            tooltip: 'Aleatorio de tus me gusta',
+            onPressed: isConnected ? spotify.playRandomLikedTrack : null,
+            icon: const Icon(Icons.shuffle_rounded),
+            color: const Color(0xffD4CFDA),
+          ),
+          IconButton(
+            tooltip: 'Ver cola',
+            onPressed: isConnected
+                ? () => showDialog(
+                    context: context,
+                    builder: (_) => _SpotifyQueueDialog(spotify: spotify),
+                  )
+                : null,
+            icon: Badge(
+              isLabelVisible: spotify.queue.isNotEmpty,
+              label: Text('${spotify.queue.length}'),
+              child: const Icon(Icons.queue_music_rounded),
+            ),
+            color: const Color(0xffD4CFDA),
+          ),
+          IconButton(
+            tooltip: spotify.jamUrl == null
+                ? 'Añadir Spotify Jam'
+                : 'Abrir Spotify Jam',
+            onPressed: isConnected
+                ? () => spotify.jamUrl == null
+                      ? showDialog(
+                          context: context,
+                          builder: (_) => _SpotifyJamDialog(spotify: spotify),
+                        )
+                      : spotify.openJam()
+                : null,
+            icon: Icon(
+              spotify.jamUrl == null
+                  ? Icons.group_add_rounded
+                  : Icons.groups_rounded,
+            ),
+            color: const Color(0xffD4CFDA),
+          ),
+          IconButton(
+            tooltip: 'Buscar canción',
+            onPressed: isConnected
+                ? () => showDialog(
+                    context: context,
+                    builder: (_) => _SpotifySearchDialog(spotify: spotify),
+                  )
+                : null,
+            icon: const Icon(Icons.search_rounded),
+            color: const Color(0xffD4CFDA),
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: SizedBox(
-              height: 3,
-              child: LinearProgressIndicator(
-                value: track == null ? 0 : null,
-                backgroundColor: Color(0xff3D3548),
-                valueColor: AlwaysStoppedAnimation(_spotifyGreen),
-              ),
+            child: Row(
+              children: [
+                Text(
+                  _time(track?.positionMs),
+                  style: const TextStyle(
+                    color: Color(0xff9D96A7),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 3,
+                    child: LinearProgressIndicator(
+                      value: _progress(track),
+                      backgroundColor: const Color(0xff3D3548),
+                      valueColor: const AlwaysStoppedAnimation(_spotifyGreen),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _time(track?.durationMs),
+                  style: const TextStyle(
+                    color: Color(0xff9D96A7),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 18),
+          const Icon(
+            Icons.volume_up_rounded,
+            color: Color(0xffD4CFDA),
+            size: 19,
+          ),
+          SizedBox(
+            width: 82,
+            child: Slider(
+              value: spotify.volume,
+              activeColor: _spotifyGreen,
+              onChanged: isConnected ? spotify.setVolume : null,
+            ),
+          ),
           const Icon(Icons.music_note_rounded, color: _spotifyGreen, size: 20),
           const SizedBox(width: 5),
           TextButton(
-            onPressed: isConnected ? spotify.refreshPlayback : spotify.connect,
+            onPressed: isConnected ? spotify.openSpotify : spotify.connect,
             child: Text(
-              isConnected ? 'Spotify' : 'Conectar Spotify',
+              isConnected ? 'Abrir Spotify' : 'Conectar Spotify',
               style: const TextStyle(
-              color: _spotifyGreen,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+                color: _spotifyGreen,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  double _progress(SpotifyPlayback? track) {
+    final duration = track?.durationMs ?? 0;
+    if (duration <= 0) return 0;
+    return ((track?.positionMs ?? 0) / duration).clamp(0, 1).toDouble();
+  }
+
+  String _time(int? milliseconds) {
+    final seconds = (milliseconds ?? 0) ~/ 1000;
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  }
+}
+
+class _SpotifySearchDialog extends StatefulWidget {
+  const _SpotifySearchDialog({required this.spotify});
+  final SpotifyService spotify;
+
+  @override
+  State<_SpotifySearchDialog> createState() => _SpotifySearchDialogState();
+}
+
+class _SpotifySearchDialogState extends State<_SpotifySearchDialog> {
+  final _controller = TextEditingController();
+  List<SpotifyTrackResult> _results = [];
+  bool _loading = false;
+
+  Future<void> _search() async {
+    setState(() => _loading = true);
+    final results = await widget.spotify.searchTracks(_controller.text);
+    if (mounted)
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: const Color(0xff1B1625),
+    title: const Text('Buscar en Spotify'),
+    content: SizedBox(
+      width: 460,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            onSubmitted: (_) => _search(),
+            decoration: InputDecoration(
+              hintText: 'Canción o artista',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: _search,
+              ),
+            ),
+          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(18),
+              child: CircularProgressIndicator(),
+            ),
+          SizedBox(
+            height: 280,
+            child: ListView.builder(
+              itemCount: _results.length,
+              itemBuilder: (_, index) {
+                final track = _results[index];
+                return ListTile(
+                  leading: track.artworkUrl == null
+                      ? const Icon(Icons.music_note)
+                      : Image.network(
+                          track.artworkUrl!,
+                          width: 42,
+                          height: 42,
+                          fit: BoxFit.cover,
+                        ),
+                  title: Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    track.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Añadir a la cola',
+                        onPressed: () => widget.spotify.addToQueue(track),
+                        icon: const Icon(Icons.playlist_add_rounded),
+                      ),
+                      const Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: _SpotifyMiniPlayer._spotifyGreen,
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    widget.spotify.playTrack(track);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SpotifyQueueDialog extends StatelessWidget {
+  const _SpotifyQueueDialog({required this.spotify});
+  final SpotifyService spotify;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: const Color(0xff1B1625),
+    title: const Text('Próximamente en cola'),
+    content: SizedBox(
+      width: 420,
+      height: 280,
+      child: spotify.queue.isEmpty
+          ? const Center(
+              child: Text(
+                'La cola está vacía. Busca canciones para añadirlas.',
+              ),
+            )
+          : ListView.builder(
+              itemCount: spotify.queue.length,
+              itemBuilder: (_, index) {
+                final track = spotify.queue[index];
+                return ListTile(
+                  leading: track.artworkUrl == null
+                      ? const Icon(Icons.music_note)
+                      : Image.network(
+                          track.artworkUrl!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        ),
+                  title: Text(track.title),
+                  subtitle: Text(track.artist),
+                );
+              },
+            ),
+    ),
+  );
+}
+
+class _SpotifyJamDialog extends StatefulWidget {
+  const _SpotifyJamDialog({required this.spotify});
+  final SpotifyService spotify;
+
+  @override
+  State<_SpotifyJamDialog> createState() => _SpotifyJamDialogState();
+}
+
+class _SpotifyJamDialogState extends State<_SpotifyJamDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: const Color(0xff1B1625),
+    title: const Text('Invitar a una Spotify Jam'),
+    content: SizedBox(
+      width: 440,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Crea la Jam desde Spotify, pega aquí su enlace y compártelo con tus amigos.',
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              hintText: 'https://open.spotify.com/jam/...',
+              errorText: _error,
+            ),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancelar'),
+      ),
+      FilledButton(
+        onPressed: () async {
+          final valid = await widget.spotify.setJamUrl(_controller.text);
+          if (!mounted) return;
+          if (!valid) {
+            setState(() => _error = 'El enlace no parece ser de Spotify.');
+            return;
+          }
+          await Clipboard.setData(ClipboardData(text: widget.spotify.jamUrl!));
+          if (mounted) Navigator.pop(context);
+        },
+        child: const Text('Guardar y copiar'),
+      ),
+    ],
+  );
 }
 
 class _VoiceBar extends StatelessWidget {
@@ -429,7 +747,9 @@ class _VoiceBar extends StatelessWidget {
                   ? Icons.mic_off_rounded
                   : Icons.mic_rounded,
               active: controller.microphoneMuted,
-              tooltip: controller.microphoneMuted ? 'Activar micro' : 'Silenciar',
+              tooltip: controller.microphoneMuted
+                  ? 'Activar micro'
+                  : 'Silenciar',
               onTap: controller.toggleMute,
             ),
             const SizedBox(width: 4),
@@ -473,7 +793,8 @@ class _BarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? (active ? const Color(0xffD64A68) : const Color(0xff9A94A8));
+    final c =
+        color ?? (active ? const Color(0xffD64A68) : const Color(0xff9A94A8));
     return Tooltip(
       message: tooltip ?? '',
       child: InkWell(

@@ -42,5 +42,41 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <script>
+    window.nubzzzSpotify = {
+      player: null,
+      deviceId: null,
+      init: function (getToken, onReady, onState, onError) {
+        const createPlayer = () => {
+          if (!window.Spotify || this.player) return;
+          this.player = new Spotify.Player({
+            name: 'nubzzz Web Player',
+            getOAuthToken: callback => callback(getToken()),
+            volume: 0.75,
+            enableMediaSession: true,
+          });
+          this.player.addListener('ready', ({ device_id }) => {
+            this.deviceId = device_id;
+            onReady(device_id);
+          });
+          this.player.addListener('player_state_changed', state => onState(JSON.stringify(state)));
+          // El evento no siempre llega tras una transferencia de dispositivo;
+          // consultar el estado local mantiene título y carátula sincronizados.
+          setInterval(() => {
+            this.player.getCurrentState().then(state => {
+              if (state) onState(JSON.stringify(state));
+            });
+          }, 1500);
+          ['initialization_error', 'authentication_error', 'account_error'].forEach(event =>
+            this.player.addListener(event, ({ message }) => onError(message))
+          );
+          this.player.connect();
+        };
+        if (window.Spotify) createPlayer();
+        else window.onSpotifyWebPlaybackSDKReady = createPlayer;
+      },
+    };
+  </script>
 </body>
 </html>

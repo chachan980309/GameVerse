@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -7,25 +8,46 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'spotify_web_player.dart';
+
 class SpotifyPlayback {
   const SpotifyPlayback({
     required this.title,
     required this.artist,
     required this.isPlaying,
     this.artworkUrl,
+    this.positionMs,
+    this.durationMs,
   });
 
   final String title;
   final String artist;
   final String? artworkUrl;
   final bool isPlaying;
+  final int? positionMs;
+  final int? durationMs;
 
   SpotifyPlayback copyWith({bool? isPlaying}) => SpotifyPlayback(
     title: title,
     artist: artist,
     artworkUrl: artworkUrl,
     isPlaying: isPlaying ?? this.isPlaying,
+    positionMs: positionMs,
+    durationMs: durationMs,
   );
+}
+
+class SpotifyTrackResult {
+  const SpotifyTrackResult({
+    required this.title,
+    required this.artist,
+    required this.uri,
+    this.artworkUrl,
+  });
+  final String title;
+  final String artist;
+  final String uri;
+  final String? artworkUrl;
 }
 
 /// Cliente Spotify para web usando Authorization Code con PKCE.
@@ -36,11 +58,15 @@ class SpotifyService extends ChangeNotifier {
   static final instance = SpotifyService._();
 
   static const _clientId = '3fc7ca94a72940ada5c8a6d83eef2fde';
-  static const _redirectUri = 'https://nubzzz.site/callback';
+  // La raíz es una ruta existente en el hosting y evita un 404 al volver de
+  // Spotify en despliegues que no tengan configurado un SPA fallback.
+  static const _redirectUri = 'https://nubzzz.site';
   static const _scopes = [
     'user-read-playback-state',
     'user-read-currently-playing',
     'user-modify-playback-state',
+    'user-library-read',
+    'streaming',
   ];
   static const _tokenKey = 'spotify_access_token';
   static const _refreshTokenKey = 'spotify_refresh_token';
@@ -54,6 +80,10 @@ class SpotifyService extends ChangeNotifier {
   SpotifyPlayback? playback;
   String? errorMessage;
   bool isLoading = false;
+  double volume = .75;
+  String? _webDeviceId;
+  final List<SpotifyTrackResult> queue = [];
+  String? jamUrl;
 
   bool get isConnected => _accessToken != null;
 
@@ -75,7 +105,10 @@ class SpotifyService extends ChangeNotifier {
         await _exchangeCode(code, prefs);
       }
     }
-    if (isConnected) await refreshPlayback();
+    if (isConnected) {
+      await _startWebPlayback();
+      await refreshPlayback();
+    }
     notifyListeners();
   }
 
@@ -108,10 +141,138 @@ class SpotifyService extends ChangeNotifier {
     }
   }
 
+  Future<void> openSpotify() async {
+    await launchUrl(
+      Uri.parse('https://open.spotify.com/'),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+  }
+
+  Future<bool> setJamUrl(String value) async {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      errorMessage = 'Pega un enlace HTTPS válido.';
+      notifyListeners();
+      return false;
+    }
+    jamUrl = uri.toString();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> openJam() async {
+    if (jamUrl == null) return;
+    await launchUrl(Uri.parse(jamUrl!), mode: LaunchMode.platformDefault);
+  }
+
   Future<void> previous() => _sendPlayerCommand('previous');
-  Future<void> next() => _sendPlayerCommand('next');
+  Future<void> next() async {
+    if (queue.isNotEmpty) {
+      final nextTrack = queue.removeAt(0);
+      notifyListeners();
+      await playTrack(nextTrack);
+      return;
+    }
+    await _playRandomLikedTrack();
+  }
+
+  Future<void> playRandomLikedTrack() => _playRandomLikedTrack();
+
+  Future<void> addToQueue(SpotifyTrackResult track) async {
+    if (!await _ensureToken()) return;
+    // Reflejar la acción al instante; Spotify puede tardar unos segundos en
+    // confirmar la cola del dispositivo web.
+    queue.add(track);
+    notifyListeners();
+    if (_webDeviceId == null) return;
+    final response = await http.post(
+      Uri.parse(
+        'https://api.spotify.com/v1/me/player/queue?device_id=$_webDeviceId&uri=${Uri.encodeComponent(track.uri)}',
+      ),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (response.statusCode != 204) {
+      await _handleApiError(response);
+    }
+  }
+
+  Future<void> setVolume(double value) async {
+    if (!await _ensureToken() || _webDeviceId == null) return;
+    volume = value;
+    notifyListeners();
+    final response = await http.put(
+      Uri.parse(
+        'https://api.spotify.com/v1/me/player/volume?device_id=$_webDeviceId&volume_percent=${(value * 100).round()}',
+      ),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (response.statusCode != 204) await _handleApiError(response);
+  }
+
+  Future<List<SpotifyTrackResult>> searchTracks(String query) async {
+    if (query.trim().isEmpty || !await _ensureToken()) return [];
+    final response = await http.get(
+      Uri.https('api.spotify.com', '/v1/search', {
+        'q': query,
+        'type': 'track',
+        'limit': '8',
+      }),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (response.statusCode != 200) return [];
+    final tracks =
+        ((jsonDecode(response.body) as Map<String, dynamic>)['tracks']
+                as Map<String, dynamic>)['items']
+            as List<dynamic>;
+    return tracks.map((raw) {
+      final track = raw as Map<String, dynamic>;
+      final artists = track['artists'] as List<dynamic>? ?? [];
+      final images =
+          (track['album'] as Map<String, dynamic>)['images']
+              as List<dynamic>? ??
+          [];
+      return SpotifyTrackResult(
+        title: track['name'] as String,
+        artist: artists
+            .map((a) => (a as Map<String, dynamic>)['name'])
+            .join(', '),
+        uri: track['uri'] as String,
+        artworkUrl: images.isEmpty
+            ? null
+            : (images.first as Map<String, dynamic>)['url'] as String?,
+      );
+    }).toList();
+  }
+
+  Future<void> playTrack(SpotifyTrackResult track) async {
+    if (!await _ensureToken() || _webDeviceId == null) return;
+    playback = SpotifyPlayback(
+      title: track.title,
+      artist: track.artist,
+      artworkUrl: track.artworkUrl,
+      isPlaying: true,
+    );
+    notifyListeners();
+    await http.put(
+      Uri.parse(
+        'https://api.spotify.com/v1/me/player/play?device_id=$_webDeviceId',
+      ),
+      headers: {
+        'Authorization': 'Bearer $_accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'uris': [track.uri],
+      }),
+    );
+  }
 
   Future<void> togglePlayback() async {
+    if (playback == null) {
+      await _playRandomLikedTrack();
+      return;
+    }
     if (playback?.isPlaying == true) {
       await _sendPlayerCommand('pause');
     } else {
@@ -146,6 +307,8 @@ class SpotifyService extends ChangeNotifier {
               ? null
               : (images.first as Map<String, dynamic>)['url'] as String?,
           isPlaying: data['is_playing'] as bool? ?? false,
+          positionMs: data['progress_ms'] as int?,
+          durationMs: item?['duration_ms'] as int?,
         );
       } else {
         await _handleApiError(response);
@@ -161,7 +324,12 @@ class SpotifyService extends ChangeNotifier {
   Future<void> _sendPlayerCommand(String command) async {
     if (!await _ensureToken()) return;
     try {
-      final url = Uri.parse('https://api.spotify.com/v1/me/player/$command');
+      final url = Uri.parse('https://api.spotify.com/v1/me/player/$command')
+          .replace(
+            queryParameters: _webDeviceId == null
+                ? null
+                : {'device_id': _webDeviceId!},
+          );
       final headers = {'Authorization': 'Bearer $_accessToken'};
       final response = command == 'next' || command == 'previous'
           ? await http.post(url, headers: headers)
@@ -172,6 +340,109 @@ class SpotifyService extends ChangeNotifier {
       await refreshPlayback();
     } catch (_) {
       errorMessage = 'No fue posible controlar Spotify.';
+      notifyListeners();
+    }
+  }
+
+  Future<void> _startWebPlayback() async {
+    if (!await _ensureToken()) return;
+    await SpotifyWebPlayer.instance.initialize(
+      token: () => _accessToken,
+      onReady: (deviceId) {
+        _webDeviceId = deviceId;
+        unawaited(_transferToWebPlayer());
+      },
+      onState: (state) {
+        playback = SpotifyPlayback(
+          title: state['title'] as String,
+          artist: state['artist'] as String,
+          artworkUrl: state['artworkUrl'] as String?,
+          isPlaying: state['isPlaying'] as bool,
+          positionMs: state['positionMs'] as int?,
+          durationMs: state['durationMs'] as int?,
+        );
+        notifyListeners();
+      },
+      onError: (message) {
+        errorMessage = message;
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<void> _transferToWebPlayer() async {
+    if (_webDeviceId == null || !await _ensureToken()) return;
+    final response = await http.put(
+      Uri.parse('https://api.spotify.com/v1/me/player'),
+      headers: {
+        'Authorization': 'Bearer $_accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'device_ids': [_webDeviceId],
+        'play': false,
+      }),
+    );
+    if (response.statusCode != 204) await _handleApiError(response);
+  }
+
+  Future<void> _playRandomLikedTrack() async {
+    if (!await _ensureToken()) return;
+    if (_webDeviceId == null) {
+      errorMessage =
+          'El reproductor de nubzzz se está preparando. Intenta otra vez.';
+      notifyListeners();
+      return;
+    }
+    try {
+      final saved = await http.get(
+        Uri.parse('https://api.spotify.com/v1/me/tracks?limit=50'),
+        headers: {'Authorization': 'Bearer $_accessToken'},
+      );
+      final items =
+          (jsonDecode(saved.body) as Map<String, dynamic>)['items']
+              as List<dynamic>? ??
+          [];
+      if (saved.statusCode != 200 || items.isEmpty) {
+        errorMessage =
+            'Guarda canciones con “Me gusta” en Spotify para reproducir una al azar.';
+        notifyListeners();
+        return;
+      }
+      final track =
+          items[Random.secure().nextInt(items.length)] as Map<String, dynamic>;
+      final item = track['track'] as Map<String, dynamic>;
+      final uri = item['uri'] as String;
+      final images =
+          (item['album'] as Map<String, dynamic>)['images'] as List<dynamic>? ??
+          [];
+      final artists = item['artists'] as List<dynamic>? ?? [];
+      playback = SpotifyPlayback(
+        title: item['name'] as String? ?? 'Canción aleatoria',
+        artist: artists
+            .map((artist) => (artist as Map<String, dynamic>)['name'])
+            .join(', '),
+        artworkUrl: images.isEmpty
+            ? null
+            : (images.first as Map<String, dynamic>)['url'] as String?,
+        isPlaying: true,
+      );
+      notifyListeners();
+      final response = await http.put(
+        Uri.parse(
+          'https://api.spotify.com/v1/me/player/play?device_id=$_webDeviceId',
+        ),
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'uris': [uri],
+        }),
+      );
+      if (response.statusCode != 204) await _handleApiError(response);
+    } catch (_) {
+      errorMessage = 'No fue posible iniciar una canción aleatoria.';
       notifyListeners();
     }
   }
@@ -198,7 +469,10 @@ class SpotifyService extends ChangeNotifier {
         errorMessage = 'Spotify no aceptó la conexión. Inténtalo de nuevo.';
         return;
       }
-      await _saveTokens(jsonDecode(response.body) as Map<String, dynamic>, prefs);
+      await _saveTokens(
+        jsonDecode(response.body) as Map<String, dynamic>,
+        prefs,
+      );
       await prefs.remove(_verifierKey);
       await prefs.remove(_stateKey);
     } catch (_) {
@@ -235,7 +509,8 @@ class SpotifyService extends ChangeNotifier {
     _expiresAt = DateTime.now().add(Duration(seconds: expiresIn - 30));
     await prefs.setString(_tokenKey, _accessToken!);
     await prefs.setString(_expiryKey, _expiresAt!.toIso8601String());
-    if (_refreshToken != null) await prefs.setString(_refreshTokenKey, _refreshToken!);
+    if (_refreshToken != null)
+      await prefs.setString(_refreshTokenKey, _refreshToken!);
   }
 
   Future<void> _handleApiError(http.Response response) async {
