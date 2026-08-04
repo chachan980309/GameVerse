@@ -10,6 +10,7 @@ import '../pages/friends_page.dart';
 import '../pages/voice_channels_page.dart';
 import '../services/profile_navigation_service.dart';
 import '../services/post_navigation_service.dart';
+import '../services/spotify_service.dart';
 
 import '../widgets/layout/sidebar.dart';
 import '../widgets/layout/right_panel.dart';
@@ -32,14 +33,17 @@ class _MainScreenState extends State<MainScreen> {
 
   String usernameActual = "Usuario";
   Timer? _onlineHeartbeat;
+  final _spotify = SpotifyService.instance;
 
   @override
   void initState() {
     super.initState();
     cargarUsuario();
     _startOnlinePresence();
+    _spotify.initialize();
     ProfileNavigationService.instance.addListener(_openPublicProfile);
     PostNavigationService.instance.addListener(_openPost);
+    _spotify.addListener(_onSpotifyChanged);
   }
 
   @override
@@ -47,7 +51,12 @@ class _MainScreenState extends State<MainScreen> {
     _stopOnlinePresence();
     ProfileNavigationService.instance.removeListener(_openPublicProfile);
     PostNavigationService.instance.removeListener(_openPost);
+    _spotify.removeListener(_onSpotifyChanged);
     super.dispose();
+  }
+
+  void _onSpotifyChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _setOnline(bool online) async {
@@ -211,6 +220,9 @@ class _MainScreenState extends State<MainScreen> {
                   );
                 },
               ),
+              _SpotifyMiniPlayer(
+                spotify: _spotify,
+              ),
             ],
           ),
         ],
@@ -253,6 +265,118 @@ class _MainScreenState extends State<MainScreen> {
       ),
     ],
   );
+}
+
+class _SpotifyMiniPlayer extends StatelessWidget {
+  const _SpotifyMiniPlayer({required this.spotify});
+
+  final SpotifyService spotify;
+
+  static const _spotifyGreen = Color(0xff1ED760);
+
+  @override
+  Widget build(BuildContext context) {
+    final track = spotify.playback;
+    final isConnected = spotify.isConnected;
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: const BoxDecoration(
+        color: Color(0xff120F19),
+        border: Border(top: BorderSide(color: Color(0xff3A2E4B))),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              color: const Color(0xff30253E),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: track?.artworkUrl == null
+                ? const Icon(Icons.graphic_eq_rounded, color: Colors.white)
+                : Image.network(track!.artworkUrl!, fit: BoxFit.cover),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 180,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  track?.title ?? (isConnected ? 'Sin reproducción activa' : 'Conecta Spotify'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  track?.artist ?? (isConnected ? 'Reproduce una canción en Spotify' : 'Escucha tu música aquí'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xff9D96A7), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Canción anterior',
+            onPressed: isConnected ? spotify.previous : null,
+            icon: const Icon(Icons.skip_previous_rounded),
+            color: const Color(0xffD4CFDA),
+          ),
+          IconButton(
+            tooltip: track?.isPlaying == true ? 'Pausar' : 'Reproducir',
+            onPressed: isConnected ? spotify.togglePlayback : null,
+            icon: Icon(
+              track?.isPlaying == true
+                  ? Icons.pause_circle_filled_rounded
+                  : Icons.play_circle_fill_rounded,
+            ),
+            iconSize: 38,
+            color: Colors.white,
+          ),
+          IconButton(
+            tooltip: 'Siguiente canción',
+            onPressed: isConnected ? spotify.next : null,
+            icon: const Icon(Icons.skip_next_rounded),
+            color: const Color(0xffD4CFDA),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 3,
+              child: LinearProgressIndicator(
+                value: track == null ? 0 : null,
+                backgroundColor: Color(0xff3D3548),
+                valueColor: AlwaysStoppedAnimation(_spotifyGreen),
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+          const Icon(Icons.music_note_rounded, color: _spotifyGreen, size: 20),
+          const SizedBox(width: 5),
+          TextButton(
+            onPressed: isConnected ? spotify.refreshPlayback : spotify.connect,
+            child: Text(
+              isConnected ? 'Spotify' : 'Conectar Spotify',
+              style: const TextStyle(
+              color: _spotifyGreen,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _VoiceBar extends StatelessWidget {
