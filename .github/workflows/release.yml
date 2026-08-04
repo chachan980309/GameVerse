@@ -1,0 +1,85 @@
+name: Build & Publish NUBZZZ
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  release:
+    # Solo correr si el commit NO viene del bot de CI (evita loop infinito)
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Flutter ──────────────────────────────────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Instalar dependencias Flutter
+        run: flutter pub get
+        working-directory: GameVerse/app
+
+      - name: Compilar Flutter web
+        run: flutter build web --release
+        working-directory: GameVerse/app
+
+      # ── Copiar build de Flutter a electron/web ───────────────────────────
+      - name: Copiar archivos web a electron
+        shell: powershell
+        run: |
+          $dest = "GameVerse\electron\web"
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          Copy-Item "GameVerse\app\build\web\*" $dest -Recurse
+
+      # ── Node / Electron ──────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias Electron
+        run: npm install
+        working-directory: GameVerse/electron
+
+      # ── Incrementar version patch automaticamente ────────────────────────
+      - name: Bump patch version
+        id: bump
+        shell: powershell
+        run: |
+          $pkgPath = "GameVerse\electron\package.json"
+          $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
+          $parts = $pkg.version -split "\."
+          $parts[2] = [int]$parts[2] + 1
+          $newVer = $parts -join "."
+          $pkg.version = $newVer
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
+          echo "new_version=$newVer" >> $env:GITHUB_OUTPUT
+          Write-Host "Version bumped to $newVer"
+
+      # ── Build y publicar en GitHub Releases ─────────────────────────────
+      - name: Build & Publish instalador
+        run: npm run build:publish
+        working-directory: GameVerse/electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Commitear el package.json con la nueva version ───────────────────
+      - name: Commit nueva version
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add GameVerse/electron/package.json
+          $ver = "${{ steps.bump.outputs.new_version }}"
+          git commit -m "chore: bump version a $ver [skip ci]"
+          git push

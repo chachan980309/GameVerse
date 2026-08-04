@@ -1,0 +1,52 @@
+{
+  "name": "nubzzz",
+  "version": "1.0.0",
+  "description": "NUBZZZ - Red social gamer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:publish": "electron-builder --win --x64 --publish always"
+  },
+  "build": {
+    "appId": "com.nubzzz.app",
+    "productName": "NUBZZZ",
+    "copyright": "Copyright © 2026 NUBZZZ",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "web/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NUBZZZ"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "chachan980309",
+      "repo": "GameVerse"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.4"
+  }
+}
