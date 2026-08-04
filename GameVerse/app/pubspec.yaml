@@ -53,7 +53,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/images/
-    - assets/images/nubzzz_logo.png
-    - assets/images/nubzzz_default_feed_background.png
+  
