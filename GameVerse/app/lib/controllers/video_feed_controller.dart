@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 
 class VideoFeedController extends ChangeNotifier {
-  int? activeVideo;
+  String? activeVideoId;
 
   // activar un video y pausar el anterior
-  void setActiveVideo(int index) {
-    if (activeVideo == index) {
+  void setActiveVideo(String videoId) {
+    if (activeVideoId == videoId) {
       return;
     }
 
-    activeVideo = index;
+    activeVideoId = videoId;
 
     notifyListeners();
   }
 
   // saber si este video es el que debe reproducirse
-  bool isActive(int index) {
-    return activeVideo == index;
+  bool isActive(String videoId) {
+    return activeVideoId == videoId;
   }
 
   // detener todo
   void stopAll() {
-    activeVideo = null;
+    activeVideoId = null;
 
     notifyListeners();
   }
 
   @override
   void dispose() {
-    activeVideo = null;
+    activeVideoId = null;
 
     super.dispose();
   }

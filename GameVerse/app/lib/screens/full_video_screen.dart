@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -21,18 +22,25 @@ class FullVideoScreen extends StatefulWidget {
 
 class _FullVideoScreenState extends State<FullVideoScreen> {
   bool playing = true;
+  StreamSubscription<bool>? _playingSubscription;
 
   @override
   void initState() {
     super.initState();
 
-    widget.player.stream.playing.listen((value) {
+    _playingSubscription = widget.player.stream.playing.listen((value) {
       if (mounted) {
         setState(() {
           playing = value;
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _playingSubscription?.cancel();
+    super.dispose();
   }
 
   void togglePlay() {

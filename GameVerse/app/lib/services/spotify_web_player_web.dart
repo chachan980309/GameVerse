@@ -22,11 +22,11 @@ class SpotifyWebPlayer {
         final trackWindow = state['track_window'] as Map<String, dynamic>?;
         final track = trackWindow?['current_track'] as Map<String, dynamic>?;
         if (track == null) return;
-        final artists = track?['artists'] as List<dynamic>? ?? const [];
-        final album = track?['album'] as Map<String, dynamic>?;
+        final artists = track['artists'] as List<dynamic>? ?? const [];
+        final album = track['album'] as Map<String, dynamic>?;
         final images = album?['images'] as List<dynamic>? ?? const [];
         onState({
-          'title': track?['name'] as String? ?? 'Sin canción activa',
+          'title': track['name'] as String? ?? 'Sin canción activa',
           'artist': artists
               .whereType<Map<String, dynamic>>()
               .map((artist) => artist['name'] as String? ?? '')

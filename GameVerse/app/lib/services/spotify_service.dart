@@ -509,8 +509,9 @@ class SpotifyService extends ChangeNotifier {
     _expiresAt = DateTime.now().add(Duration(seconds: expiresIn - 30));
     await prefs.setString(_tokenKey, _accessToken!);
     await prefs.setString(_expiryKey, _expiresAt!.toIso8601String());
-    if (_refreshToken != null)
+    if (_refreshToken != null) {
       await prefs.setString(_refreshTokenKey, _refreshToken!);
+    }
   }
 
   Future<void> _handleApiError(http.Response response) async {

@@ -1035,7 +1035,12 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
                     borderRadius: BorderRadius.circular(10),
                     child: SizedBox(
                       height: 360,
-                      child: VideoPlayerWidget(url: clip.videoUrl!),
+                      child: VideoPlayerWidget(
+                        key: ValueKey('profile-video-${clip.id}'),
+                        url: clip.videoUrl!,
+                        videoId: clip.id,
+                        videoController: _videoController,
+                      ),
                     ),
                   ),
                 ],

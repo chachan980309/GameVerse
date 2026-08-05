@@ -88,10 +88,11 @@ class _DirectMessageSheetState extends State<_DirectMessageSheet> {
       _reload();
       _scrollToLatest(animated: true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('No se pudo enviar: $error')));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -156,25 +157,28 @@ class _DirectMessageSheetState extends State<_DirectMessageSheet> {
           child: FutureBuilder<List<DirectMessage>>(
             future: _messages,
             builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done)
+              if (snapshot.connectionState != ConnectionState.done) {
                 return const Center(
                   child: CircularProgressIndicator(color: Color(0xFF6D35F5)),
                 );
-              if (snapshot.hasError)
+              }
+              if (snapshot.hasError) {
                 return Center(
                   child: Text(
                     'No se pudieron cargar los mensajes.',
                     style: const TextStyle(color: Colors.white70),
                   ),
                 );
+              }
               final messages = snapshot.data ?? [];
-              if (messages.isEmpty)
+              if (messages.isEmpty) {
                 return const Center(
                   child: Text(
                     'Aún no hay mensajes. Saluda primero.',
                     style: TextStyle(color: Colors.white54),
                   ),
                 );
+              }
               if (!_didInitialScroll) {
                 _didInitialScroll = true;
                 _scrollToLatest();

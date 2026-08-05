@@ -426,8 +426,9 @@ class _FriendsPageState extends State<FriendsPage> {
     final userId = _activeChatProfile?['id']?.toString();
     if (_sendingMessage ||
         userId == null ||
-        _messageController.text.trim().isEmpty)
+        _messageController.text.trim().isEmpty) {
       return;
+    }
     setState(() => _sendingMessage = true);
     try {
       await _messageService.sendMessage(userId, _messageController.text);
@@ -540,25 +541,28 @@ class _FriendsPageState extends State<FriendsPage> {
             child: FutureBuilder<List<DirectMessage>>(
               future: messages,
               builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done)
+                if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(
                     child: CircularProgressIndicator(color: _purple),
                   );
-                if (snapshot.hasError)
+                }
+                if (snapshot.hasError) {
                   return const Center(
                     child: Text(
                       'No se pudo cargar el chat.',
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
+                }
                 final chat = snapshot.data ?? [];
-                if (chat.isEmpty)
+                if (chat.isEmpty) {
                   return const Center(
                     child: Text(
                       'Aún no hay mensajes.',
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
+                }
                 if (!_didInitialChatScroll) {
                   _didInitialChatScroll = true;
                   _scrollChatToLatest();

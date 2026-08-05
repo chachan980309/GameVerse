@@ -36,18 +36,20 @@ class _ClipsTabState extends State<ClipsTab> {
   Widget build(BuildContext context) => FutureBuilder<List<PostModel>>(
     future: _clips,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const Center(
           child: CircularProgressIndicator(color: Color(0xFF6D35F5)),
         );
+      }
       final clips = snapshot.data ?? [];
-      if (clips.isEmpty)
+      if (clips.isEmpty) {
         return const Center(
           child: Text(
             'Aún no tienes clips publicados.',
             style: TextStyle(color: Colors.white54),
           ),
         );
+      }
       return ListView.builder(
         padding: const EdgeInsets.all(28),
         itemCount: clips.length,

@@ -31,7 +31,12 @@ class PostMedia extends StatelessWidget {
         post.videoUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: VideoPlayerWidget(url: post.videoUrl!),
+        child: VideoPlayerWidget(
+          key: ValueKey('video-${post.id}'),
+          url: post.videoUrl!,
+          videoId: post.id,
+          videoController: videoController,
+        ),
       );
     }
 

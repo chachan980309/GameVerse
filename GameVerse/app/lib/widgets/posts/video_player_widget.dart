@@ -7,11 +7,19 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../screens/full_video_screen.dart';
+import '../../controllers/video_feed_controller.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final String url;
+  final String videoId;
+  final VideoFeedController videoController;
 
-  const VideoPlayerWidget({super.key, required this.url});
+  const VideoPlayerWidget({
+    super.key,
+    required this.url,
+    required this.videoId,
+    required this.videoController,
+  });
 
   @override
   State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
@@ -22,7 +30,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   late final VideoController controller;
 
-  bool loading = true;
+  bool loading = false;
 
   bool playing = false;
 
@@ -39,6 +47,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Duration duration = Duration.zero;
 
   double? videoAspectRatio;
+  bool _isOpened = false;
+  bool _isOpening = false;
+  String? _openedUrl;
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   @override
   void initState() {
@@ -48,54 +60,91 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     controller = VideoController(player);
 
-    player.stream.position.listen((value) {
-      if (mounted && !seeking) {
-        setState(() {
-          position = value;
-        });
-      }
-    });
+    _subscriptions.add(
+      player.stream.position.listen((value) {
+        if (mounted && !seeking) {
+          setState(() {
+            position = value;
+          });
+        }
+      }),
+    );
 
-    player.stream.duration.listen((value) {
-      if (mounted) {
-        setState(() {
-          duration = value;
-        });
-      }
-    });
+    _subscriptions.add(
+      player.stream.duration.listen((value) {
+        if (mounted) {
+          setState(() {
+            duration = value;
+          });
+        }
+      }),
+    );
 
-    player.stream.videoParams.listen((value) {
-      final ratio = value.aspect;
-      if (mounted && ratio != null && ratio > 0) {
-        setState(() => videoAspectRatio = ratio);
-      }
-    });
+    _subscriptions.add(
+      player.stream.videoParams.listen((value) {
+        final ratio = value.aspect;
+        if (mounted && ratio != null && ratio > 0) {
+          setState(() => videoAspectRatio = ratio);
+        }
+      }),
+    );
 
-    player.stream.volume.listen((value) {
-      if (mounted) {
-        setState(() {
-          volume = value;
-        });
-      }
-    });
+    _subscriptions.add(
+      player.stream.volume.listen((value) {
+        if (mounted) {
+          setState(() {
+            volume = value;
+          });
+        }
+      }),
+    );
 
-    player.stream.completed.listen((_) {
-      player.seek(Duration.zero);
-
-      player.play();
-    });
-
-    loadVideo();
+    _subscriptions.add(
+      player.stream.completed.listen((_) {
+        if (!mounted || !widget.videoController.isActive(widget.videoId))
+          return;
+        player.pause();
+        player.seek(Duration.zero);
+        setState(() => playing = false);
+      }),
+    );
+    widget.videoController.addListener(_onActiveVideoChanged);
   }
 
-  Future<void> loadVideo() async {
-    await player.open(Media(widget.url), play: false);
+  @override
+  void didUpdateWidget(covariant VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      player.pause();
+      _openedUrl = null;
+      _isOpened = false;
+      playing = false;
+    }
+  }
 
-    if (!mounted) return;
+  void _onActiveVideoChanged() {
+    if (!widget.videoController.isActive(widget.videoId) && playing) {
+      player.pause();
+      if (mounted) setState(() => playing = false);
+    }
+  }
 
-    setState(() {
-      loading = false;
-    });
+  Future<bool> _ensureOpened() async {
+    if (_isOpening) return false;
+    if (_openedUrl == widget.url) return true;
+    _isOpening = true;
+    if (mounted) setState(() => loading = true);
+    try {
+      await player.open(Media(widget.url), play: false);
+      _openedUrl = widget.url;
+      _isOpened = true;
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _isOpening = false;
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   void visibilityChanged(VisibilityInfo info) {
@@ -107,10 +156,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
   }
 
-  void togglePlay() {
+  Future<void> togglePlay() async {
     if (playing) {
       player.pause();
     } else {
+      if (!await _ensureOpened()) return;
+      widget.videoController.setActiveVideo(widget.videoId);
       player.play();
     }
 
@@ -195,7 +246,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             width: width,
             height: height,
             child: VisibilityDetector(
-              key: Key(widget.url),
+              key: ValueKey('video-visibility-${widget.videoId}'),
               onVisibilityChanged: visibilityChanged,
               child: MouseRegion(
                 onEnter: (_) => showVideoControls(),
@@ -206,13 +257,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                     alignment: Alignment.center,
 
                     children: [
-                      Video(
-                        controller: controller,
-
-                        fit: BoxFit.contain,
-
-                        controls: NoVideoControls,
-                      ),
+                      if (_isOpened)
+                        Video(
+                          controller: controller,
+                          fit: BoxFit.contain,
+                          controls: NoVideoControls,
+                        )
+                      else
+                        const DecoratedBox(
+                          decoration: BoxDecoration(color: Color(0xff100E17)),
+                          child: Center(
+                            child: Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: Colors.white54,
+                              size: 54,
+                            ),
+                          ),
+                        ),
 
                       if (loading)
                         const CircularProgressIndicator(color: Colors.white),
@@ -354,6 +415,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void dispose() {
     controlsTimer?.cancel();
+    widget.videoController.removeListener(_onActiveVideoChanged);
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
 
     player.dispose();
 

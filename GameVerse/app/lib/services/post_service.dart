@@ -180,7 +180,12 @@ class PostService {
         .uploadBinary(
           fileName,
           bytes,
-          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          // Los nombres de vídeo son únicos e inmutables: permitir cache de
+          // larga duración evita volver a descargar el mismo clip.
+          fileOptions: const FileOptions(
+            cacheControl: '31536000',
+            upsert: false,
+          ),
         );
 
     final url = supabase.storage.from('post-videos').getPublicUrl(fileName);

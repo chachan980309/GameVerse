@@ -503,11 +503,12 @@ class _SpotifySearchDialogState extends State<_SpotifySearchDialog> {
   Future<void> _search() async {
     setState(() => _loading = true);
     final results = await widget.spotify.searchTracks(_controller.text);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _results = results;
         _loading = false;
       });
+    }
   }
 
   @override

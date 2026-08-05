@@ -29,18 +29,20 @@ class _PhotosTabState extends State<PhotosTab> {
   Widget build(BuildContext context) => FutureBuilder<List<PostModel>>(
     future: _posts,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const Center(
           child: CircularProgressIndicator(color: Color(0xFF6D35F5)),
         );
+      }
       final photos = snapshot.data ?? [];
-      if (photos.isEmpty)
+      if (photos.isEmpty) {
         return const Center(
           child: Text(
             'Aún no tienes fotos en tus publicaciones.',
             style: TextStyle(color: Colors.white54),
           ),
         );
+      }
       return GridView.builder(
         padding: const EdgeInsets.all(28),
         itemCount: photos.length,
