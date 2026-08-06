@@ -17,10 +17,11 @@ class TournamentDetailPage extends StatefulWidget {
   State<TournamentDetailPage> createState() => _TournamentDetailPageState();
 }
 
-class _TournamentDetailPageState extends State<TournamentDetailPage> with SingleTickerProviderStateMixin {
+class _TournamentDetailPageState extends State<TournamentDetailPage>
+    with SingleTickerProviderStateMixin {
   final TournamentController _controller = TournamentController.instance;
   final TournamentService _service = TournamentService();
-  
+
   late TabController _tabController;
   TournamentModel? _tournament;
   bool _loading = true;
@@ -42,7 +43,9 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
   }
 
   void _onControllerStateChanged() {
-    final index = _controller.tournaments.indexWhere((t) => t.id == widget.tournamentId);
+    final index = _controller.tournaments.indexWhere(
+      (t) => t.id == widget.tournamentId,
+    );
     if (index != -1 && mounted) {
       setState(() {
         _tournament = _controller.tournaments[index];
@@ -69,14 +72,19 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
 
   Future<void> _toggleParticipation() async {
     if (_tournament == null || _submitting) return;
-    
+
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null) return;
 
     // Bloquear participación en torneos inactivos
-    if (_tournament!.status == 'cancelled' || _tournament!.status == 'finished' || _tournament!.status == 'archived') {
+    if (_tournament!.status == 'cancelled' ||
+        _tournament!.status == 'finished' ||
+        _tournament!.status == 'archived') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No te puedes inscribir en un torneo inactivo.'), backgroundColor: Color(0xffD64A68)),
+        const SnackBar(
+          content: Text('No te puedes inscribir en un torneo inactivo.'),
+          backgroundColor: Color(0xffD64A68),
+        ),
       );
       return;
     }
@@ -87,24 +95,36 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
       if (_isJoined) {
         await _controller.leaveTournament(_tournament!.id);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Has abandonado el torneo.'), backgroundColor: Color(0xffD64A68)),
+          const SnackBar(
+            content: Text('Has abandonado el torneo.'),
+            backgroundColor: Color(0xffD64A68),
+          ),
         );
       } else {
         if (_tournament!.participantCount >= _tournament!.maxPlayers) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('El torneo está lleno.'), backgroundColor: Color(0xffD64A68)),
+            const SnackBar(
+              content: Text('El torneo está lleno.'),
+              backgroundColor: Color(0xffD64A68),
+            ),
           );
           return;
         }
         await _controller.joinTournament(_tournament!.id);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Te has inscrito con éxito!'), backgroundColor: Color(0xff50E6A5)),
+          const SnackBar(
+            content: Text('¡Te has inscrito con éxito!'),
+            backgroundColor: Color(0xff50E6A5),
+          ),
         );
       }
       await _loadTournamentDetails();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al procesar inscripción: $e'), backgroundColor: const Color(0xffD64A68)),
+        SnackBar(
+          content: Text('Error al procesar inscripción: $e'),
+          backgroundColor: const Color(0xffD64A68),
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -128,13 +148,22 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: const Color(0xff1B1625),
-            title: const Text('Reportar Torneo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: const Text(
+              'Reportar Torneo',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Selecciona el motivo del reporte:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text(
+                    'Selecciona el motivo del reporte:',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: selectedReason,
@@ -143,10 +172,15 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xff130F1A),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     items: reasons.map((r) {
-                      return DropdownMenuItem(value: r['id'], child: Text(r['label']!));
+                      return DropdownMenuItem(
+                        value: r['id'],
+                        child: Text(r['label']!),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -155,7 +189,10 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Detalles del reporte (Opcional):', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text(
+                    'Detalles del reporte (Opcional):',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: detailsController,
@@ -163,20 +200,30 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Describe brevemente el problema...',
-                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                      hintStyle: const TextStyle(
+                        color: Colors.white24,
+                        fontSize: 13,
+                      ),
                       filled: true,
                       fillColor: const Color(0xff130F1A),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xffD64A68)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xffD64A68),
+                ),
                 child: const Text('Enviar Reporte'),
               ),
             ],
@@ -193,11 +240,19 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
           detailsController.text.trim(),
         );
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Gracias! El torneo ha sido reportado para revisión.'), backgroundColor: Color(0xff50E6A5)),
+          const SnackBar(
+            content: Text(
+              '¡Gracias! El torneo ha sido reportado para revisión.',
+            ),
+            backgroundColor: Color(0xff50E6A5),
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al enviar reporte: $e'), backgroundColor: const Color(0xffD64A68)),
+          SnackBar(
+            content: Text('Error al enviar reporte: $e'),
+            backgroundColor: const Color(0xffD64A68),
+          ),
         );
       }
     }
@@ -211,10 +266,15 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
         title: Text('¿$actionLabel torneo?'),
         content: Text('Esto cambiará el estado del torneo a "$newStatus".'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xff7B4DFF)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xff7B4DFF),
+            ),
             child: Text(actionLabel),
           ),
         ],
@@ -226,12 +286,18 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
       try {
         await _controller.updateTournamentStatus(_tournament!.id, newStatus);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Torneo actualizado a "$newStatus"'), backgroundColor: const Color(0xff50E6A5)),
+          SnackBar(
+            content: Text('Torneo actualizado a "$newStatus"'),
+            backgroundColor: const Color(0xff50E6A5),
+          ),
         );
         await _loadTournamentDetails();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar: $e'), backgroundColor: const Color(0xffD64A68)),
+          SnackBar(
+            content: Text('Error al actualizar: $e'),
+            backgroundColor: const Color(0xffD64A68),
+          ),
         );
       } finally {
         if (mounted) setState(() => _loading = false);
@@ -241,34 +307,52 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'draft': return 'Borrador';
-      case 'registration': return 'Inscripciones';
-      case 'full': return 'Cupos Llenos';
-      case 'in_progress': return 'En Curso 🔴';
-      case 'finished': return 'Finalizado';
-      case 'cancelled': return 'Cancelado';
-      case 'archived': return 'Archivado';
-      default: return status;
+      case 'draft':
+        return 'Borrador';
+      case 'registration':
+        return 'Inscripciones';
+      case 'full':
+        return 'Cupos Llenos';
+      case 'in_progress':
+        return 'En Curso 🔴';
+      case 'finished':
+        return 'Finalizado';
+      case 'cancelled':
+        return 'Cancelado';
+      case 'archived':
+        return 'Archivado';
+      default:
+        return status;
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'registration': return const Color(0xff50E6A5);
-      case 'full': return Colors.orange;
-      case 'in_progress': return const Color(0xffffb800);
-      case 'finished': return Colors.white54;
-      case 'cancelled': return const Color(0xffD64A68);
-      default: return const Color(0xff7B4DFF);
+      case 'registration':
+        return const Color(0xff50E6A5);
+      case 'full':
+        return Colors.orange;
+      case 'in_progress':
+        return const Color(0xffffb800);
+      case 'finished':
+        return Colors.white54;
+      case 'cancelled':
+        return const Color(0xffD64A68);
+      default:
+        return const Color(0xff7B4DFF);
     }
   }
 
   String _getTypeText(String type) {
     switch (type) {
-      case 'single_elimination': return 'Eliminación Simple';
-      case 'double_elimination': return 'Eliminación Doble';
-      case 'round_robin': return 'Round Robin';
-      default: return type;
+      case 'single_elimination':
+        return 'Eliminación Simple';
+      case 'double_elimination':
+        return 'Eliminación Doble';
+      case 'round_robin':
+        return 'Round Robin';
+      default:
+        return type;
     }
   }
 
@@ -277,19 +361,27 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
     if (_loading) {
       return const Scaffold(
         backgroundColor: Color(0xff130F1A),
-        body: Center(child: CircularProgressIndicator(color: Color(0xff7B4DFF))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xff7B4DFF)),
+        ),
       );
     }
 
     if (_tournament == null) {
       return const Scaffold(
         backgroundColor: Color(0xff130F1A),
-        body: Center(child: Text('Torneo no encontrado', style: TextStyle(color: Colors.white))),
+        body: Center(
+          child: Text(
+            'Torneo no encontrado',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
       );
     }
 
     final isFull = _tournament!.participantCount >= _tournament!.maxPlayers;
-    final isOwner = _tournament!.creatorId == Supabase.instance.client.auth.currentUser?.id;
+    final isOwner =
+        _tournament!.creatorId == Supabase.instance.client.auth.currentUser?.id;
     final isAdmin = ProfileController.instance.role == 'Admin';
 
     return Scaffold(
@@ -297,12 +389,18 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
       appBar: AppBar(
         backgroundColor: const Color(0xff1A1625),
         elevation: 0,
-        title: Text(_tournament!.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          _tournament!.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         centerTitle: true,
         actions: [
           if (!isOwner)
             IconButton(
-              icon: const Icon(Icons.report_problem_outlined, color: Colors.amber),
+              icon: const Icon(
+                Icons.report_problem_outlined,
+                color: Colors.amber,
+              ),
               tooltip: 'Reportar Torneo',
               onPressed: _showReportDialog,
             ),
@@ -318,7 +416,8 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
               fit: StackFit.expand,
               children: [
                 // 1. Imagen de fondo borrosa
-                if (_tournament!.gameBackgroundUrl != null && _tournament!.gameBackgroundUrl!.isNotEmpty)
+                if (_tournament!.gameBackgroundUrl != null &&
+                    _tournament!.gameBackgroundUrl!.isNotEmpty)
                   ImageFiltered(
                     imageFilter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                     child: Opacity(
@@ -339,16 +438,17 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                       ),
                     ),
                   ),
-                
+
                 // 2. Imagen de primer plano nítida y completa (BoxFit.contain)
-                if (_tournament!.gameBackgroundUrl != null && _tournament!.gameBackgroundUrl!.isNotEmpty)
+                if (_tournament!.gameBackgroundUrl != null &&
+                    _tournament!.gameBackgroundUrl!.isNotEmpty)
                   Center(
                     child: Image.network(
                       _tournament!.gameBackgroundUrl!,
                       fit: BoxFit.contain,
                     ),
                   ),
-                
+
                 // Vignette gradient overlay
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -373,27 +473,41 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xff6438FF),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               _tournament!.gameName,
-                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             _tournament!.name,
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ],
                       ),
-                      
+
                       // Status Label on Banner
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black87,
                           borderRadius: BorderRadius.circular(12),
@@ -401,7 +515,11 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                         ),
                         child: Text(
                           _getStatusText(_tournament!.status).toUpperCase(),
-                          style: TextStyle(color: _getStatusColor(_tournament!.status), fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: _getStatusColor(_tournament!.status),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -422,38 +540,64 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                     children: [
                       Text(
                         'CUPOS RESERVADOS',
-                        style: TextStyle(color: Colors.white.withOpacity(0.38), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.38),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${_tournament!.participantCount} / ${_tournament!.maxPlayers} Jugadores inscritos',
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Join/Leave button
                 _submitting
                     ? const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: CircularProgressIndicator(color: Color(0xff7B4DFF)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xff7B4DFF),
+                        ),
                       )
                     : ElevatedButton(
                         onPressed: _toggleParticipation,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isJoined
                               ? const Color(0xffD64A68) // Red for Leave
-                              : (isFull ? Colors.white24 : const Color(0xff50E6A5)), // Green for Join
-                          foregroundColor: _isJoined || isFull ? Colors.white70 : const Color(0xff120F19),
+                              : (isFull
+                                    ? Colors.white24
+                                    : const Color(
+                                        0xff50E6A5,
+                                      )), // Green for Join
+                          foregroundColor: _isJoined || isFull
+                              ? Colors.white70
+                              : const Color(0xff120F19),
                           minimumSize: const Size(160, 48),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           elevation: 6,
-                          shadowColor: _isJoined ? const Color(0xffD64A68).withOpacity(0.3) : const Color(0xff50E6A5).withOpacity(0.3),
+                          shadowColor: _isJoined
+                              ? const Color(0xffD64A68).withOpacity(0.3)
+                              : const Color(0xff50E6A5).withOpacity(0.3),
                         ),
                         child: Text(
-                          _isJoined ? 'Salir del Torneo' : (isFull ? 'Lleno' : 'Inscribirse'),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          _isJoined
+                              ? 'Salir del Torneo'
+                              : (isFull ? 'Lleno' : 'Inscribirse'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
               ],
@@ -480,11 +624,7 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _infoTab(),
-                _participantsTab(),
-                _bracketsTab(),
-              ],
+              children: [_infoTab(), _participantsTab(), _bracketsTab()],
             ),
           ),
         ],
@@ -493,19 +633,25 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
   }
 
   Widget _organizerControlPanel(bool isOwner, bool isAdmin) {
-    final canDelete = !_tournament!.isOfficial && 
-                      _tournament!.startDate.isAfter(DateTime.now()) && 
-                      _tournament!.participantCount < 4;
-    final canCancel = _tournament!.status != 'cancelled' && 
-                      _tournament!.status != 'finished' && 
-                      _tournament!.status != 'archived' &&
-                      (!_tournament!.isOfficial || isAdmin);
-    final canStart = _tournament!.status == 'registration' && 
-                     (!_tournament!.isOfficial || isAdmin);
-    final canFinish = _tournament!.status == 'in_progress' && 
-                      (!_tournament!.isOfficial || isAdmin);
-    final canArchive = (_tournament!.status == 'finished' || _tournament!.status == 'cancelled') && 
-                       (!_tournament!.isOfficial || isAdmin);
+    final canDelete =
+        !_tournament!.isOfficial &&
+        _tournament!.startDate.isAfter(DateTime.now()) &&
+        _tournament!.participantCount < 4;
+    final canCancel =
+        _tournament!.status != 'cancelled' &&
+        _tournament!.status != 'finished' &&
+        _tournament!.status != 'archived' &&
+        (!_tournament!.isOfficial || isAdmin);
+    final canStart =
+        _tournament!.status == 'registration' &&
+        (!_tournament!.isOfficial || isAdmin);
+    final canFinish =
+        _tournament!.status == 'in_progress' &&
+        (!_tournament!.isOfficial || isAdmin);
+    final canArchive =
+        (_tournament!.status == 'finished' ||
+            _tournament!.status == 'cancelled') &&
+        (!_tournament!.isOfficial || isAdmin);
 
     if (!isOwner && !isAdmin) return const SizedBox.shrink();
 
@@ -522,11 +668,19 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
         children: [
           const Row(
             children: [
-              Icon(Icons.admin_panel_settings_rounded, color: Color(0xff7B4DFF), size: 20),
+              Icon(
+                Icons.admin_panel_settings_rounded,
+                color: Color(0xff7B4DFF),
+                size: 20,
+              ),
               SizedBox(width: 8),
               Text(
                 'Panel de Control del Organizador',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -539,33 +693,57 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
               if (canStart)
                 ElevatedButton.icon(
                   onPressed: () => _updateStatus('in_progress', 'Iniciar'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff50E6A5), foregroundColor: Colors.black),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff50E6A5),
+                    foregroundColor: Colors.black,
+                  ),
                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                  label: const Text('Iniciar Torneo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Iniciar Torneo',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               // Finalizar Torneo
               if (canFinish)
                 ElevatedButton.icon(
                   onPressed: () => _updateStatus('finished', 'Finalizar'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff6438FF), foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff6438FF),
+                    foregroundColor: Colors.white,
+                  ),
                   icon: const Icon(Icons.emoji_events_rounded, size: 16),
-                  label: const Text('Finalizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Finalizar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               // Cancelar Torneo (Cambia estado a cancelled, no borra de la DB)
               if (canCancel)
                 ElevatedButton.icon(
                   onPressed: () => _updateStatus('cancelled', 'Cancelar'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xffD64A68), foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffD64A68),
+                    foregroundColor: Colors.white,
+                  ),
                   icon: const Icon(Icons.cancel_rounded, size: 16),
-                  label: const Text('Cancelar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Cancelar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               // Archivar Torneo
               if (canArchive)
                 ElevatedButton.icon(
                   onPressed: () => _updateStatus('archived', 'Archivar'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white30, foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white30,
+                    foregroundColor: Colors.white,
+                  ),
                   icon: const Icon(Icons.archive_rounded, size: 16),
-                  label: const Text('Archivar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Archivar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               // Eliminar Torneo (Físicamente de la DB)
               if (canDelete)
@@ -576,12 +754,19 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                       builder: (ctx) => AlertDialog(
                         backgroundColor: const Color(0xff1B1625),
                         title: const Text('¿Eliminar torneo físicamente?'),
-                        content: const Text('Esta acción borrará de forma permanente el torneo del sistema.'),
+                        content: const Text(
+                          'Esta acción borrará de forma permanente el torneo del sistema.',
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancelar'),
+                          ),
                           FilledButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            style: FilledButton.styleFrom(backgroundColor: const Color(0xffD64A68)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xffD64A68),
+                            ),
                             child: const Text('Eliminar'),
                           ),
                         ],
@@ -594,9 +779,15 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                       }
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xffD64A68).withOpacity(0.1), foregroundColor: const Color(0xffD64A68)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffD64A68).withOpacity(0.1),
+                    foregroundColor: const Color(0xffD64A68),
+                  ),
                   icon: const Icon(Icons.delete_forever_rounded, size: 16),
-                  label: const Text('Eliminar Torneo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Eliminar Torneo',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
             ],
           ),
@@ -609,9 +800,10 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
     return FutureBuilder<OrganizerStatsModel?>(
       future: _service.getOrganizerStats(_tournament!.creatorId),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
+        if (!snapshot.hasData || snapshot.data == null)
+          return const SizedBox.shrink();
         final stats = snapshot.data!;
-        
+
         return Container(
           margin: const EdgeInsets.only(bottom: 24),
           padding: const EdgeInsets.all(16),
@@ -625,16 +817,28 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
             children: [
               const Text(
                 'ORGANIZADOR',
-                style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   CircleAvatar(
                     backgroundColor: const Color(0xff6438FF),
-                    backgroundImage: _tournament!.creatorAvatar.isNotEmpty ? NetworkImage(_tournament!.creatorAvatar) : null,
+                    backgroundImage: _tournament!.creatorAvatar.isNotEmpty
+                        ? NetworkImage(_tournament!.creatorAvatar)
+                        : null,
                     child: _tournament!.creatorAvatar.isEmpty
-                        ? Text(_tournament!.creatorName.isNotEmpty ? _tournament!.creatorName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white))
+                        ? Text(
+                            _tournament!.creatorName.isNotEmpty
+                                ? _tournament!.creatorName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(color: Colors.white),
+                          )
                         : null,
                   ),
                   const SizedBox(width: 12),
@@ -644,16 +848,28 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
                       children: [
                         Text(
                           _tournament!.creatorName,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Colors.amber,
+                              size: 16,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${stats.rating} / 5.0 Reputación',
-                              style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -686,7 +902,11 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
       children: [
         Text(
           val.toString(),
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -698,7 +918,8 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
   }
 
   Widget _infoTab() {
-    final isOwner = _tournament!.creatorId == Supabase.instance.client.auth.currentUser?.id;
+    final isOwner =
+        _tournament!.creatorId == Supabase.instance.client.auth.currentUser?.id;
     final isAdmin = ProfileController.instance.role == 'Admin';
 
     return SingleChildScrollView(
@@ -712,31 +933,60 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
           const SizedBox(height: 8),
           Text(
             _tournament!.description,
-            style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 24),
           _sectionTitle('Información Básica'),
           const SizedBox(height: 12),
-          _infoRow(Icons.grid_view_rounded, 'Formato', _getTypeText(_tournament!.type)),
-          _infoRow(Icons.calendar_today_rounded, 'Fecha y hora', DateFormat('dd MMMM yyyy · HH:mm').format(_tournament!.startDate.toLocal())),
+          _infoRow(
+            Icons.grid_view_rounded,
+            'Formato',
+            _getTypeText(_tournament!.type),
+          ),
+          _infoRow(
+            Icons.calendar_today_rounded,
+            'Fecha y hora',
+            DateFormat(
+              'dd MMMM yyyy · HH:mm',
+            ).format(_tournament!.startDate.toLocal()),
+          ),
           _infoRow(Icons.public_rounded, 'Región', _tournament!.region),
-          _infoRow(Icons.shield_outlined, 'Acceso', _tournament!.privacy == 'private' ? 'Privado con Contraseña' : 'Público Libre'),
+          _infoRow(
+            Icons.shield_outlined,
+            'Acceso',
+            _tournament!.privacy == 'private'
+                ? 'Privado con Contraseña'
+                : 'Público Libre',
+          ),
           const SizedBox(height: 24),
           if (_tournament!.rules != null && _tournament!.rules!.isNotEmpty) ...[
             _sectionTitle('Reglas Oficiales'),
             const SizedBox(height: 8),
             Text(
               _tournament!.rules!,
-              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 24),
           ],
-          if (_tournament!.prizes != null && _tournament!.prizes!.isNotEmpty) ...[
+          if (_tournament!.prizes != null &&
+              _tournament!.prizes!.isNotEmpty) ...[
             _sectionTitle('Premios 🎁'),
             const SizedBox(height: 8),
             Text(
               _tournament!.prizes!,
-              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
           ],
         ],
@@ -747,7 +997,12 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
   Widget _sectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
@@ -765,7 +1020,11 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
           const SizedBox(width: 8),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -797,14 +1056,32 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: const Color(0xff6438FF),
-              backgroundImage: p.avatarUrl.isNotEmpty ? NetworkImage(p.avatarUrl) : null,
+              backgroundImage: p.avatarUrl.isNotEmpty
+                  ? NetworkImage(p.avatarUrl)
+                  : null,
               child: p.avatarUrl.isEmpty
-                  ? Text(p.username.isNotEmpty ? p.username[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white))
+                  ? Text(
+                      p.username.isNotEmpty ? p.username[0].toUpperCase() : '?',
+                      style: const TextStyle(color: Colors.white),
+                    )
                   : null,
             ),
-            title: Text(p.username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: Text('Inscrito el ${DateFormat('dd MMM · HH:mm').format(p.joinedAt.toLocal())}', style: const TextStyle(color: Colors.white38, fontSize: 12)),
-            trailing: const Icon(Icons.verified_user_rounded, color: Color(0xff50E6A5), size: 18),
+            title: Text(
+              p.username,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Text(
+              'Inscrito el ${DateFormat('dd MMM · HH:mm').format(p.joinedAt.toLocal())}',
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            trailing: const Icon(
+              Icons.verified_user_rounded,
+              color: Color(0xff50E6A5),
+              size: 18,
+            ),
           ),
         );
       },
@@ -853,20 +1130,26 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
       children: [
         Text(
           title,
-          style: const TextStyle(color: Color(0xff7B4DFF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+          style: const TextStyle(
+            color: Color(0xff7B4DFF),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 24),
-        ...matches.map((m) => Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: m)),
+        ...matches.map(
+          (m) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: m,
+          ),
+        ),
       ],
     );
   }
 
   Widget _bracketConnectorLine() {
-    return Container(
-      width: 40,
-      height: 2,
-      color: const Color(0xff2d2543),
-    );
+    return Container(width: 40, height: 2, color: const Color(0xff2d2543));
   }
 
   Widget _matchNode(String p1, String p2, String label) {
@@ -876,9 +1159,7 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
         color: const Color(0xff1A1625),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xff2d2543)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 4),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -888,9 +1169,19 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
             width: double.infinity,
             decoration: const BoxDecoration(
               color: Color(0xff241D35),
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(9), topRight: Radius.circular(9)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(9),
+                topRight: Radius.circular(9),
+              ),
             ),
-            child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           _participantNodeRow(p1),
           const Divider(color: Color(0xff2d2543), height: 1),
@@ -901,7 +1192,8 @@ class _TournamentDetailPageState extends State<TournamentDetailPage> with Single
   }
 
   Widget _participantNodeRow(String username) {
-    final isTbd = username.contains('Por definir') || username.contains('Ganador');
+    final isTbd =
+        username.contains('Por definir') || username.contains('Ganador');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Text(
