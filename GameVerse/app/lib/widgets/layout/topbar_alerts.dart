@@ -19,12 +19,19 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
   final _friends = FriendService();
   final _messages = DirectMessageService();
   final _notifications = NotificationService();
-  late Future<List<Map<String, dynamic>>> _requests;
-  late Future<List<Map<String, dynamic>>> _inbox;
-  late Future<List<Map<String, dynamic>>> _activity;
+  
+  List<Map<String, dynamic>> _requestsList = [];
+  List<Map<String, dynamic>> _inboxList = [];
+  List<Map<String, dynamic>> _activityList = [];
+  bool _loading = true;
+  bool _hasMoreNotifications = true;
+  bool _loadingMore = false;
+
   Timer? _refreshTimer;
   RealtimeChannel? _notificationChannel;
   OverlayEntry? _messagesOverlay;
+  OverlayEntry? _notificationsOverlay;
+  int _notificationLimit = 10;
 
   @override
   void initState() {
@@ -79,44 +86,90 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
   void dispose() {
     _refreshTimer?.cancel();
     _messagesOverlay?.remove();
+    _notificationsOverlay?.remove();
     final channel = _notificationChannel;
     if (channel != null) Supabase.instance.client.removeChannel(channel);
     super.dispose();
   }
 
-  void _reload() {
-    if (!mounted) return;
-    setState(() {
-      _requests = _friends.getPendingRequests();
-      _inbox = _messages.getInbox();
-      _activity = _notifications.getNotifications();
-    });
+  Future<void> _reload() async {
+    try {
+      final results = await Future.wait([
+        _friends.getPendingRequests(),
+        _messages.getInbox(),
+        _notifications.getNotifications(offset: 0, limit: 10),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _requestsList = results[0];
+        _inboxList = results[1];
+        _activityList = results[2];
+        _loading = false;
+        _hasMoreNotifications = results[2].length == 10;
+        _notificationLimit = 10; // Resetear límite visual al recargar
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMoreNotifications() async {
+    if (_loadingMore || !_hasMoreNotifications) return;
+    setState(() => _loadingMore = true);
+
+    try {
+      final nextItems = await _notifications.getNotifications(
+        offset: _activityList.length,
+        limit: 10,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        final existingIds = _activityList.map((item) => item['id'].toString()).toSet();
+        for (final item in nextItems) {
+          if (!existingIds.contains(item['id'].toString())) {
+            _activityList.add(item);
+          }
+        }
+        _loadingMore = false;
+        _hasMoreNotifications = nextItems.length == 10;
+        _notificationLimit = _activityList.length;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<dynamic>>(
-    future: Future.wait<dynamic>([_requests, _inbox, _activity]),
-    builder: (context, snapshot) {
-      final requests =
-          snapshot.data?.first as List<Map<String, dynamic>>? ?? const [];
-      final inbox =
-          snapshot.data?[1] as List<Map<String, dynamic>>? ?? const [];
-      final activity =
-          snapshot.data?[2] as List<Map<String, dynamic>>? ?? const [];
-      final unread = inbox
-          .where((message) => message['has_unread'] == true)
-          .length;
-      return Row(
-        children: [
-          _requestsMenu(requests),
-          const SizedBox(width: 10),
-          _messagesMenu(inbox, unread),
-          const SizedBox(width: 10),
-          _notificationsMenu(requests, inbox, unread, activity),
-        ],
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const SizedBox(
+        width: 146,
+        child: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6)),
+          ),
+        ),
       );
-    },
-  );
+    }
+
+    final unread = _inboxList
+        .where((message) => message['has_unread'] == true)
+        .length;
+
+    return Row(
+      children: [
+        _requestsMenu(_requestsList),
+        const SizedBox(width: 10),
+        _messagesMenu(_inboxList, unread),
+        const SizedBox(width: 10),
+        _notificationsMenu(_requestsList, _inboxList, unread, _activityList),
+      ],
+    );
+  }
 
   Widget _requestsMenu(List<Map<String, dynamic>> requests) => MenuAnchor(
     style: _menuStyle,
@@ -180,31 +233,60 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
     List<Map<String, dynamic>> inbox,
     int unread,
     List<Map<String, dynamic>> activity,
-  ) => MenuAnchor(
-    style: _menuStyle,
-    menuChildren: [
-      SizedBox(
-        width: 340,
-        child: _notificationsContent(requests, inbox, unread, activity),
-      ),
-    ],
-    builder: (context, controller, _) => _alertButton(
-      icon: Icons.notifications_none_rounded,
-      count: activity.where((item) => item['read_at'] == null).length,
-      tooltip: 'Notificaciones',
-      onTap: () async {
-        if (controller.isOpen) {
-          controller.close();
-          return;
-        }
-        controller.open();
-        try {
-          await _notifications.markAllRead();
-          _reload();
-        } catch (_) {}
-      },
-    ),
+  ) => _alertButton(
+    icon: Icons.notifications_none_rounded,
+    count: activity.where((item) => item['read_at'] == null).length,
+    tooltip: 'Notificaciones',
+    onTap: () => _toggleNotificationsPanel(requests, inbox, unread, activity),
   );
+
+  void _toggleNotificationsPanel(
+    List<Map<String, dynamic>> requests,
+    List<Map<String, dynamic>> inbox,
+    int unread,
+    List<Map<String, dynamic>> activity,
+  ) async {
+    if (_notificationsOverlay != null) {
+      _closeNotificationsPanel();
+      return;
+    }
+
+    try {
+      await _notifications.markAllRead();
+      _reload();
+    } catch (_) {}
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    _notificationsOverlay = OverlayEntry(
+      builder: (overlayContext) => Positioned(
+        top: 72,
+        right: screenWidth > 1200 ? 250 : 16,
+        child: TapRegion(
+          onTapOutside: (_) => _closeNotificationsPanel(),
+          child: Material(
+            color: const Color(0xFF171520),
+            elevation: 16,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: 340,
+              constraints: const BoxConstraints(maxHeight: 520),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF39324F)),
+              ),
+              child: _notificationsContent(requests, inbox, unread, activity),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_notificationsOverlay!);
+  }
+
+  void _closeNotificationsPanel() {
+    _notificationsOverlay?.remove();
+    _notificationsOverlay = null;
+  }
 
   Widget _requestsContent(List<Map<String, dynamic>> requests) => _menuShell(
     title: 'Solicitudes de amistad',
@@ -393,35 +475,56 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
     int unread,
     List<Map<String, dynamic>> activity,
   ) {
-    final notifications = <Widget>[];
+    final List<_NotificationItem> rawItems = [];
+
+    // 1. Unificar Solicitudes de Amistad
     for (final request in requests) {
       final sender = Map<String, dynamic>.from(
         request['sender'] as Map? ?? const {},
       );
-      notifications.add(
-        _notice(
-          Icons.person_add_alt_1_rounded,
-          '${sender['username'] ?? 'Alguien'} te envió una solicitud.',
-        ),
-      );
+      final name = sender['username']?.toString() ?? 'Alguien';
+      final time = DateTime.tryParse(request['created_at']?.toString() ?? '') ?? DateTime.now();
+      rawItems.add(_NotificationItem(
+        id: 'req-${request['id']}',
+        type: 'friend_request',
+        text: 'te envió una solicitud de amistad.',
+        icon: Icons.person_add_alt_1_rounded,
+        time: time,
+        isRead: false,
+        actorName: name,
+        rawItem: request,
+      ));
     }
+
+    // 2. Unificar Mensajes no leídos
     for (final message in inbox.where((item) => item['has_unread'] == true)) {
       final sender = Map<String, dynamic>.from(
         message['other_user'] as Map? ?? const {},
       );
-      notifications.add(
-        _notice(
-          Icons.chat_bubble_outline_rounded,
-          '${sender['username'] ?? 'Alguien'} te envió un mensaje.',
-        ),
-      );
+      final name = sender['username']?.toString() ?? 'Alguien';
+      final time = DateTime.tryParse(message['created_at']?.toString() ?? '') ?? DateTime.now();
+      rawItems.add(_NotificationItem(
+        id: 'msg-${message['other_user_id']}',
+        type: 'message',
+        text: 'te envió un mensaje.',
+        icon: Icons.chat_bubble_outline_rounded,
+        time: time,
+        isRead: false,
+        actorName: name,
+        rawItem: message,
+      ));
     }
+
+    // 3. Unificar Actividades de Supabase
     for (final item in activity) {
       final actor = Map<String, dynamic>.from(
         item['actor'] as Map? ?? const {},
       );
       final name = actor['username']?.toString() ?? 'Alguien';
       final type = item['type']?.toString() ?? '';
+      final isRead = item['read_at'] != null;
+      final time = DateTime.tryParse(item['created_at']?.toString() ?? '') ?? DateTime.now();
+
       final details = switch (type) {
         'like' => ('dio Me gusta a tu publicación.', Icons.favorite_rounded),
         'comment' => ('comentó tu publicación.', Icons.mode_comment_outlined),
@@ -440,39 +543,328 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
         ),
         _ => ('tiene una interacción nueva.', Icons.notifications_none_rounded),
       };
-      notifications.add(_notice(details.$2, '$name ${details.$1}'));
+
+      rawItems.add(_NotificationItem(
+        id: 'act-${item['id']}',
+        type: type,
+        text: details.$1,
+        icon: details.$2,
+        time: time,
+        isRead: isRead,
+        actorName: name,
+        rawItem: item,
+      ));
     }
-    return _menuShell(
-      title: 'Notificaciones',
-      empty: 'No hay notificaciones nuevas.',
-      children: notifications,
+
+    // 4. Ordenar: Las nuevas arriba (Requisito 4)
+    rawItems.sort((a, b) => b.time.compareTo(a.time));
+
+    // 5. Agrupar notificaciones iguales (Requisitos 6 y 7)
+    final groupedItems = _groupNotifications(rawItems);
+
+    // 6. Filtrar por límite (Requisito 1)
+    final limitedItems = groupedItems.take(_notificationLimit).toList();
+
+    // 7. Generar listado con Separadores de Día (Requisito 8)
+    final List<Widget> listWidgets = [];
+    String? currentDayLabel;
+
+    for (final item in limitedItems) {
+      final dayLabel = _dayLabel(item.time);
+      if (dayLabel != currentDayLabel) {
+        currentDayLabel = dayLabel;
+        listWidgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: Row(
+              children: [
+                Text(
+                  dayLabel.toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFFAF8CFF),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Divider(color: const Color(0xFF39324F).withOpacity(0.3), height: 1)),
+              ],
+            ),
+          ),
+        );
+      }
+      listWidgets.add(_noticeWidget(item));
+    }
+
+    // 8. Botón Cargar Más si existen más notificaciones (Requisito 3)
+    final hasMore = groupedItems.length > _notificationLimit;
+
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Notificaciones',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (rawItems.any((item) => !item.isRead))
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${rawItems.where((item) => !item.isRead).length} Nuevas',
+                    style: const TextStyle(color: Color(0xFFAF8CFF), fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
+          ),
+          const Divider(color: Color(0xFF39324F), height: 22),
+          if (groupedItems.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'No tienes notificaciones nuevas.',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ),
+            )
+          else ...[
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 380),
+              child: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                children: listWidgets,
+              ),
+            ),
+            if (hasMore) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 38,
+                child: TextButton.icon(
+                  onPressed: _loadingMore ? null : _loadMoreNotifications,
+                  icon: _loadingMore
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFAF8CFF)),
+                        )
+                      : const Icon(Icons.add_circle_outline_rounded, size: 16, color: Color(0xFFAF8CFF)),
+                  label: Text(
+                    _loadingMore ? 'Cargando...' : 'Cargar más notificaciones',
+                    style: const TextStyle(color: Color(0xFFAF8CFF), fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFF29213F).withOpacity(0.6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'No hay más notificaciones.',
+                  style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _notice(IconData icon, String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: const Color(0xFF29213F),
-            borderRadius: BorderRadius.circular(8),
+  Widget _noticeWidget(_NotificationItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: item.isRead ? Colors.transparent : const Color(0xFF29213F).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icono con su cajita
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F1A30),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: item.isRead ? Colors.transparent : const Color(0xff8B5CF6).withOpacity(0.2)),
+            ),
+            child: Icon(item.icon, color: const Color(0xFFAF8CFF), size: 16),
           ),
-          child: Icon(icon, color: const Color(0xFFAF8CFF), size: 17),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                    children: [
+                      TextSpan(
+                        text: item.actorName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const TextSpan(text: ' '),
+                      TextSpan(text: item.text),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Tiempo relativo
+                Text(
+                  _relativeTime(item.time),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          // Punto morado de no leído (Requisito 5)
+          if (!item.isRead) ...[
+            const SizedBox(width: 8),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: EdgeInsets.only(top: 14),
+                child: CircleAvatar(
+                  radius: 4,
+                  backgroundColor: Color(0xFF8B5CF6),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _relativeTime(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inSeconds < 60) return 'hace ${diff.inSeconds} s';
+    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+    if (diff.inDays == 1) return 'ayer';
+    if (diff.inDays < 7) return 'hace ${diff.inDays} días';
+    return 'hace ${diff.inDays ~/ 7} sem';
+  }
+
+  String _dayLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final compareDate = DateTime(date.year, date.month, date.day);
+
+    if (compareDate == today) return 'Hoy';
+    if (compareDate == yesterday) return 'Ayer';
+    final diffDays = today.difference(compareDate).inDays;
+    return 'Hace $diffDays días';
+  }
+
+  List<_NotificationItem> _groupNotifications(List<_NotificationItem> input) {
+    if (input.isEmpty) return [];
+
+    final List<_NotificationItem> result = [];
+    int i = 0;
+    while (i < input.length) {
+      final current = input[i];
+
+      // Agrupar Me gustas consecutivos (Requisitos 6 y 7)
+      if (current.type == 'like') {
+        int count = 1;
+        final List<String> otherActors = [];
+        int j = i + 1;
+        while (j < input.length && input[j].type == 'like') {
+          final nextItem = input[j];
+          if (nextItem.actorName == current.actorName) {
+            count++;
+          } else {
+            if (!otherActors.contains(nextItem.actorName)) {
+              otherActors.add(nextItem.actorName);
+            }
+          }
+          j++;
+        }
+
+        if (count > 1) {
+          result.add(_NotificationItem(
+            id: current.id,
+            type: 'like_grouped',
+            text: 'dio Me gusta a $count publicaciones.',
+            icon: Icons.favorite_rounded,
+            time: current.time,
+            isRead: current.isRead,
+            actorName: current.actorName,
+            rawItem: current.rawItem,
+          ));
+          i = j;
+          continue;
+        } else if (otherActors.isNotEmpty) {
+          final totalOthers = otherActors.length;
+          result.add(_NotificationItem(
+            id: current.id,
+            type: 'like_grouped_others',
+            text: 'y otras $totalOthers personas dieron Me gusta.',
+            icon: Icons.favorite_rounded,
+            time: current.time,
+            isRead: current.isRead,
+            actorName: current.actorName,
+            rawItem: current.rawItem,
+          ));
+          i = j;
+          continue;
+        }
+      }
+
+      // Agrupar comentarios consecutivos del mismo usuario (Requisitos 6 y 7)
+      if (current.type == 'comment') {
+        int count = 1;
+        int j = i + 1;
+        while (j < input.length && input[j].type == 'comment' && input[j].actorName == current.actorName) {
+          count++;
+          j++;
+        }
+        if (count > 1) {
+          result.add(_NotificationItem(
+            id: current.id,
+            type: 'comment_grouped',
+            text: 'comentó en $count de tus publicaciones.',
+            icon: Icons.mode_comment_outlined,
+            time: current.time,
+            isRead: current.isRead,
+            actorName: current.actorName,
+            rawItem: current.rawItem,
+          ));
+          i = j;
+          continue;
+        }
+      }
+
+      result.add(current);
+      i++;
+    }
+
+    return result;
+  }
 
   Widget _menuShell({
     required String title,
@@ -574,4 +966,26 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
       ),
     ),
   );
+}
+
+class _NotificationItem {
+  _NotificationItem({
+    required this.id,
+    required this.type,
+    required this.text,
+    required this.icon,
+    required this.time,
+    required this.isRead,
+    required this.actorName,
+    required this.rawItem,
+  });
+
+  final String id;
+  final String type;
+  final String text;
+  final IconData icon;
+  final DateTime time;
+  final bool isRead;
+  final String actorName;
+  final Map<String, dynamic> rawItem;
 }

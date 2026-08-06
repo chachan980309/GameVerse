@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/post_model.dart';
 import '../models/user_game.dart';
+import '../models/tournament_model.dart';
+import '../services/tournament_service.dart';
 import '../controllers/video_feed_controller.dart';
 import '../pages/image_viewer_page.dart';
 import '../services/friend_service.dart';
@@ -1040,6 +1042,8 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
                         url: clip.videoUrl!,
                         videoId: clip.id,
                         videoController: _videoController,
+                        thumbnailUrl: clip.thumbnailUrl,
+                        duration: clip.duration,
                       ),
                     ),
                   ),
@@ -1123,8 +1127,65 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
               ],
             ),
           ],
+          _organizerStatsSection(profile['id']?.toString() ?? ''),
         ],
       ),
+    );
+  }
+
+  Widget _organizerStatsSection(String userId) {
+    return FutureBuilder<OrganizerStatsModel?>(
+      future: TournamentService().getOrganizerStats(userId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
+        final stats = snapshot.data!;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(color: Color(0xFF2E2A40), height: 1),
+            ),
+            const Row(
+              children: [
+                Icon(Icons.emoji_events_rounded, color: Color(0xff9A78FF), size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Estadísticas de Organizador',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _organizerStatItem('Rating', '${stats.rating} ★', Colors.amber),
+                _organizerStatItem('Creados', '${stats.createdCount}', Colors.white),
+                _organizerStatItem('Finalizados', '${stats.finishedCount}', const Color(0xff50E6A5)),
+                _organizerStatItem('Cancelados', '${stats.cancelledCount}', const Color(0xffD64A68)),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _organizerStatItem(String label, String val, Color valColor) {
+    return Column(
+      children: [
+        Text(
+          val,
+          style: TextStyle(color: valColor, fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+      ],
     );
   }
 

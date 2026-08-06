@@ -17,17 +17,24 @@ alter table public.posts
 -- RLS
 alter table public.live_streams enable row level security;
 
+drop policy if exists "Cualquiera puede ver directos activos" on public.live_streams;
 create policy "Cualquiera puede ver directos activos"
   on public.live_streams for select
   using (true);
 
+drop policy if exists "El usuario crea sus propios directos" on public.live_streams;
 create policy "El usuario crea sus propios directos"
   on public.live_streams for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "El usuario actualiza sus propios directos" on public.live_streams;
 create policy "El usuario actualiza sus propios directos"
   on public.live_streams for update
   using (auth.uid() = user_id);
 
 -- Realtime
-alter publication supabase_realtime add table public.live_streams;
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'live_streams') then
+    execute 'alter publication supabase_realtime add table public.live_streams';
+  end if;
+end $$;

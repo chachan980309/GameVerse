@@ -34,33 +34,51 @@ class LiveKitService {
         .maybeSingle();
     final username = profile?['username']?.toString().trim();
 
+    final requestBody = {
+      'room': roomName,
+      'userId': user.id,
+      'username': username?.isNotEmpty == true
+          ? username
+          : (user.email ?? 'Usuario'),
+    };
+
     try {
+      const fullUrl = "https://[Supabase_Project]/functions/v1/livekit-token";
+      print("[CALL] --- INICIANDO SOLICITUD DE TOKEN ---");
+      print("[CALL] URL llamada: $fullUrl");
+      print("[CALL] Body enviado: $requestBody");
+
       final response = await _supabase.functions.invoke(
         'livekit-token',
-        body: {
-          'room': roomName,
-          'userId': user.id,
-          'username': username?.isNotEmpty == true
-              ? username
-              : (user.email ?? 'Usuario'),
-        },
+        body: requestBody,
         headers: {'Authorization': 'Bearer ${session.accessToken}'},
       );
+      
+      print("[CALL] --- RESPUESTA RECIBIDA ---");
+      print("[CALL] Código HTTP de respuesta: ${response.status}");
+      print("[CALL] Body completo de respuesta: ${response.data}");
+
       final data = Map<String, dynamic>.from(response.data as Map);
+      if (data.containsKey('error')) {
+        print("[CALL] ERROR EN EDGE FUNCTION RESPONDIDO: ${data['error']}");
+        throw LiveKitServiceException(data['error'].toString());
+      }
       final token = data['token']?.toString() ?? '';
       final url = data['url']?.toString() ?? '';
       final tokenParts = token.split('.').length;
       final urlScheme = Uri.tryParse(url)?.scheme;
-      debugPrint(
-        'LiveKit credentials received: '
-        'tokenParts=$tokenParts, urlScheme=$urlScheme',
-      );
+      
+      print("[CALL] Token recibido con longitud: ${token.length}");
+      print("[CALL] Room asociada al token: $roomName");
+      print("[CALL] Credenciales procesadas: url=$url, tokenParts=$tokenParts");
+
       if (tokenParts != 3 || urlScheme != 'wss') {
         throw const LiveKitServiceException(
           'La respuesta de LiveKit no es válida.',
         );
       }
 
+      print("[CALL] Inicializando Room de LiveKit...");
       final room = Room(
         roomOptions: const RoomOptions(
           adaptiveStream: false,
@@ -82,28 +100,53 @@ class LiveKitService {
         ),
       );
       _room = room;
+      
+      print("[CALL] Ejecutando prepareConnection...");
       await room.prepareConnection(url, token);
+      print("[CALL] prepareConnection OK");
+
+      print("[CALL] Ejecutando room.connect...");
       await room.connect(url, token);
+      print("[CALL] room.connect OK. ConnectionState: ${room.connectionState.name}");
+
+      print("[CALL] Iniciando audio...");
       await room.startAudio();
+      print("[CALL] startAudio OK");
+
+      print("[CALL] Publicando micrófono...");
       final publication = await room.localParticipant?.setMicrophoneEnabled(
         true,
       );
-      debugPrint(
-        'LiveKit audio ready: playback=${room.canPlaybackAudio}, '
-        'microphonePublished=${publication != null}',
-      );
+      print("[CALL] setMicrophoneEnabled OK. micPublished=${publication != null}");
+      print("[CALL] ¡Conexión WebRTC / LiveKit completada con éxito!");
+      print("Sala unida en LiveKit: $roomName");
+      print("Identity enviada a LiveKit: ${user.id}");
       return room;
-    } on FunctionException catch (error) {
+    } on FunctionException catch (error, stack) {
+      print("[CALL] EXCEPCIÓN DE EDGE FUNCTION CAPTURADA:");
+      print("Status: ${error.status}");
+      print("Details: ${error.details}");
+      print("Error string: ${error.toString()}");
+      print(stack.toString());
+      
       await leaveRoom();
-      throw LiveKitServiceException(
-        error.status == 401
-            ? 'Tu sesión expiró. Inicia sesión nuevamente.'
-            : 'No se pudo obtener acceso al canal de voz.',
-      );
-    } catch (error) {
+      
+      String errMsg = 'Error de la Edge Function (${error.status}): ';
+      if (error.details is Map) {
+        final detailsMap = error.details as Map;
+        errMsg += detailsMap['error']?.toString() ?? detailsMap['message']?.toString() ?? error.toString();
+      } else if (error.details != null) {
+        errMsg += error.details.toString();
+      } else {
+        errMsg += error.toString();
+      }
+      
+      throw LiveKitServiceException(errMsg);
+    } catch (error, stack) {
+      print("[CALL] EXCEPCIÓN GENERAL EN WEBRTC / LIVEKIT: $error");
+      print(stack.toString());
       await leaveRoom();
       if (error is LiveKitServiceException) rethrow;
-      debugPrint('LiveKit connection rejected: $error');
       final message = error.toString().toLowerCase();
       if (message.contains('permission') || message.contains('notallowed')) {
         throw const LiveKitServiceException('Permiso de micrófono denegado.');

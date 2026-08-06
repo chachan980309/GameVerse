@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'controllers/profile_controller.dart';
 import 'screens/auth_gate.dart';
 import 'screens/register_screen.dart';
 
@@ -11,10 +14,13 @@ Future<void> main() async {
   // Inicializar MediaKit para videos
   MediaKit.ensureInitialized();
 
+  // Cargar variables de entorno
+  await dotenv.load(fileName: ".env");
+
   // Inicializar Supabase
   await Supabase.initialize(
-    url: "https://kspeynuvzzglafckkiza.supabase.co",
-    publishableKey: "sb_publishable_3adr9c84mh5xpbvFs6nEDA_AtKjC-7m",
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
   runApp(const MyApp());
@@ -25,23 +31,26 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
+    return ChangeNotifierProvider<ProfileController>.value(
+      value: ProfileController.instance,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
 
-      title: "nubzzz",
+        title: "nubzzz",
 
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xff17141f),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+        theme: ThemeData(
           brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xff17141f),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.deepPurple,
+            brightness: Brightness.dark,
+          ),
         ),
+
+        routes: {"/register": (context) => const RegisterScreen()},
+
+        home: AuthGate(),
       ),
-
-      routes: {"/register": (context) => const RegisterScreen()},
-
-      home: AuthGate(),
     );
   }
 }

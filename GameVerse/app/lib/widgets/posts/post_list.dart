@@ -107,9 +107,15 @@ class _PostListState extends State<PostList> {
         padding: EdgeInsets.zero,
         itemCount: widget.posts.length,
         itemBuilder: (context, index) {
+          final post = widget.posts[index];
+          final isFocused = post.id == widget.focusPostId;
+          final key = isFocused 
+              ? _postKeys.putIfAbsent(post.id, GlobalKey.new)
+              : ValueKey(post.id);
+
           return PostCard(
-            key: _postKeys.putIfAbsent(widget.posts[index].id, GlobalKey.new),
-            post: widget.posts[index],
+            key: key,
+            post: post,
             index: index,
             videoController: videoController,
           );

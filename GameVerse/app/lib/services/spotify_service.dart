@@ -60,7 +60,14 @@ class SpotifyService extends ChangeNotifier {
   static const _clientId = '3fc7ca94a72940ada5c8a6d83eef2fde';
   // La raíz es una ruta existente en el hosting y evita un 404 al volver de
   // Spotify en despliegues que no tengan configurado un SPA fallback.
-  static const _redirectUri = 'https://nubzzz.site';
+  String get _redirectUri {
+    final baseUri = Uri.base;
+    final host = baseUri.host;
+    if (host == 'localhost' || host == '127.0.0.1') {
+      return '${baseUri.scheme}://${baseUri.host}:${baseUri.port}';
+    }
+    return 'https://nubzzz.site';
+  }
   static const _scopes = [
     'user-read-playback-state',
     'user-read-currently-playing',

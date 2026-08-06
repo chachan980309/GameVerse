@@ -11,6 +11,7 @@ import '../../services/post_service.dart';
 import '../../services/mention_service.dart';
 import '../../services/live_stream_service.dart';
 import '../../pages/live_stream_page.dart';
+import '../../utils/video_metadata_helper.dart';
 
 class CreatePost extends StatefulWidget {
   final VoidCallback onPostCreated;
@@ -315,18 +316,64 @@ class _CreatePostState extends State<CreatePost> {
         type = "image";
       }
 
+      String? duration;
+      String? thumbnailUrl;
+      int? videoWidth;
+      int? videoHeight;
+      double? videoAspectRatio;
+
       if (selectedVideoBytes != null) {
-        debugPrint("Subiendo video...");
-
-        videoUrl = await postService.uploadVideo(
-          selectedVideoBytes!,
-          selectedVideoName!,
-        );
-
-        debugPrint("Video subido:");
-        debugPrint(videoUrl);
-
+        debugPrint("Iniciando subidas de video y miniatura en paralelo...");
         type = "video";
+
+        // Lanzar ambas tareas asíncronas en paralelo para optimizar el rendimiento y no bloquear la subida
+        final uploadTasks = await Future.wait([
+          postService.uploadVideo(selectedVideoBytes!, selectedVideoName!),
+          Future(() async {
+            try {
+              debugPrint("Extrayendo metadatos y miniatura del video...");
+              final meta = await VideoMetadataHelper.extractMetadata(selectedVideoBytes!, selectedVideoName!);
+              final durationVal = meta['duration'] as String?;
+              final thumbBytes = meta['thumbnailBytes'] as Uint8List?;
+              final w = meta['width'] as int?;
+              final h = meta['height'] as int?;
+              final ratio = meta['aspectRatio'] as double?;
+              
+              String? thumbUrl;
+              if (thumbBytes != null) {
+                debugPrint("Subiendo miniatura generada...");
+                thumbUrl = await postService.uploadThumbnail(
+                  thumbBytes,
+                  "thumb_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                );
+                debugPrint("Miniatura subida: $thumbUrl");
+              }
+              return {
+                'duration': durationVal,
+                'thumbnailUrl': thumbUrl,
+                'width': w,
+                'height': h,
+                'aspectRatio': ratio,
+              };
+            } catch (e) {
+              debugPrint("Error al extraer miniatura o duración del video: $e");
+              return <String, dynamic>{};
+            }
+          }),
+        ]);
+
+        videoUrl = uploadTasks[0] as String;
+        final metaResults = uploadTasks[1] as Map<String, dynamic>;
+        duration = metaResults['duration'] as String?;
+        thumbnailUrl = metaResults['thumbnailUrl'] as String?;
+        videoWidth = metaResults['width'] as int?;
+        videoHeight = metaResults['height'] as int?;
+        videoAspectRatio = metaResults['aspectRatio'] as double?;
+
+        debugPrint("Video subido: $videoUrl");
+        debugPrint("Miniatura subida: $thumbnailUrl");
+        debugPrint("Duración: $duration");
+        debugPrint("Dimensiones: $videoWidth x $videoHeight (aspectRatio: $videoAspectRatio)");
       }
 
       debugPrint("Creando publicación...");
@@ -335,6 +382,11 @@ class _CreatePostState extends State<CreatePost> {
         content: controller.text.trim(),
         imageUrl: imageUrl,
         videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        duration: duration,
+        width: videoWidth,
+        height: videoHeight,
+        aspectRatio: videoAspectRatio,
         type: type,
       );
 
@@ -394,9 +446,21 @@ class _CreatePostState extends State<CreatePost> {
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.all(widget.compact ? 12 : 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1A2A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF302C43)),
+        color: const Color(0xFF171526),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2C2941), width: 1.2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Color(0x067B4DFF),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -662,12 +726,19 @@ class _CreatePostState extends State<CreatePost> {
               ElevatedButton(
                 onPressed: loading ? null : publishPost,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6D35F5),
+                  backgroundColor: const Color(0xFF7B4DFF),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: const Color(0x7F7B4DFF),
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
                 child: loading
                     ? const SizedBox(
-                        width: 22,
-                        height: 22,
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.white,
@@ -675,7 +746,10 @@ class _CreatePostState extends State<CreatePost> {
                       )
                     : const Text(
                         "Publicar",
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
               ),
             ],

@@ -7,6 +7,11 @@ class PostModel {
   final String? game;
   final String? imageUrl;
   final String? videoUrl;
+  final String? thumbnailUrl;
+  final String? duration;
+  final int? width;
+  final int? height;
+  final double? aspectRatio;
 
   final String type;
 
@@ -30,6 +35,11 @@ class PostModel {
     this.game,
     this.imageUrl,
     this.videoUrl,
+    this.thumbnailUrl,
+    this.duration,
+    this.width,
+    this.height,
+    this.aspectRatio,
     this.sharedPostId,
     this.sharedPost,
     this.streamId,
@@ -47,15 +57,18 @@ class PostModel {
       game: map["game"],
       imageUrl: map["image"],
       videoUrl: map["video"],
+      thumbnailUrl: map["thumbnail_url"],
+      duration: map["duration"],
+      width: map["width"] != null ? int.tryParse(map["width"].toString()) : null,
+      height: map["height"] != null ? int.tryParse(map["height"].toString()) : null,
+      aspectRatio: map["aspect_ratio"] != null ? double.tryParse(map["aspect_ratio"].toString()) : null,
 
       type: map["type"] ?? "text",
-
-      createdAt: DateTime.parse(map["created_at"]),
-
-      username: profile?["username"] ?? "Usuario",
-      avatarUrl: profile?["avatar_url"] ?? "",
+      createdAt: DateTime.tryParse(map["created_at"]?.toString() ?? "") ?? DateTime.now(),
+      username: profile?["username"]?.toString() ?? "Usuario",
+      avatarUrl: profile?["avatar_url"]?.toString() ?? "",
       sharedPostId: map['shared_post_id']?.toString(),
-      sharedPost: shared is Map<String, dynamic>
+      sharedPost: shared != null && shared is Map<String, dynamic>
           ? PostModel.fromMap(shared)
           : null,
       streamId: map['stream_id']?.toString(),

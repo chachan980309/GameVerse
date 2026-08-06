@@ -19,11 +19,10 @@ class PostService {
   // OBTENER FEED
   // ==========================
 
-  Future<List<PostModel>> getFeedPosts() async {
-    final response = await _getFeedRows();
+  Future<List<PostModel>> getFeedPosts({int offset = 0, int limit = 20}) async {
+    final response = await _getFeedRows(offset: offset, limit: limit);
 
-    debugPrint("===== FEED =====");
-    debugPrint(response.toString());
+    debugPrint("===== FEED (Offset: $offset, Limit: $limit) =====");
 
     return _mapPosts(response);
   }
@@ -32,8 +31,8 @@ class PostService {
   // POSTS DE UN USUARIO
   // ==========================
 
-  Future<List<PostModel>> getUserPosts(String userId) async {
-    final response = await _getUserRows(userId);
+  Future<List<PostModel>> getUserPosts(String userId, {int offset = 0, int limit = 20}) async {
+    final response = await _getUserRows(userId, offset: offset, limit: limit);
 
     return _mapPosts(response);
   }
@@ -120,19 +119,21 @@ class PostService {
     return rows.map(PostModel.fromMap).toList();
   }
 
-  Future<List<dynamic>> _getFeedRows() async {
+  Future<List<dynamic>> _getFeedRows({int offset = 0, int limit = 20}) async {
     return supabase
         .from('posts')
         .select(_postSelect)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
   }
 
-  Future<List<dynamic>> _getUserRows(String userId) async {
+  Future<List<dynamic>> _getUserRows(String userId, {int offset = 0, int limit = 20}) async {
     return supabase
         .from('posts')
         .select(_postSelect)
         .eq('user_id', userId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
   }
 
   // ==========================
@@ -171,7 +172,7 @@ class PostService {
     final extension = originalName.split('.').last;
 
     final fileName =
-        'videos/${DateTime.now().millisecondsSinceEpoch}.$extension';
+        'post-videos/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
     debugPrint("Subiendo video...");
 
@@ -180,8 +181,6 @@ class PostService {
         .uploadBinary(
           fileName,
           bytes,
-          // Los nombres de vídeo son únicos e inmutables: permitir cache de
-          // larga duración evita volver a descargar el mismo clip.
           fileOptions: const FileOptions(
             cacheControl: '31536000',
             upsert: false,
@@ -197,6 +196,30 @@ class PostService {
   }
 
   // ==========================
+  // SUBIR MINIATURA DE VIDEO
+  // ==========================
+
+  Future<String> uploadThumbnail(Uint8List bytes, String originalName) async {
+    final extension = originalName.split('.').last;
+    final fileName = 'post-thumbnails/${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+    debugPrint("Subiendo miniatura a post-thumbnails bucket...");
+
+    await supabase.storage
+        .from('post-thumbnails')
+        .uploadBinary(
+          fileName,
+          bytes,
+          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+        );
+
+    final url = supabase.storage.from('post-thumbnails').getPublicUrl(fileName);
+
+    debugPrint("Miniatura subida con éxito: $url");
+    return url;
+  }
+
+  // ==========================
   // CREAR POST
   // ==========================
 
@@ -204,6 +227,11 @@ class PostService {
     required String content,
     String? imageUrl,
     String? videoUrl,
+    String? thumbnailUrl,
+    String? duration,
+    int? width,
+    int? height,
+    double? aspectRatio,
     String type = "text",
     String? sharedPostId,
     String? streamId,
@@ -219,12 +247,20 @@ class PostService {
     debugPrint("Contenido: $content");
     debugPrint("Imagen: $imageUrl");
     debugPrint("Video: $videoUrl");
+    debugPrint("Thumbnail: $thumbnailUrl");
+    debugPrint("Duration: $duration");
+    debugPrint("Width: $width, Height: $height, AspectRatio: $aspectRatio");
 
     await supabase.from('posts').insert({
       'user_id': user.id,
       'content': content,
       'image': imageUrl,
       'video': videoUrl,
+      'thumbnail_url': thumbnailUrl,
+      'duration': duration,
+      'width': width,
+      'height': height,
+      'aspect_ratio': aspectRatio,
       'type': type,
       'shared_post_id': sharedPostId,
       'stream_id': streamId,

@@ -11,10 +11,16 @@ create table if not exists public.live_stream_messages (
 
 alter table public.live_stream_messages enable row level security;
 
+drop policy if exists "Cualquiera puede leer mensajes de directos" on public.live_stream_messages;
 create policy "Cualquiera puede leer mensajes de directos"
   on public.live_stream_messages for select using (true);
 
+drop policy if exists "Usuarios autenticados pueden enviar mensajes" on public.live_stream_messages;
 create policy "Usuarios autenticados pueden enviar mensajes"
   on public.live_stream_messages for insert with check (auth.uid() = user_id);
 
-alter publication supabase_realtime add table public.live_stream_messages;
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'live_stream_messages') then
+    execute 'alter publication supabase_realtime add table public.live_stream_messages';
+  end if;
+end $$;
