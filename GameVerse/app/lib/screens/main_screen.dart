@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/presence_controller.dart';
+import '../controllers/profile_controller.dart';
 import '../controllers/voice_room_controller.dart';
 import '../pages/feed_page.dart';
 import '../pages/profile_page.dart';
@@ -34,7 +35,6 @@ class _MainScreenState extends State<MainScreen> {
   String? viewedProfileId;
   Map<String, dynamic>? activeFriendChat;
 
-  String usernameActual = "Usuario";
   Timer? _onlineHeartbeat;
   final _spotify = SpotifyService.instance;
 
@@ -43,7 +43,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    cargarUsuario();
+    ProfileController.instance.loadProfile();
     _startOnlinePresence();
     _spotify.initialize();
     ProfileNavigationService.instance.addListener(_openPublicProfile);
@@ -143,24 +143,6 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  Future<void> cargarUsuario() async {
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null) return;
-
-    final data = await Supabase.instance.client
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
-
-    if (!mounted) return;
-
-    setState(() {
-      usernameActual = data['username'] ?? "Sin nombre";
-    });
-  }
-
   Widget currentPage() {
     switch (selectedIndex) {
       case 0:
@@ -214,7 +196,6 @@ class _MainScreenState extends State<MainScreen> {
                       width: 250,
                       child: Sidebar(
                         selected: selectedIndex,
-                        username: usernameActual,
                         onSelected: (index) {
                           setState(() {
                             selectedIndex = index;

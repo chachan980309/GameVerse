@@ -14,13 +14,20 @@ Future<void> main() async {
   // Inicializar MediaKit para videos
   MediaKit.ensureInitialized();
 
-  // Cargar variables de entorno
-  await dotenv.load(fileName: ".env");
+  // Cargar variables de entorno de forma segura (sin bloquear en Web si falta el .env)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Advertencia: No se pudo cargar el archivo .env ($e). Se intentarán usar las variables de entorno de compilación.");
+  }
+
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? const String.fromEnvironment('SUPABASE_URL');
+  final supabaseKey = dotenv.env['SUPABASE_ANON_KEY'] ?? const String.fromEnvironment('SUPABASE_ANON_KEY');
 
   // Inicializar Supabase
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    url: supabaseUrl,
+    publishableKey: supabaseKey,
   );
 
   runApp(const MyApp());

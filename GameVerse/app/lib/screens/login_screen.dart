@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
+import '../controllers/profile_controller.dart';
 import 'main_screen.dart';
 
 String _storageUrl(String folder, String file) =>
@@ -41,6 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
         email: emailController.text.trim(),
         password: passwordController.text,
       );
+      
+      // Cargar el perfil global reactivo inmediatamente después del login exitoso
+      await ProfileController.instance.loadProfile();
+      
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

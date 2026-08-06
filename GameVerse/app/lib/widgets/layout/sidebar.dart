@@ -8,12 +8,10 @@ class Sidebar extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
-    required this.username,
   });
 
   final int selected;
   final ValueChanged<int> onSelected;
-  final String username;
 
   Widget _menuItem({
     required IconData icon,
@@ -92,7 +90,7 @@ class Sidebar extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              username,
+              profile.username,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
