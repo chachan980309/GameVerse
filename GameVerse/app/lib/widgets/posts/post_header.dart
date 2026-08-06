@@ -44,15 +44,25 @@ class PostHeader extends StatelessWidget {
         InkWell(
           borderRadius: BorderRadius.circular(28),
           onTap: () => _openProfile(context),
-          child: CircleAvatar(
-            radius: 23,
-            backgroundColor: const Color(0xff6438FF),
-            backgroundImage: post.avatarUrl.isNotEmpty
-                ? NetworkImage(post.avatarUrl)
-                : null,
-            child: post.avatarUrl.isEmpty
-                ? const Icon(Icons.person, color: Colors.white)
-                : null,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xff6438FF).withOpacity(0.5),
+                width: 1.5,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 21,
+              backgroundColor: const Color(0xff6438FF),
+              backgroundImage: post.avatarUrl.isNotEmpty
+                  ? NetworkImage(post.avatarUrl)
+                  : null,
+              child: post.avatarUrl.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
           ),
         ),
 

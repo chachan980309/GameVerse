@@ -3,8 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/voice_channel.dart';
 import '../services/livekit_service.dart';
+import '../services/voice_channel_service.dart';
 
 enum VoiceConnectionStatus {
   disconnected,
@@ -58,6 +61,21 @@ class VoiceRoomController extends ChangeNotifier {
   bool deafened = false;
   bool pushToTalkEnabled = false;
   bool isScreenSharing = false;
+  VoiceChannel? connectedChannel;
+  String? get connectedChannelId => connectedChannel?.id;
+  Map<String, dynamic>? privateCallUser;
+  bool isPrivateCall = false;
+  bool isMinimized = false;
+  DateTime? joinedAt;
+
+  String get durationFormatted {
+    final joined = joinedAt;
+    if (joined == null) return '00:00';
+    final duration = DateTime.now().difference(joined);
+    final minutes = duration.inMinutes.toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 
   bool get isConnected =>
       status == VoiceConnectionStatus.connected ||
@@ -81,10 +99,24 @@ class VoiceRoomController extends ChangeNotifier {
     return null;
   }
 
-  Future<bool> connect(String roomName) async {
+  void minimize() {
+    isMinimized = true;
+    notifyListeners();
+  }
+
+  void maximize() {
+    isMinimized = false;
+    notifyListeners();
+  }
+
+  Future<bool> connect(String roomName, {VoiceChannel? channel, Map<String, dynamic>? privateUser}) async {
     if (status == VoiceConnectionStatus.connecting) return false;
     status = VoiceConnectionStatus.connecting;
     errorMessage = null;
+    connectedChannel = channel;
+    privateCallUser = privateUser;
+    isPrivateCall = privateUser != null;
+    isMinimized = false;
     notifyListeners();
 
     try {
@@ -111,6 +143,7 @@ class VoiceRoomController extends ChangeNotifier {
           notifyListeners();
         });
       status = VoiceConnectionStatus.connected;
+      joinedAt = DateTime.now();
       microphoneMuted =
           !(room.localParticipant?.isMicrophoneEnabled() ?? false);
       speakerEnabled = _service.speakerEnabled;
@@ -121,7 +154,9 @@ class VoiceRoomController extends ChangeNotifier {
       );
       _syncParticipants();
       return true;
-    } catch (error) {
+    } catch (error, stack) {
+      print("[CALL] EXCEPCIÓN DETECTADA EN VOICE ROOM CONTROLLER: $error");
+      print(stack.toString());
       status = VoiceConnectionStatus.error;
       errorMessage = error is LiveKitServiceException
           ? error.message
@@ -147,6 +182,11 @@ class VoiceRoomController extends ChangeNotifier {
     microphoneMuted = false;
     deafened = false;
     isScreenSharing = false;
+    connectedChannel = null;
+    privateCallUser = null;
+    isPrivateCall = false;
+    isMinimized = false;
+    joinedAt = null;
     notifyListeners();
   }
 
@@ -234,6 +274,256 @@ class VoiceRoomController extends ChangeNotifier {
   void clearError() {
     errorMessage = null;
     notifyListeners();
+  }
+
+  RealtimeChannel? _callSubscription;
+  bool isOutgoingRinging = false;
+  bool isIncomingRinging = false;
+  Map<String, dynamic>? activePrivateCallRow;
+  Map<String, dynamic>? callingUserProfile;
+
+  void listenToPrivateCalls() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _callSubscription?.unsubscribe();
+    _callSubscription = Supabase.instance.client
+        .channel('private-calls-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'voice_channels',
+          callback: (payload) {
+            final row = payload.newRecord;
+            final oldRow = payload.oldRecord;
+            final eventType = payload.eventType;
+
+            _handleCallEvent(eventType, row, oldRow);
+          },
+        )
+        .subscribe();
+  }
+
+  void _handleCallEvent(PostgresChangeEvent eventType, Map<String, dynamic> row, Map<String, dynamic>? oldRow) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    if (eventType == PostgresChangeEvent.insert) {
+      if (row['is_private'] == true && row['invitee_id'] == userId && row['private_status'] == 'ringing') {
+        isIncomingRinging = true;
+        activePrivateCallRow = row;
+        try {
+          final profile = await Supabase.instance.client
+              .from('profiles')
+              .select()
+              .eq('id', row['created_by'])
+              .single();
+          callingUserProfile = profile;
+        } catch (_) {
+          callingUserProfile = {
+            'id': row['created_by'],
+            'username': 'Usuario',
+          };
+        }
+        notifyListeners();
+      }
+    } else if (eventType == PostgresChangeEvent.update) {
+      final channelId = row['id'];
+      if (channelId == activePrivateCallRow?['id']) {
+        final status = row['private_status'];
+        if (row['created_by'] == userId) {
+          // Nosotros somos el creador/que llama
+          if (status == 'accepted') {
+            print("[STEP 9-CALLER] Recibido evento 'accepted' vía Realtime.");
+            isOutgoingRinging = false;
+            activePrivateCallRow = row;
+            notifyListeners();
+          } else if (status == 'rejected' || status == 'ended') {
+            isOutgoingRinging = false;
+            activePrivateCallRow = null;
+            callingUserProfile = null;
+            notifyListeners();
+            await leaveRoom();
+          }
+        } else if (row['invitee_id'] == userId) {
+          // Nosotros somos el receptor
+          if (status == 'ended' || status == 'rejected') {
+            isIncomingRinging = false;
+            activePrivateCallRow = null;
+            callingUserProfile = null;
+            notifyListeners();
+            await leaveRoom();
+          }
+        }
+      }
+    } else if (eventType == PostgresChangeEvent.delete) {
+      final oldId = oldRow?['id']?.toString();
+      if (oldId != null && oldId == activePrivateCallRow?['id']?.toString()) {
+        isIncomingRinging = false;
+        isOutgoingRinging = false;
+        activePrivateCallRow = null;
+        callingUserProfile = null;
+        notifyListeners();
+        await leaveRoom();
+      }
+    }
+  }
+
+  Future<void> startPrivateCall(Map<String, dynamic> receiverProfile) async {
+    print("[STEP 2] Entrando a startPrivateCall en VoiceRoomController");
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      print("[STEP 2] Error: Usuario no autenticado.");
+      return;
+    }
+
+    // Si ya estamos en una llamada, colgar primero
+    if (isConnected) {
+      print("[STEP 2] Ya hay llamada conectada; colgando primero...");
+      await leaveRoom();
+    }
+
+    final roomName = 'private_${userId.replaceAll('-', '')}_${receiverProfile['id'].toString().replaceAll('-', '')}';
+    
+    // LOGS ANTES DEL INSERT
+    print("[LOG-BEFORE-INSERT] Iniciando inserción de llamada privada:");
+    print("  - room_name: $roomName");
+    print("  - caller_id (created_by): $userId");
+    print("  - invitee_id: ${receiverProfile['id']}");
+
+    isOutgoingRinging = true;
+    callingUserProfile = receiverProfile;
+    notifyListeners();
+
+    try {
+      final row = await Supabase.instance.client.from('voice_channels').insert({
+        'name': 'Llamada privada',
+        'room_name': roomName,
+        'description': 'private_call',
+        'created_by': userId,
+        'is_private': true,
+        'invitee_id': receiverProfile['id'],
+        'private_status': 'ringing',
+        'is_active': true,
+      }).select().single();
+      
+      // LOGS DESPUÉS DEL INSERT
+      print("[LOG-AFTER-INSERT] Canal privado insertado con éxito!");
+      print("  - fila completa devuelta por Supabase: $row");
+
+      activePrivateCallRow = row;
+      notifyListeners();
+
+      // Unirse al canal en la base de datos
+      await VoiceChannelService().joinChannel(row['id']);
+
+      // Conectarse a Livekit inmediatamente
+      final voiceChannel = VoiceChannel.fromMap(row);
+      await connect(roomName, channel: voiceChannel, privateUser: receiverProfile);
+    } catch (e, stack) {
+      print("[STEP 4-ERROR] Error al iniciar la llamada: $e");
+      print(stack.toString());
+      isOutgoingRinging = false;
+      callingUserProfile = null;
+      errorMessage = 'No se pudo iniciar la llamada: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> acceptPrivateCall() async {
+    if (activePrivateCallRow == null) {
+      print("[LOG-ACCEPT] Error: activePrivateCallRow es null al intentar aceptar.");
+      return;
+    }
+    isIncomingRinging = false;
+    notifyListeners();
+
+    final searchId = activePrivateCallRow!['id'];
+    final searchRoomName = activePrivateCallRow!['room_name'];
+    print("[LOG-ACCEPT-BEFORE] Intentando actualizar el canal de voz para aceptar:");
+    print("  - Consulta SQL equivalente: UPDATE voice_channels SET private_status = 'accepted' WHERE id = '$searchId' RETURNING *;");
+    print("  - room_name buscado (desde el registro activo): $searchRoomName");
+    print("  - ID del canal buscado: $searchId");
+
+    try {
+      // Intentar primero hacer un select para ver si el canal sigue existiendo antes de actualizar (ayuda a diagnosticar)
+      final checkRows = await Supabase.instance.client
+          .from('voice_channels')
+          .select()
+          .eq('id', searchId);
+      
+      print("  - Cantidad de filas encontradas en SELECT previo: ${checkRows.length}");
+      if (checkRows.isNotEmpty) {
+        print("  - Fila encontrada en SELECT previo: ${checkRows.first}");
+      } else {
+        print("  - ADVERTENCIA: ¡No se encontró ninguna fila con ese ID en SELECT previo!");
+      }
+
+      final row = await Supabase.instance.client
+          .from('voice_channels')
+          .update({'private_status': 'accepted'})
+          .eq('id', searchId)
+          .select()
+          .single();
+
+      print("[LOG-ACCEPT-AFTER] Actualización exitosa!");
+      print("  - Fila actualizada devuelta: $row");
+
+      activePrivateCallRow = row;
+      notifyListeners();
+
+      // Unirse al canal en la base de datos
+      await VoiceChannelService().joinChannel(row['id']);
+
+      // Conectarse a Livekit
+      final voiceChannel = VoiceChannel.fromMap(row);
+      await connect(row['room_name'], channel: voiceChannel, privateUser: callingUserProfile);
+    } catch (e) {
+      print("[LOG-ACCEPT-ERROR] Excepción capturada en acceptPrivateCall: $e");
+      activePrivateCallRow = null;
+      callingUserProfile = null;
+      errorMessage = 'No se pudo aceptar la llamada: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> rejectPrivateCall() async {
+    if (activePrivateCallRow == null) return;
+    isIncomingRinging = false;
+    final rowId = activePrivateCallRow!['id'];
+    activePrivateCallRow = null;
+    callingUserProfile = null;
+    notifyListeners();
+
+    try {
+      await Supabase.instance.client
+          .from('voice_channels')
+          .update({'private_status': 'rejected'})
+          .eq('id', rowId);
+    } catch (_) {}
+    await leaveRoom();
+  }
+
+  Future<void> endPrivateCall() async {
+    isOutgoingRinging = false;
+    isIncomingRinging = false;
+    final rowId = activePrivateCallRow?['id'] ?? connectedChannel?.id;
+    activePrivateCallRow = null;
+    callingUserProfile = null;
+    notifyListeners();
+
+    if (rowId != null) {
+      try {
+        await VoiceChannelService().leaveChannel(rowId);
+      } catch (_) {}
+      try {
+        await Supabase.instance.client
+            .from('voice_channels')
+            .update({'private_status': 'ended'})
+            .eq('id', rowId);
+      } catch (_) {}
+    }
+    await leaveRoom();
   }
 
   void _syncParticipants() {

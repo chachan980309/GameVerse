@@ -22,17 +22,27 @@ class _FeedPageState extends State<FeedPage> {
   void initState() {
     super.initState();
     PostNavigationService.instance.addListener(_onPostRequested);
+    _feedScrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     PostNavigationService.instance.removeListener(_onPostRequested);
+    _feedScrollController.removeListener(_onScroll);
     _feedScrollController.dispose();
     super.dispose();
   }
 
   void _onPostRequested() {
     if (mounted) setState(() {});
+  }
+
+  void _onScroll() {
+    if (!_feedScrollController.hasClients) return;
+    final threshold = _feedScrollController.position.maxScrollExtent - 200;
+    if (_feedScrollController.position.pixels >= threshold) {
+      postController.loadMoreFeed();
+    }
   }
 
   void _scrollFeed(double delta) {
@@ -93,13 +103,13 @@ class _FeedPageState extends State<FeedPage> {
                           _feedTabs(),
                           const SizedBox(height: 12),
                           Expanded(
-                            child: AnimatedBuilder(
-                              animation: postController,
-                              builder: (context, _) => ScrollConfiguration(
-                                behavior: ScrollConfiguration.of(
-                                  context,
-                                ).copyWith(scrollbars: false),
-                                child: PostList(
+                            child: ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(
+                                context,
+                              ).copyWith(scrollbars: false),
+                              child: AnimatedBuilder(
+                                animation: postController,
+                                builder: (context, _) => PostList(
                                   posts: postController.feedPosts,
                                   loading: postController.isLoading,
                                   onRefresh: postController.loadFeed,
@@ -126,24 +136,52 @@ class _FeedPageState extends State<FeedPage> {
   );
 
   Widget _feedTabs() => Container(
-    height: 50,
-    padding: const EdgeInsets.symmetric(horizontal: 8),
+    height: 54,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
-      color: const Color(0xFF171625),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xFF2E2A40)),
+      color: const Color(0xFF171526),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFF2C2941), width: 1.2),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x18000000),
+          blurRadius: 10,
+          offset: Offset(0, 4),
+        ),
+        BoxShadow(
+          color: Color(0x067B4DFF),
+          blurRadius: 18,
+          offset: Offset(0, 8),
+        ),
+      ],
     ),
     child: Row(
       children: [
         _tab('Para ti', 0),
+        const SizedBox(width: 6),
         _tab('Siguiendo', 1),
+        const SizedBox(width: 6),
         _tab('Populares', 2),
         const Spacer(),
         TextButton.icon(
           onPressed: () {},
-          icon: const Icon(Icons.tune_rounded, size: 17),
-          label: const Text('Filtrar'),
-          style: TextButton.styleFrom(foregroundColor: Colors.white54),
+          icon: const Icon(Icons.tune_rounded, size: 15),
+          label: const Text(
+            'Filtrar',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFC5B4FF),
+            backgroundColor: Colors.white.withOpacity(0.03),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.white.withOpacity(0.05)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
         ),
       ],
     ),
@@ -152,16 +190,21 @@ class _FeedPageState extends State<FeedPage> {
   Widget _tab(String label, int index) {
     final selected = _selectedFeed == index;
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => setState(() => _selectedFeed = index),
       child: Container(
-        height: 42,
+        height: 38,
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF7B4DFF).withOpacity(0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
           border: selected
-              ? const Border(
-                  bottom: BorderSide(color: Color(0xFF8B5CF6), width: 3),
+              ? Border.all(
+                  color: const Color(0xFF7B4DFF).withOpacity(0.24),
+                  width: 1.2,
                 )
               : null,
         ),
@@ -169,7 +212,8 @@ class _FeedPageState extends State<FeedPage> {
           label,
           style: TextStyle(
             color: selected ? const Color(0xFFC5B4FF) : Colors.white60,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            fontSize: 13,
           ),
         ),
       ),

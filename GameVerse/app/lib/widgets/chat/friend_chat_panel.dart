@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../controllers/presence_controller.dart';
+import '../../controllers/voice_room_controller.dart';
 import '../../models/direct_message.dart';
 import '../../services/direct_message_service.dart';
 import 'shared_post_message_card.dart';
@@ -91,81 +94,89 @@ class _FriendChatPanelState extends State<FriendChatPanel> {
     final name = (profile['username'] ?? profile['name'] ?? 'Usuario')
         .toString();
     final avatar = profile['avatar_url']?.toString() ?? '';
-    final online = profile['is_online'] == true || profile['online'] == true;
     final messages = _messages ??= _service.getConversation(
       profile['id'].toString(),
     );
 
-    return Container(
-      color: const Color(0xFF14121D),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: widget.onClose,
-                  icon: const Icon(
-                    Icons.chevron_left_rounded,
-                    color: Colors.white70,
-                  ),
-                ),
-                CircleAvatar(
-                  radius: 19,
-                  backgroundColor: const Color(0xFF6D35F5),
-                  backgroundImage: avatar.isEmpty ? null : NetworkImage(avatar),
-                  child: avatar.isEmpty
-                      ? Text(
-                          name[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+    return ListenableBuilder(
+      listenable: PresenceController.instance,
+      builder: (context, _) {
+        final online = PresenceController.instance.isUserOnline(profile['id'].toString());
+        return Container(
+          color: const Color(0xFF14121D),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white70,
                       ),
-                      Text(
-                        online ? 'En línea' : 'Desconectado',
-                        style: TextStyle(
-                          color: online
-                              ? const Color(0xFF1ED760)
-                              : Colors.white54,
-                          fontSize: 11,
-                        ),
+                    ),
+                    CircleAvatar(
+                      radius: 19,
+                      backgroundColor: const Color(0xFF6D35F5),
+                      backgroundImage: avatar.isEmpty ? null : NetworkImage(avatar),
+                      child: avatar.isEmpty
+                          ? Text(
+                              name[0].toUpperCase(),
+                              style: const TextStyle(color: Colors.white),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            online ? 'En línea' : 'Desconectado',
+                            style: TextStyle(
+                              color: online
+                                  ? const Color(0xFF1ED760)
+                                  : Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        print("[STEP 1] Botón de llamada pulsado en FriendChatPanel");
+                        print("[STEP 1] ID del receptor: ${profile['id']}");
+                        VoiceRoomController.instance.startPrivateCall(profile);
+                      },
+                      icon: const Icon(Icons.call_outlined, color: Colors.white70),
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.videocam_outlined,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.call_outlined, color: Colors.white70),
-                ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.videocam_outlined,
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFF312D3E)),
-          Expanded(
-            child: FutureBuilder<List<DirectMessage>>(
-              future: messages,
-              builder: (context, snapshot) {
+              ),
+              const Divider(height: 1, color: Color(0xFF312D3E)),
+              _activeCallHeaderWidget(profile),
+              Expanded(
+                child: FutureBuilder<List<DirectMessage>>(
+                  future: messages,
+                  builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(
                     child: CircularProgressIndicator(color: Color(0xFF6D35F5)),
@@ -257,6 +268,182 @@ class _FriendChatPanelState extends State<FriendChatPanel> {
             ),
           ),
         ],
+      ),
+    );
+      },
+    );
+  }
+
+  Widget _activeCallHeaderWidget(Map<String, dynamic> profile) {
+    return ListenableBuilder(
+      listenable: VoiceRoomController.instance,
+      builder: (context, _) {
+        final vc = VoiceRoomController.instance;
+        final profileId = profile['id']?.toString() ?? '';
+        if (!vc.isConnected || !vc.isPrivateCall || vc.privateCallUser?['id']?.toString() != profileId) {
+          return const SizedBox.shrink();
+        }
+
+        final otherName = (profile['username'] ?? profile['name'] ?? 'Usuario').toString();
+        final otherAvatar = profile['avatar_url']?.toString() ?? '';
+
+        final isOtherSpeaking = vc.activeSpeakerId == profileId;
+        final isMeSpeaking = vc.activeSpeakerId == Supabase.instance.client.auth.currentUser?.id;
+
+        return Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xff1f1a2e),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xff55338b), width: 1.2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x2a000000),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xff50e6a5),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'LLAMADA PRIVADA ACTIVA',
+                    style: TextStyle(color: Color(0xff50e6a5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Tu Avatar
+                  Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isMeSpeaking ? const Color(0xff8b4dff) : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Color(0xff6d35f5),
+                          child: Icon(Icons.person, color: Colors.white, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Tú',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.swap_horiz_rounded, color: Colors.white38),
+                  // Su Avatar
+                  Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isOtherSpeaking ? const Color(0xff8b4dff) : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: const Color(0xff6d35f5),
+                          backgroundImage: otherAvatar.isNotEmpty ? NetworkImage(otherAvatar) : null,
+                          child: otherAvatar.isEmpty
+                              ? Text(otherName.isEmpty ? '?' : otherName[0].toUpperCase(), style: const TextStyle(color: Colors.white))
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        otherName,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Silenciar
+                  _quickActionBtn(
+                    icon: vc.microphoneMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                    active: vc.microphoneMuted,
+                    color: vc.microphoneMuted ? const Color(0xffd64a68) : const Color(0xff3b3154),
+                    onTap: vc.toggleMute,
+                  ),
+                  const SizedBox(width: 8),
+                  // Enmudecer
+                  _quickActionBtn(
+                    icon: vc.deafened ? Icons.headset_off_rounded : Icons.headphones_rounded,
+                    active: vc.deafened,
+                    color: vc.deafened ? const Color(0xffd64a68) : const Color(0xff3b3154),
+                    onTap: vc.toggleDeafen,
+                  ),
+                  const SizedBox(width: 8),
+                  // Pantalla compartida
+                  _quickActionBtn(
+                    icon: vc.isScreenSharing ? Icons.screen_share_rounded : Icons.stop_screen_share_rounded,
+                    active: vc.isScreenSharing,
+                    color: vc.isScreenSharing ? const Color(0xff50e6a5) : const Color(0xff3b3154),
+                    onTap: vc.toggleScreenShare,
+                  ),
+                  const SizedBox(width: 16),
+                  // Colgar
+                  _quickActionBtn(
+                    icon: Icons.call_end_rounded,
+                    active: true,
+                    color: const Color(0xffd64a68),
+                    onTap: vc.endPrivateCall,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _quickActionBtn({
+    required IconData icon,
+    required bool active,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
       ),
     );
   }

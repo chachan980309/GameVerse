@@ -21,6 +21,9 @@ class PostController extends ChangeNotifier {
   List<PostModel> userPosts = [];
 
   bool isLoading = false;
+  bool isLoadingMore = false;
+  bool hasMoreFeed = true;
+  bool hasMoreUserPosts = true;
 
   /// Usuario cuyo muro está cargado actualmente
   String? _currentUserId;
@@ -31,12 +34,33 @@ class PostController extends ChangeNotifier {
 
   Future<void> loadFeed() async {
     isLoading = true;
+    hasMoreFeed = true;
     notifyListeners();
 
     try {
-      feedPosts = await _postService.getFeedPosts();
+      feedPosts = await _postService.getFeedPosts(offset: 0, limit: 20);
+      if (feedPosts.length < 20) {
+        hasMoreFeed = false;
+      }
     } finally {
       isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreFeed() async {
+    if (isLoadingMore || !hasMoreFeed) return;
+    isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final morePosts = await _postService.getFeedPosts(offset: feedPosts.length, limit: 20);
+      if (morePosts.isEmpty || morePosts.length < 20) {
+        hasMoreFeed = false;
+      }
+      feedPosts.addAll(morePosts);
+    } finally {
+      isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -49,12 +73,33 @@ class PostController extends ChangeNotifier {
     _currentUserId = userId;
 
     isLoading = true;
+    hasMoreUserPosts = true;
     notifyListeners();
 
     try {
-      userPosts = await _postService.getUserPosts(userId);
+      userPosts = await _postService.getUserPosts(userId, offset: 0, limit: 20);
+      if (userPosts.length < 20) {
+        hasMoreUserPosts = false;
+      }
     } finally {
       isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreUserPosts() async {
+    if (isLoadingMore || !hasMoreUserPosts || _currentUserId == null) return;
+    isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final morePosts = await _postService.getUserPosts(_currentUserId!, offset: userPosts.length, limit: 20);
+      if (morePosts.isEmpty || morePosts.length < 20) {
+        hasMoreUserPosts = false;
+      }
+      userPosts.addAll(morePosts);
+    } finally {
+      isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -67,6 +112,11 @@ class PostController extends ChangeNotifier {
     required String content,
     String? imageUrl,
     String? videoUrl,
+    String? thumbnailUrl,
+    String? duration,
+    int? width,
+    int? height,
+    double? aspectRatio,
     String type = "text",
     String? sharedPostId,
     String? streamId,
@@ -75,6 +125,11 @@ class PostController extends ChangeNotifier {
       content: content,
       imageUrl: imageUrl,
       videoUrl: videoUrl,
+      thumbnailUrl: thumbnailUrl,
+      duration: duration,
+      width: width,
+      height: height,
+      aspectRatio: aspectRatio,
       type: type,
       sharedPostId: sharedPostId,
       streamId: streamId,

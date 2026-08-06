@@ -21,6 +21,8 @@ class PostMedia extends StatelessWidget {
     required this.videoController,
   });
 
+  static final Map<String, Future<ImageInfo>> _mediaImageSizeCache = {};
+
   @override
   Widget build(BuildContext context) {
     // ==========================
@@ -36,6 +38,8 @@ class PostMedia extends StatelessWidget {
           url: post.videoUrl!,
           videoId: post.id,
           videoController: videoController,
+          thumbnailUrl: post.thumbnailUrl,
+          duration: post.duration,
         ),
       );
     }
@@ -120,21 +124,17 @@ class PostMedia extends StatelessWidget {
   }
 
   Future<ImageInfo> _loadImage(String url) {
-    final provider = NetworkImage(url);
-
-    final completer = Completer<ImageInfo>();
-
-    final stream = provider.resolve(const ImageConfiguration());
-
-    late ImageStreamListener listener;
-
-    listener = ImageStreamListener((info, _) {
-      completer.complete(info);
-      stream.removeListener(listener);
+    return _mediaImageSizeCache.putIfAbsent(url, () {
+      final provider = NetworkImage(url);
+      final completer = Completer<ImageInfo>();
+      final stream = provider.resolve(const ImageConfiguration());
+      late ImageStreamListener listener;
+      listener = ImageStreamListener((info, _) {
+        completer.complete(info);
+        stream.removeListener(listener);
+      });
+      stream.addListener(listener);
+      return completer.future;
     });
-
-    stream.addListener(listener);
-
-    return completer.future;
   }
 }

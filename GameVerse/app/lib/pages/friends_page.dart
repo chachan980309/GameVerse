@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/presence_controller.dart';
 import '../models/direct_message.dart';
 import '../services/direct_message_service.dart';
 import '../services/friend_service.dart';
@@ -40,6 +41,7 @@ class _FriendsPageState extends State<FriendsPage> {
   void dispose() {
     _messageController.dispose();
     _chatScrollController.dispose();
+    PresenceController.instance.removeListener(_onPresenceChanged);
     super.dispose();
   }
 
@@ -47,6 +49,11 @@ class _FriendsPageState extends State<FriendsPage> {
   void initState() {
     super.initState();
     _loadData();
+    PresenceController.instance.addListener(_onPresenceChanged);
+  }
+
+  void _onPresenceChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadData() async {
@@ -330,7 +337,7 @@ class _FriendsPageState extends State<FriendsPage> {
         subtitle ??
         (game.isNotEmpty
             ? 'Jugando $game'
-            : (online ? 'En línea' : 'Desconectado'));
+            : (online ? 'En línea' : _lastSeenText(profile)));
     return Material(
       color: _surface,
       borderRadius: BorderRadius.circular(10),
@@ -748,8 +755,25 @@ class _FriendsPageState extends State<FriendsPage> {
       _profileOnline(_otherProfile(friendship));
   bool _isPlaying(Map<String, dynamic> friendship) =>
       _profileGame(_otherProfile(friendship)).isNotEmpty;
-  bool _profileOnline(Map<String, dynamic> profile) =>
-      profile['is_online'] == true || profile['online'] == true;
+  bool _profileOnline(Map<String, dynamic> profile) {
+    final id = profile['id']?.toString() ?? '';
+    return PresenceController.instance.isUserOnline(id);
+  }
+
+  String _lastSeenText(Map<String, dynamic> profile) {
+    final rawDate = profile['last_seen_at']?.toString() ?? profile['last_seen']?.toString();
+    if (rawDate == null || rawDate.isEmpty) return 'Desconectado';
+    final date = DateTime.tryParse(rawDate);
+    if (date == null) return 'Desconectado';
+
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'Última vez hace un momento';
+    if (diff.inMinutes < 60) return 'Última vez hace ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'Última vez hace ${diff.inHours} h';
+    final days = diff.inDays;
+    if (days == 1) return 'Última vez ayer';
+    return 'Última vez hace $days días';
+  }
   String _profileGame(Map<String, dynamic> profile) =>
       (profile['current_game'] ?? profile['game'] ?? profile['game_name'] ?? '')
           .toString();

@@ -38,14 +38,25 @@ serve(async (request) => {
     const response = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {'Client-ID': Deno.env.get('TWITCH_CLIENT_ID')!, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain'},
-      body: `search "${safeSearch}"; fields id,name,cover.url,platforms.name; limit 8;`,
+      body: `search "${safeSearch}"; fields id,name,cover.url,artworks.url,artworks.width,artworks.height,screenshots.url,screenshots.width,screenshots.height,videos.video_id,platforms.name; limit 8;`,
     })
     if (!response.ok) throw new Error('IGDB no pudo buscar los juegos.')
     const results = await response.json()
     const games = results.map((game: any) => ({
       id: game.id,
       name: game.name,
-      cover_url: game.cover?.url ? `https:${game.cover.url.replace('t_thumb', 't_cover_big')}` : null,
+      cover_url: game.cover?.url ? game.cover.url : null,
+      artworks: (game.artworks ?? []).map((art: any) => ({
+        url: art.url,
+        width: art.width,
+        height: art.height
+      })),
+      screenshots: (game.screenshots ?? []).map((sc: any) => ({
+        url: sc.url,
+        width: sc.width,
+        height: sc.height
+      })),
+      videos: (game.videos ?? []).map((v: any) => v.video_id),
       platforms: (game.platforms ?? []).map((platform: any) => platform.name).filter(Boolean),
     }))
     return Response.json({games}, {headers: corsHeaders})

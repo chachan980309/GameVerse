@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class NotificationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  Future<List<Map<String, dynamic>>> getNotifications() async {
+  Future<List<Map<String, dynamic>>> getNotifications({int offset = 0, int limit = 10}) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return [];
     final data = await _supabase
@@ -13,7 +13,7 @@ class NotificationService {
         )
         .eq('recipient_id', user.id)
         .order('created_at', ascending: false)
-        .limit(30);
+        .range(offset, offset + limit - 1);
     return List<Map<String, dynamic>>.from(data);
   }
 
