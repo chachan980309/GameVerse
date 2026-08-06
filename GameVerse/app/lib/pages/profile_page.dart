@@ -1137,9 +1137,10 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
     return FutureBuilder<OrganizerStatsModel?>(
       future: TournamentService().getOrganizerStats(userId),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
+        if (!snapshot.hasData || snapshot.data == null)
+          return const SizedBox.shrink();
         final stats = snapshot.data!;
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1149,11 +1150,19 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
             ),
             const Row(
               children: [
-                Icon(Icons.emoji_events_rounded, color: Color(0xff9A78FF), size: 18),
+                Icon(
+                  Icons.emoji_events_rounded,
+                  color: Color(0xff9A78FF),
+                  size: 18,
+                ),
                 SizedBox(width: 8),
                 Text(
                   'Estadísticas de Organizador',
-                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -1162,9 +1171,21 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _organizerStatItem('Rating', '${stats.rating} ★', Colors.amber),
-                _organizerStatItem('Creados', '${stats.createdCount}', Colors.white),
-                _organizerStatItem('Finalizados', '${stats.finishedCount}', const Color(0xff50E6A5)),
-                _organizerStatItem('Cancelados', '${stats.cancelledCount}', const Color(0xffD64A68)),
+                _organizerStatItem(
+                  'Creados',
+                  '${stats.createdCount}',
+                  Colors.white,
+                ),
+                _organizerStatItem(
+                  'Finalizados',
+                  '${stats.finishedCount}',
+                  const Color(0xff50E6A5),
+                ),
+                _organizerStatItem(
+                  'Cancelados',
+                  '${stats.cancelledCount}',
+                  const Color(0xffD64A68),
+                ),
               ],
             ),
           ],
@@ -1178,7 +1199,11 @@ class _PublicProfilePageState extends State<_PublicProfilePage> {
       children: [
         Text(
           val,
-          style: TextStyle(color: valColor, fontSize: 15, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: valColor,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1288,3 +1313,4 @@ class _PublicProfileData {
   final int gameCount;
   final List<UserGame> games;
 }
+/////hola/////
