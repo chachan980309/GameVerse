@@ -1,6 +1,6 @@
 {
   "name": "nubzzz",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "NUBZZZ - Red social gamer",
   "main": "main.js",
   "scripts": {
@@ -41,7 +41,7 @@
     "publish": {
       "provider": "github",
       "owner": "giojorge61-glitch",
-"repo": "Gamverse"
+      "repo": "Gamverse"
     }
   },
   "devDependencies": {
