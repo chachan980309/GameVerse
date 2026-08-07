@@ -94,8 +94,7 @@ function createWindow() {
     minHeight: 600,
     title: 'NUBZZZ',
     backgroundColor: '#08060F',
-    frame: false,
-    titleBarStyle: 'hidden',
+    frame: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -181,6 +180,7 @@ ipcMain.on('window-quit', () => {
 
 // ── App lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   startLocalServer();
   createWindow();
   createTray();
