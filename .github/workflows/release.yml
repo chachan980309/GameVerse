@@ -63,7 +63,7 @@ jobs:
         run: npm run build:publish
         working-directory: GameVerse/electron
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       # ── Commitear el package.json con la nueva version ───────────────────
       - name: Commit nueva version
