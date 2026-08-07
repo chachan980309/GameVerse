@@ -1368,7 +1368,10 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
         width: 480,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
-          child: _buildStepContent(),
+          child: KeyedSubtree(
+            key: ValueKey<int>(_currentStep),
+            child: _buildStepContent(),
+          ),
         ),
       ),
       actions: [
