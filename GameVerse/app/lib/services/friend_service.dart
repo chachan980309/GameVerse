@@ -11,7 +11,7 @@ class FriendService {
 
     final data = await _supabase
         .from('profiles')
-        .select()
+        .select('id, username, avatar_url, status, motto, is_online, last_seen_at')
         .neq('id', user.id)
         .order('username');
     return List<Map<String, dynamic>>.from(data);

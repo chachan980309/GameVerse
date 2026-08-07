@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/profile_controller.dart';
+import '../../controllers/clan_controller.dart';
 import 'editable_avatar.dart';
 import 'editable_banner.dart';
 import 'edit_profile_dialog.dart';
@@ -13,16 +14,17 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = ProfileController.instance;
+    final clan = ClanController.instance;
     return AnimatedBuilder(
-      animation: profile,
+      animation: Listenable.merge([profile, clan]),
       builder: (context, _) {
-        if (collapsed) return _collapsedHeader(context, profile);
-        return _expandedHeader(context, profile);
+        if (collapsed) return _collapsedHeader(context, profile, clan);
+        return _expandedHeader(context, profile, clan);
       },
     );
   }
 
-  Widget _collapsedHeader(BuildContext context, ProfileController profile) =>
+  Widget _collapsedHeader(BuildContext context, ProfileController profile, ClanController clan) =>
       SizedBox(
         height: 112,
         child: Stack(
@@ -56,14 +58,38 @@ class ProfileHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    profile.username,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          profile.username,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 23,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (clan.myClan != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Color(int.tryParse(clan.myClan!.accentColor.replaceAll('#', '0xff')) ?? 0xff6438FF).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            clan.myClan!.tag,
+                            style: TextStyle(
+                              color: Color(int.tryParse(clan.myClan!.accentColor.replaceAll('#', '0xff')) ?? 0xff6438FF),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -103,6 +129,7 @@ class ProfileHeader extends StatelessWidget {
   Widget _expandedHeader(
     BuildContext context,
     ProfileController profile,
+    ClanController clan,
   ) => SizedBox(
     height: 216,
     child: Stack(
@@ -168,7 +195,27 @@ class ProfileHeader extends StatelessWidget {
                   ],
                 ],
               ),
-              if (profile.motto.isNotEmpty) ...[
+              if (clan.myClan != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.fort_rounded,
+                      color: Color(int.tryParse(clan.myClan!.accentColor.replaceAll('#', '0xff')) ?? 0xff6438FF),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${clan.myClan!.name} [${clan.myClan!.tag}] · ${clan.myMemberInfo?.role?.name ?? 'Miembro'}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (profile.motto.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   profile.motto,

@@ -5,11 +5,17 @@ class VoiceChannelMember {
     required this.userId,
     required this.username,
     required this.avatarUrl,
+    this.isMuted = false,
+    this.isSpeaking = false,
+    this.isScreenSharing = false,
   });
 
   final String userId;
   final String username;
   final String avatarUrl;
+  final bool isMuted;
+  final bool isSpeaking;
+  final bool isScreenSharing;
 }
 
 class VoiceChannel {
@@ -26,6 +32,7 @@ class VoiceChannel {
     this.isPrivate = false,
     this.inviteeId,
     this.privateStatus,
+    this.clanId,
   });
 
   factory VoiceChannel.fromMap(Map<String, dynamic> map) {
@@ -82,6 +89,7 @@ class VoiceChannel {
       isPrivate: map['is_private'] == true,
       inviteeId: map['invitee_id']?.toString(),
       privateStatus: map['private_status']?.toString(),
+      clanId: map['clan_id']?.toString(),
     );
   }
 
@@ -97,4 +105,5 @@ class VoiceChannel {
   final bool isPrivate;
   final String? inviteeId;
   final String? privateStatus;
+  final String? clanId;
 }

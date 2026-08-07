@@ -9,72 +9,113 @@ class TournamentService {
 
   final SupabaseClient _client;
 
+  static bool _hasClansTable = true;
+
+  Future<List<dynamic>> _safeSelectQuery(Future<List<dynamic>> Function(String selectStr) queryBuilder) async {
+    const selectWithClans = '''
+      *,
+      creator:profiles!tournaments_creator_id_fkey(*),
+      clans(*),
+      tournament_participants(*, profiles!tournament_participants_user_id_fkey(*))
+    ''';
+
+    const selectWithoutClans = '''
+      *,
+      creator:profiles!tournaments_creator_id_fkey(*),
+      tournament_participants(*, profiles!tournament_participants_user_id_fkey(*))
+    ''';
+
+    try {
+      if (_hasClansTable) {
+        return await queryBuilder(selectWithClans);
+      } else {
+        return await queryBuilder(selectWithoutClans);
+      }
+    } catch (e) {
+      if (_hasClansTable) {
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('clans') || errorStr.contains('relation') || errorStr.contains('not found')) {
+          debugPrint('⚠️ DB Warning: clans table not found or query failed. Falling back to legacy tournaments select. Error: $e');
+          _hasClansTable = false;
+          try {
+            return await queryBuilder(selectWithoutClans);
+          } catch (retryError) {
+            debugPrint('Critical Error: legacy tournaments retry failed. Error: $retryError');
+            rethrow;
+          }
+        }
+      }
+      rethrow;
+    }
+  }
+
   Future<List<TournamentModel>> fetchTournaments({
     String query = '',
     String category = 'all',
     int offset = 0,
     int limit = 10,
   }) async {
-    var request = _client.from('tournaments').select('''
-      *,
-      creator:profiles!tournaments_creator_id_fkey(*),
-      tournament_participants(*, profiles!tournament_participants_user_id_fkey(*))
-    ''');
+    try {
+      final rows = await _safeSelectQuery((selectStr) async {
+        var request = _client.from('tournaments').select(selectStr);
 
-    // Apply category filters
-    switch (category) {
-      case 'official':
-        request = request.eq('is_official', true);
-        break;
-      case 'community':
-        request = request.eq('is_official', false);
-        break;
-      case 'live':
-        request = request.eq('status', 'in_progress');
-        break;
-      case 'upcoming':
-        request = request.eq('status', 'registration');
-        break;
-      case 'finished':
-        request = request.eq('status', 'finished');
-        break;
+        // Apply category filters
+        switch (category) {
+          case 'official':
+            request = request.eq('is_official', true);
+            break;
+          case 'community':
+            request = request.eq('is_official', false);
+            break;
+          case 'live':
+            request = request.eq('status', 'in_progress');
+            break;
+          case 'upcoming':
+            request = request.eq('status', 'registration');
+            break;
+          case 'finished':
+            request = request.eq('status', 'finished');
+            break;
+        }
+
+        if (category != 'finished') {
+          request = request.neq('status', 'archived');
+        }
+
+        // Apply search query (by game or name)
+        final cleanQuery = query.trim().replaceAll('%', r'\%');
+        if (cleanQuery.isNotEmpty) {
+          request = request.or(
+            'name.ilike.%$cleanQuery%,game_name.ilike.%$cleanQuery%',
+          );
+        }
+
+        return await request
+            .order('is_official', ascending: false)
+            .order('start_date', ascending: true)
+            .range(offset, offset + limit - 1);
+      });
+
+      return rows.map((row) => TournamentModel.fromMap(row)).toList();
+    } catch (e) {
+      debugPrint("Error fetching tournaments: $e");
+      return [];
     }
-
-    if (category != 'finished') {
-      request = request.neq('status', 'archived');
-    }
-
-    // Apply search query (by game or name)
-    final cleanQuery = query.trim().replaceAll('%', r'\%');
-    if (cleanQuery.isNotEmpty) {
-      request = request.or(
-        'name.ilike.%$cleanQuery%,game_name.ilike.%$cleanQuery%',
-      );
-    }
-
-    // Paginate and sort
-    final rows = await request
-        .order('is_official', ascending: false)
-        .order('start_date', ascending: true)
-        .range(offset, offset + limit - 1);
-
-    return rows.map((row) => TournamentModel.fromMap(row)).toList();
   }
 
   Future<TournamentModel?> getTournamentById(String id) async {
     try {
-      final row = await _client
-          .from('tournaments')
-          .select('''
-            *,
-            creator:profiles!tournaments_creator_id_fkey(*),
-            tournament_participants(*, profiles!tournament_participants_user_id_fkey(*))
-          ''')
-          .eq('id', id)
-          .maybeSingle();
+      final rows = await _safeSelectQuery((selectStr) async {
+        final row = await _client
+            .from('tournaments')
+            .select(selectStr)
+            .eq('id', id)
+            .maybeSingle();
+        return row == null ? [] : [row];
+      });
 
-      if (row == null) return null;
-      return TournamentModel.fromMap(row);
+      if (rows.isEmpty) return null;
+      return TournamentModel.fromMap(rows.first);
     } catch (e) {
       debugPrint("Error fetching tournament by ID: $e");
       return null;
@@ -120,6 +161,7 @@ class TournamentService {
     String? password,
     required String region,
     required bool isOfficial,
+    String? clanId,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception("Usuario no autenticado");
@@ -147,33 +189,40 @@ class TournamentService {
       bannerUrl = coverUrl;
     }
 
-    final row = await _client.from('tournaments').insert({
-      'name': name,
-      'description': description,
-      'game_name': gameName,
-      'game_image_url': gameImageUrl,
-      'game_poster_url': gamePosterUrl ?? coverUrl,
-      'game_hero_url': gameHeroUrl ?? coverUrl,
-      'game_background_url': gameBackgroundUrl ?? coverUrl,
-      'cover_url': coverUrl,
-      'banner_url': bannerUrl,
-      'rules': rules,
-      'prizes': prizes,
-      'max_players': maxPlayers,
-      'start_date': startDate.toIso8601String(),
-      'type': type,
-      'privacy': privacy,
-      'password': password,
-      'region': region,
-      'creator_id': userId,
-      'is_official': isOfficial,
-    }).select('''
-      *,
-      creator:profiles!tournaments_creator_id_fkey(*),
-      tournament_participants(*, profiles!tournament_participants_user_id_fkey(*))
-    ''').single();
+    final row = await _safeSelectQuery((selectStr) async {
+      final insertRow = await _client.from('tournaments').insert({
+        'name': name,
+        'description': description,
+        'game_name': gameName,
+        'game_image_url': gameImageUrl,
+        'game_poster_url': gamePosterUrl ?? coverUrl,
+        'game_hero_url': gameHeroUrl ?? coverUrl,
+        'game_background_url': gameBackgroundUrl ?? coverUrl,
+        'cover_url': coverUrl,
+        'banner_url': bannerUrl,
+        'rules': rules,
+        'prizes': prizes,
+        'max_players': maxPlayers,
+        'start_date': startDate.toIso8601String(),
+        'type': type,
+        'privacy': privacy,
+        'password': password,
+        'region': region,
+        'creator_id': userId,
+        'is_official': isOfficial,
+        'clan_id': clanId,
+      }).select(selectStr).single();
+      return [insertRow];
+    });
 
-    return TournamentModel.fromMap(row);
+    return TournamentModel.fromMap(row.first);
+  }
+
+  Future<void> transferOwnershipToClan(String tournamentId, String clanId) async {
+    await _client
+        .from('tournaments')
+        .update({'clan_id': clanId})
+        .eq('id', tournamentId);
   }
 
   Future<void> joinTournament(String tournamentId) async {

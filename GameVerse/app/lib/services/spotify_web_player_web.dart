@@ -1,5 +1,6 @@
+// ignore_for_file: undefined_function, undefined_method
 import 'dart:html';
-import 'dart:js';
+import 'dart:js' as js;
 import 'dart:convert';
 
 class SpotifyWebPlayer {
@@ -12,12 +13,12 @@ class SpotifyWebPlayer {
     required void Function(Map<String, dynamic> state) onState,
     required void Function(String message) onError,
   }) async {
-    final bridge = context['nubzzzSpotify'] as JsObject?;
+    final bridge = js.context['nubzzzSpotify'] as js.JsObject?;
     if (bridge == null) return;
     bridge.callMethod('init', [
-      allowInterop(() => token() ?? ''),
-      allowInterop((String id) => onReady(id)),
-      allowInterop((String rawState) {
+      js.allowInterop(() => token() ?? ''),
+      js.allowInterop((String id) => onReady(id)),
+      js.allowInterop((String rawState) {
         final state = jsonDecode(rawState) as Map<String, dynamic>;
         final trackWindow = state['track_window'] as Map<String, dynamic>?;
         final track = trackWindow?['current_track'] as Map<String, dynamic>?;
@@ -40,7 +41,7 @@ class SpotifyWebPlayer {
           'durationMs': track['duration_ms'] as int?,
         });
       }),
-      allowInterop((String message) => onError(message)),
+      js.allowInterop((String message) => onError(message)),
     ]);
   }
 }

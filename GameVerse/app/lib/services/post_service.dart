@@ -7,13 +7,53 @@ import '../controllers/profile_controller.dart';
 class PostService {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  static const _postSelect = '''
+  static bool _hasClansTable = true;
+
+  static const _postSelectWithClans = '''
+    *,
+    profiles (
+      username,
+      avatar_url
+    ),
+    clans (
+      name
+    )
+  ''';
+
+  static const _postSelectWithoutClans = '''
     *,
     profiles (
       username,
       avatar_url
     )
   ''';
+
+  Future<List<dynamic>> _safeSelectQuery(Future<List<dynamic>> Function(String selectStr) queryBuilder) async {
+    try {
+      if (_hasClansTable) {
+        return await queryBuilder(_postSelectWithClans);
+      } else {
+        return await queryBuilder(_postSelectWithoutClans);
+      }
+    } catch (e) {
+      if (_hasClansTable) {
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('clans') || errorStr.contains('relation') || errorStr.contains('not found')) {
+          debugPrint('⚠️ DB Warning: clans table not found or query failed. Falling back to legacy posts select. Error: $e');
+          _hasClansTable = false;
+          try {
+            return await queryBuilder(_postSelectWithoutClans);
+          } catch (retryError) {
+            debugPrint('Critical Error: legacy retry failed. Error: $retryError');
+            rethrow;
+          }
+        }
+      }
+      rethrow;
+    }
+  }
+
+  String get _postSelect => _hasClansTable ? _postSelectWithClans : _postSelectWithoutClans;
 
   // ==========================
   // OBTENER FEED
@@ -24,6 +64,16 @@ class PostService {
 
     debugPrint("===== FEED (Offset: $offset, Limit: $limit) =====");
 
+    return _mapPosts(response);
+  }
+
+  Future<List<PostModel>> getClanPosts(String clanId, {int offset = 0, int limit = 20}) async {
+    final response = await supabase
+        .from('posts')
+        .select(_postSelect)
+        .eq('clan_id', clanId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return _mapPosts(response);
   }
 
@@ -120,20 +170,20 @@ class PostService {
   }
 
   Future<List<dynamic>> _getFeedRows({int offset = 0, int limit = 20}) async {
-    return supabase
+    return _safeSelectQuery((selectStr) => supabase
         .from('posts')
-        .select(_postSelect)
+        .select(selectStr)
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1));
   }
 
   Future<List<dynamic>> _getUserRows(String userId, {int offset = 0, int limit = 20}) async {
-    return supabase
+    return _safeSelectQuery((selectStr) => supabase
         .from('posts')
-        .select(_postSelect)
+        .select(selectStr)
         .eq('user_id', userId)
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1));
   }
 
   // ==========================
@@ -235,6 +285,8 @@ class PostService {
     String type = "text",
     String? sharedPostId,
     String? streamId,
+    String? clanId,
+    bool clanOnly = false,
   }) async {
     final user = supabase.auth.currentUser;
 
@@ -250,6 +302,7 @@ class PostService {
     debugPrint("Thumbnail: $thumbnailUrl");
     debugPrint("Duration: $duration");
     debugPrint("Width: $width, Height: $height, AspectRatio: $aspectRatio");
+    debugPrint("Clan: $clanId, Clan Only: $clanOnly");
 
     await supabase.from('posts').insert({
       'user_id': user.id,
@@ -264,7 +317,50 @@ class PostService {
       'type': type,
       'shared_post_id': sharedPostId,
       'stream_id': streamId,
+      'clan_id': clanId,
+      'clan_only': clanOnly,
     });
+
+    if (clanId != null) {
+      // Award clan XP for posting
+      final clanSvc = await supabase.from('clans').select('name').eq('id', clanId).maybeSingle();
+      if (clanSvc != null) {
+        // En lugar de instanciar o importar ClanService directamente y causar posibles ciclos,
+        // incrementamos la experiencia del clan de manera directa en la DB o llamamos a awardClanXP.
+        // Como ya tenemos ClanService disponible (o podemos hacer un select/update),
+        // usemos una ráfaga simple de SQL para sumarle 25 XP al clan.
+        try {
+          final clanData = await supabase.from('clans').select('experience, level').eq('id', clanId).single();
+          final currentXp = int.tryParse(clanData['experience'].toString()) ?? 0;
+          final currentLevel = int.tryParse(clanData['level'].toString()) ?? 1;
+          final newXp = currentXp + 25;
+          final newLevel = (newXp / 1000).floor() + 1;
+          
+          final updates = {'experience': newXp};
+          if (newLevel > currentLevel) {
+            updates['level'] = newLevel;
+          }
+          await supabase.from('clans').update(updates).eq('id', clanId);
+
+          if (newLevel > currentLevel) {
+            await supabase.from('clan_history').insert({
+              'clan_id': clanId,
+              'user_id': user.id,
+              'action_type': 'level_up',
+              'metadata': {'level': newLevel},
+            });
+          } else {
+            await supabase.from('clan_history').insert({
+              'clan_id': clanId,
+              'user_id': user.id,
+              'action_type': 'post_created',
+              'metadata': {'username': ProfileController.instance.username},
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
     await ProfileController.instance.loadProfile();
 
     debugPrint("========== INSERT OK ==========");

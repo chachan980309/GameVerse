@@ -26,6 +26,9 @@ class TournamentModel {
   final bool isOfficial;
   final bool markedForReview;
   final DateTime createdAt;
+  final String? clanId;
+  final String? clanName;
+  final String? clanLogo;
   
   // Extra fields populated via queries
   final int participantCount;
@@ -57,21 +60,34 @@ class TournamentModel {
     required this.isOfficial,
     this.markedForReview = false,
     required this.createdAt,
+    this.clanId,
+    this.clanName,
+    this.clanLogo,
     this.participantCount = 0,
     this.participants = const [],
   });
 
   factory TournamentModel.fromMap(Map<String, dynamic> map, {List<TournamentParticipantModel> participants = const []}) {
+    String? sanitizeUrl(String? url) {
+      if (url == null || url.isEmpty) return null;
+      if (url.startsWith('//')) {
+        return 'https:$url';
+      }
+      return url;
+    }
+
     // Resolve dynamic image urls from Supabase storage if short paths are saved
     String? coverUrl = map['cover_url']?.toString();
     if (coverUrl != null && coverUrl.isNotEmpty && !coverUrl.startsWith('http')) {
       coverUrl = Supabase.instance.client.storage.from('tournaments').getPublicUrl(coverUrl);
     }
+    coverUrl = sanitizeUrl(coverUrl);
     
     String? bannerUrl = map['banner_url']?.toString();
     if (bannerUrl != null && bannerUrl.isNotEmpty && !bannerUrl.startsWith('http')) {
       bannerUrl = Supabase.instance.client.storage.from('tournaments').getPublicUrl(bannerUrl);
     }
+    bannerUrl = sanitizeUrl(bannerUrl);
 
     final rawParticipantsList = map['tournament_participants'] as List<dynamic>? ?? [];
     final parsedParticipants = rawParticipantsList.map((p) {
@@ -83,18 +99,27 @@ class TournamentModel {
     final creatorName = creatorProfile['username']?.toString() ?? 'Usuario';
     final creatorAvatar = creatorProfile['avatar_url']?.toString() ?? '';
 
+    final clanMap = map['clans'] as Map<String, dynamic>?;
+    final clanName = clanMap?['name']?.toString();
+    var clanLogo = clanMap?['logo_url']?.toString();
+    if (clanLogo != null && clanLogo.isNotEmpty && !clanLogo.startsWith('http')) {
+      clanLogo = Supabase.instance.client.storage.from('clans').getPublicUrl(clanLogo);
+    }
+    clanLogo = sanitizeUrl(clanLogo);
+
     // Soporte para retrocompatibilidad total (Fallbacks dinámicos)
-    final legacyImageFallback = coverUrl ?? bannerUrl ?? map['game_image_url']?.toString();
-    final gamePosterUrl = map['game_poster_url']?.toString() ?? legacyImageFallback;
-    final gameHeroUrl = map['game_hero_url']?.toString() ?? legacyImageFallback;
-    final gameBackgroundUrl = map['game_background_url']?.toString() ?? legacyImageFallback;
+    final gameImageUrl = sanitizeUrl(map['game_image_url']?.toString());
+    final legacyImageFallback = coverUrl ?? bannerUrl ?? gameImageUrl;
+    final gamePosterUrl = sanitizeUrl(map['game_poster_url']?.toString()) ?? legacyImageFallback;
+    final gameHeroUrl = sanitizeUrl(map['game_hero_url']?.toString()) ?? legacyImageFallback;
+    final gameBackgroundUrl = sanitizeUrl(map['game_background_url']?.toString()) ?? legacyImageFallback;
 
     return TournamentModel(
       id: map['id'].toString(),
       name: map['name']?.toString() ?? '',
       description: map['description']?.toString() ?? '',
       gameName: map['game_name']?.toString() ?? '',
-      gameImageUrl: map['game_image_url']?.toString(),
+      gameImageUrl: gameImageUrl,
       coverUrl: coverUrl,
       bannerUrl: bannerUrl,
       gamePosterUrl: gamePosterUrl,
@@ -115,6 +140,9 @@ class TournamentModel {
       isOfficial: map['is_official'] == true,
       markedForReview: map['marked_for_review'] == true,
       createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+      clanId: map['clan_id']?.toString(),
+      clanName: clanName,
+      clanLogo: clanLogo,
       participantCount: map['participant_count'] != null 
           ? int.tryParse(map['participant_count'].toString()) ?? parsedParticipants.length
           : parsedParticipants.length,
@@ -148,6 +176,9 @@ class TournamentModel {
     bool? isOfficial,
     bool? markedForReview,
     DateTime? createdAt,
+    String? clanId,
+    String? clanName,
+    String? clanLogo,
     int? participantCount,
     List<TournamentParticipantModel>? participants,
   }) {
@@ -177,6 +208,9 @@ class TournamentModel {
       isOfficial: isOfficial ?? this.isOfficial,
       markedForReview: markedForReview ?? this.markedForReview,
       createdAt: createdAt ?? this.createdAt,
+      clanId: clanId ?? this.clanId,
+      clanName: clanName ?? this.clanName,
+      clanLogo: clanLogo ?? this.clanLogo,
       participantCount: participantCount ?? this.participantCount,
       participants: participants ?? this.participants,
     );

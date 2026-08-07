@@ -373,7 +373,6 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
           final name = profile['username']?.toString() ?? 'Usuario';
           final bio = profile['bio']?.toString() ?? '';
           final status = profile['status']?.toString() ?? '';
-          final email = profile['email']?.toString() ?? '';
           final location = profile['location']?.toString() ?? '';
           final platform = profile['platform']?.toString() ?? '';
           final role = profile['role']?.toString() ?? '';
@@ -433,26 +432,6 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
                           Expanded(
                             child: Text(
                               status,
-                              style: const TextStyle(color: Colors.white60),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (email.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.mail_outline,
-                            color: Colors.white54,
-                            size: 17,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              email,
-                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(color: Colors.white60),
                             ),
                           ),

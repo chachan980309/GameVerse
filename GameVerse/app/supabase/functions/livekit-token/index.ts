@@ -161,11 +161,32 @@ Deno.serve(async (req)=>{
       }
     } else {
       console.log("Entrando en rama voice_channels");
-      const { data: channel, error: channelError } = await supabase.from("voice_channels").select("id").eq("room_name", room).eq("is_active", true).maybeSingle();
+      const { data: channel, error: channelError } = await supabaseAdmin
+        .from("voice_channels")
+        .select("id, clan_id")
+        .eq("room_name", room)
+        .eq("is_active", true)
+        .maybeSingle();
       if (channelError || !channel) {
         return json({
           error: "Voice channel not found"
         }, 404);
+      }
+
+      // Si el canal pertenece a un clan, validar membresía del usuario para evitar IDOR de llamadas grupales
+      if (channel.clan_id) {
+        const { data: member, error: memberError } = await supabaseAdmin
+          .from("clan_members")
+          .select("clan_id")
+          .eq("clan_id", channel.clan_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (memberError || !member) {
+          return json({
+            error: "No estás autorizado para unirte al canal de voz de este clan."
+          }, 403);
+        }
       }
     }
     const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();

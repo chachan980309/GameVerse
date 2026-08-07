@@ -399,7 +399,7 @@ class _TopBarState extends State<TopBar> {
       ),
     ),
     subtitle: Text(
-      person.status.isNotEmpty ? person.status : person.email,
+      person.status.isNotEmpty ? person.status : 'En GameVerse',
       style: const TextStyle(color: Colors.white54, fontSize: 12),
     ),
   );

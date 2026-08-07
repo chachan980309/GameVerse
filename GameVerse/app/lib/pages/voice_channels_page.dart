@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,6 +10,7 @@ import '../controllers/voice_room_controller.dart';
 import '../models/voice_channel.dart';
 import '../services/image_picker_service.dart';
 import '../services/voice_channel_service.dart';
+import '../widgets/layout/voice_side_panel.dart';
 
 class VoiceChannelsPage extends StatefulWidget {
   const VoiceChannelsPage({super.key});
@@ -33,6 +33,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   final _chatInputController = TextEditingController();
   Timer? _searchDebounce;
   RealtimeChannel? _chatChannel;
+  RealtimeChannel? _channelsRealtimeChannel;
   bool _loadingChannels = true;
   bool _joining = false;
   String? _channelsError;
@@ -41,9 +42,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   bool _streaming = false;
   bool _watchingScreenShare = false;
   String? _screenSharerId;
+  String? _focusedScreenSharerId;
   List<({String type, String user, String text, DateTime time})> _activityLog = [];
   Set<String> _previousParticipantIds = {};
   Set<String> _previousScreenSharers = {};
+  int _previousPresenceRevision = 0;
 
   Color get _purple => const Color(0xff8B4DFF);
 
@@ -62,6 +65,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       _enterRoomView(_roomChannel!);
     }
     _loadChannels();
+    _subscribeToChannelsRealtime();
   }
 
   void _enterRoomView(VoiceChannel channel) {
@@ -74,8 +78,44 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     _searchDebounce?.cancel();
     _voiceController.removeListener(_onVoiceChanged);
     _unsubscribeFromVoiceChat();
+    _unsubscribeFromChannelsRealtime();
     _chatInputController.dispose();
     super.dispose();
+  }
+
+  void _subscribeToChannelsRealtime() {
+    _unsubscribeFromChannelsRealtime();
+
+    _channelsRealtimeChannel = Supabase.instance.client
+        .channel('voice-channels-realtime')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'voice_channel_members',
+          callback: (payload) {
+            print('[REALTIME] voice_channel_members changed: ${payload.eventType}');
+            _loadChannels();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'voice_channels',
+          callback: (payload) {
+            print('[REALTIME] voice_channels changed: ${payload.eventType}');
+            _loadChannels();
+          },
+        );
+
+    _channelsRealtimeChannel!.subscribe();
+  }
+
+  void _unsubscribeFromChannelsRealtime() {
+    final channel = _channelsRealtimeChannel;
+    _channelsRealtimeChannel = null;
+    if (channel != null) {
+      Supabase.instance.client.removeChannel(channel);
+    }
   }
 
   void _onVoiceChanged() {
@@ -103,19 +143,38 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       }
     }
 
-    setState(() {
-      _muted = _voiceController.microphoneMuted;
-      _deafened = _voiceController.deafened;
-      _streaming = _voiceController.isScreenSharing;
-      _screenSharerId = currentParticipants
-          .where((p) => p.isScreenSharing)
-          .map((p) => p.id)
-          .firstOrNull;
-      if (_screenSharerId == null) _watchingScreenShare = false;
+    final newMuted = _voiceController.microphoneMuted;
+    final newDeafened = _voiceController.deafened;
+    final newStreaming = _voiceController.isScreenSharing;
+    final newScreenSharerId = currentParticipants
+        .where((p) => p.isScreenSharing)
+        .map((p) => p.id)
+        .firstOrNull;
 
-      _previousParticipantIds = currentIds;
-      _previousScreenSharers = currentSharers;
-    });
+    // Solo disparar reconstrucción del Scaffold si hay cambios estructurales/estados críticos de la llamada o actualizaciones de presencia
+    final hasChanges = _muted != newMuted ||
+        _deafened != newDeafened ||
+        _streaming != newStreaming ||
+        _screenSharerId != newScreenSharerId ||
+        _previousParticipantIds.length != currentIds.length ||
+        !_previousParticipantIds.containsAll(currentIds) ||
+        _previousScreenSharers.length != currentSharers.length ||
+        !_previousScreenSharers.containsAll(currentSharers) ||
+        _previousPresenceRevision != _voiceController.presenceRevision;
+
+    if (hasChanges) {
+      setState(() {
+        _muted = newMuted;
+        _deafened = newDeafened;
+        _streaming = newStreaming;
+        _screenSharerId = newScreenSharerId;
+        if (_screenSharerId == null) _watchingScreenShare = false;
+
+        _previousParticipantIds = currentIds;
+        _previousScreenSharers = currentSharers;
+        _previousPresenceRevision = _voiceController.presenceRevision;
+      });
+    }
 
     final error = _voiceController.errorMessage;
     if (error != null) {
@@ -145,7 +204,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         _cachedJoinedChannels = results[1];
         _channelsError = null;
       });
-    } catch (_) {
+    } catch (e, stack) {
+      print("ERROR cargando canales:");
+      print(e);
+      print("STACK TRACE:");
+      print(stack);
       if (!mounted) return;
       setState(() => _channelsError = 'No se pudieron cargar los canales.');
     } finally {
@@ -190,7 +253,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     }
 
     final profile = ProfileController.instance;
-    final username = profile.username ?? user.email?.split('@').first ?? 'Usuario';
+    final username = profile.username.isNotEmpty ? profile.username : (user.email?.split('@').first ?? 'Usuario');
     final avatarUrl = profile.avatarUrl ?? '';
 
     try {
@@ -398,21 +461,59 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     final isCurrentlyConnected = _voiceController.isConnected && _voiceController.connectedChannelId == channel.id;
     final highlighted = active || isCurrentlyConnected;
 
+    final members = _voiceController.voicePresenceParticipants[channel.id] ?? const [];
+
     return _channelContainer(
       active: highlighted,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _channelIcon(channel),
-          const SizedBox(width: 14),
-          Expanded(child: _channelInfo(channel)),
-          const SizedBox(width: 8),
-          _buildMembersIndicator(channel),
-          const SizedBox(width: 14),
-          Icon(
-            highlighted ? Icons.graphic_eq_rounded : Icons.multitrack_audio_rounded,
-            color: _purple,
-            size: 28,
+          Row(
+            children: [
+              _channelIcon(channel),
+              const SizedBox(width: 14),
+              Expanded(child: _channelInfo(channel)),
+              const SizedBox(width: 8),
+              if (members.isEmpty) ...[
+                const Text(
+                  'Vacío',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ] else ...[
+                Text(
+                  '${members.length} ${members.length == 1 ? 'conectado' : 'conectados'}',
+                  style: const TextStyle(
+                    color: Color(0xff50E6A5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+              Icon(
+                highlighted ? Icons.graphic_eq_rounded : Icons.multitrack_audio_rounded,
+                color: _purple,
+                size: 28,
+              ),
+            ],
           ),
+          if (members.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xff2F1D46), height: 1),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: members.map((member) => _buildParticipantRow(member)).toList(),
+              ),
+            ),
+          ],
         ],
       ),
       onTap: () => _join(channel),
@@ -424,39 +525,77 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     final isCurrentlyConnected = _voiceController.isConnected && _voiceController.connectedChannelId == channel.id;
     final highlighted = active || isCurrentlyConnected;
 
+    final members = _voiceController.voicePresenceParticipants[channel.id] ?? const [];
+
     return _channelContainer(
       active: highlighted,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _channelIcon(channel),
-          const SizedBox(width: 14),
-          Expanded(child: _channelInfo(channel)),
-          const SizedBox(width: 8),
-          _buildMembersIndicator(channel),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: _joining ? null : () => _join(channel),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: highlighted ? Colors.white : const Color(0xffA873FF),
-              backgroundColor: highlighted ? _purple : Colors.transparent,
-              side: BorderSide(
-                color: highlighted ? _purple : const Color(0xff55308B),
+          Row(
+            children: [
+              _channelIcon(channel),
+              const SizedBox(width: 14),
+              Expanded(child: _channelInfo(channel)),
+              const SizedBox(width: 8),
+              if (members.isEmpty) ...[
+                const Text(
+                  'Vacío',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ] else ...[
+                Text(
+                  '${members.length} ${members.length == 1 ? 'conectado' : 'conectados'}',
+                  style: const TextStyle(
+                    color: Color(0xff50E6A5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+              OutlinedButton(
+                onPressed: _joining ? null : () => _join(channel),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: highlighted ? Colors.white : const Color(0xffA873FF),
+                  backgroundColor: highlighted ? _purple : Colors.transparent,
+                  side: BorderSide(
+                    color: highlighted ? _purple : const Color(0xff55308B),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                child: Text(isCurrentlyConnected ? 'Entrar' : 'Unirse'),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            child: Text(isCurrentlyConnected ? 'Entrar' : 'Unirse'),
+              if (channel.createdBy == Supabase.instance.client.auth.currentUser?.id) ...[
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 21),
+                  onPressed: () => _deleteChannel(channel),
+                  tooltip: 'Eliminar canal',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ],
           ),
-          if (channel.createdBy == Supabase.instance.client.auth.currentUser?.id) ...[
-            const SizedBox(width: 12),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 21),
-              onPressed: () => _deleteChannel(channel),
-              tooltip: 'Eliminar canal',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+          if (members.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xff2F1D46), height: 1),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: members.map((member) => _buildParticipantRow(member)).toList(),
+              ),
             ),
           ],
         ],
@@ -465,58 +604,80 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  Widget _buildMembersIndicator(VoiceChannel channel) {
-    if (channel.members.isEmpty) {
-      return const Text(
-        'Vacío',
-        style: TextStyle(
-          color: Colors.white38,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < math.min(3, channel.members.length); i++)
-              Align(
-                widthFactor: 0.6,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xff120F22), width: 1.5),
-                  ),
-                  child: CircleAvatar(
-                    radius: 11,
-                    backgroundColor: const Color(0xff5D3487),
-                    backgroundImage: channel.members[i].avatarUrl.isNotEmpty
-                        ? NetworkImage(channel.members[i].avatarUrl)
-                        : null,
-                    child: channel.members[i].avatarUrl.isEmpty
-                        ? const Icon(Icons.person, size: 10, color: Colors.white)
-                        : null,
-                  ),
-                ),
+  Widget _buildParticipantRow(VoiceChannelMember member) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(1.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: member.isSpeaking ? const Color(0xff2ECC71) : Colors.transparent,
+                width: 1.5,
               ),
-          ],
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${channel.members.length} conectados',
-          style: const TextStyle(
-            color: Color(0xffCBC6D3),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            ),
+            child: CircleAvatar(
+              radius: 10,
+              backgroundColor: const Color(0xff5D3487),
+              backgroundImage: member.avatarUrl.isNotEmpty
+                  ? NetworkImage(member.avatarUrl)
+                  : null,
+              child: member.avatarUrl.isEmpty
+                  ? const Icon(Icons.person, size: 10, color: Colors.white)
+                  : null,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Text(
+            member.username,
+            style: TextStyle(
+              color: member.isSpeaking ? const Color(0xff2ECC71) : const Color(0xffE2E2E2),
+              fontSize: 13,
+              fontWeight: member.isSpeaking ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (member.isScreenSharing) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xffE74C3C),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.screen_share_rounded, size: 8, color: Colors.white),
+                  SizedBox(width: 3),
+                  Text(
+                    'EN DIRECTO',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (member.isMuted) ...[
+            const Icon(
+              Icons.mic_off_rounded,
+              color: Color(0xffE74C3C),
+              size: 13,
+            ),
+          ],
+        ],
+      ),
     );
   }
+
+
 
   Widget _channelContainer({
     required bool active,
@@ -593,31 +754,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     ],
   );
 
-  Widget _memberStack(int members) => Row(
-    children: [
-      for (var index = 0; index < 3; index++)
-        Align(
-          widthFactor: 0.75,
-          child: CircleAvatar(
-            radius: 14,
-            backgroundColor: const Color(0xff5D3487),
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      const SizedBox(width: 5),
-      Text(
-        '+$members',
-        style: const TextStyle(color: Color(0xffA39EAC), fontSize: 12),
-      ),
-    ],
-  );
+
 
   Widget _voiceControls() => Positioned(
     left: 28,
@@ -997,6 +1134,69 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     }
   }
 
+  void _showActivityLogDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xff161324),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Historial de Actividad del Canal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: SizedBox(
+          width: 380,
+          height: 450,
+          child: _activityLog.isEmpty
+              ? const Center(child: Text('No hay actividades aún.', style: TextStyle(color: Colors.white38, fontSize: 13)))
+              : ListView.builder(
+                  itemCount: _activityLog.length,
+                  itemBuilder: (context, index) {
+                    final log = _activityLog[index];
+                    final isJoined = log.type == 'joined';
+                    final isLeft = log.type == 'left';
+                    final color = isJoined
+                        ? Colors.greenAccent
+                        : isLeft
+                            ? const Color(0xffD64A68)
+                            : Colors.white70;
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isJoined
+                            ? Icons.login_rounded
+                            : isLeft
+                                ? Icons.logout_rounded
+                                : Icons.message_rounded,
+                        color: color,
+                        size: 16,
+                      ),
+                      title: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          children: [
+                            TextSpan(text: log.user, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                            const TextSpan(text: ' '),
+                            TextSpan(text: log.text, style: TextStyle(color: color)),
+                          ],
+                        ),
+                      ),
+                      trailing: Text(
+                        '${log.time.hour}:${log.time.minute.toString().padLeft(2, '0')}',
+                        style: const TextStyle(color: Colors.white30, fontSize: 10),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildChannelRoom(VoiceChannel channel) {
     return Column(
       children: [
@@ -1080,9 +1280,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   onPressed: () => setState(() => _watchingScreenShare = !_watchingScreenShare),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: _watchingScreenShare ? const Color(0xffD9485F) : _purple,
-                    ),
+                    side: const BorderSide(color: Color(0xff7B4DFF)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
@@ -1098,7 +1296,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   onPressed: _toggleScreenShare,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: _purple),
+                    side: const BorderSide(color: Color(0xff7B4DFF)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
@@ -1116,14 +1314,14 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
               Expanded(
                 flex: 3,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 96), // Margen inferior aumentado para dar espacio al panel flotante
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           const Text(
-                            'EN EL CANAL DE VOZ',
+                            'PANTALLA COMPARTIDA / ESCENARIO',
                             style: TextStyle(
                               color: Color(0xffB9B3C3),
                               fontSize: 12,
@@ -1142,329 +1340,291 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                       ),
                       const SizedBox(height: 14),
                       Expanded(
-                        child: (_streaming || _watchingScreenShare)
-                            ? _liveStage(isOwner: _streaming)
-                            : Column(
-                                children: [
-                                  Expanded(child: _liveStage(isOwner: false, hasStream: false)),
-                                  const SizedBox(height: 14),
-                                  SizedBox(height: 140, child: _participantsGrid()),
-                                ],
-                              ),
+                        child: _liveStage(isOwner: _streaming),
                       ),
                     ],
                   ),
                 ),
               ),
               Container(width: 1, color: const Color(0xff38264F)),
-              SizedBox(width: 280, child: _channelChat(channel)),
+              VoiceSidePanel(
+                roomName: channel.roomName,
+                accentColor: const Color(0xff8B4DFF),
+                controller: _voiceController,
+                onActivityTap: _showActivityLogDialog,
+                chatWidget: _channelChat(channel),
+              ),
             ],
           ),
         ),
-        _roomControls(channel),
       ],
     );
   }
 
-  Widget _participantsGrid() {
+
+
+  Widget _liveStage({required bool isOwner}) {
+    final screenSharers = _voiceController.participants.where((p) => p.isScreenSharing).toList();
+    final hasScreenShareActive = screenSharers.isNotEmpty;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: hasScreenShareActive
+          ? _buildScreenShareStage(screenSharers, isOwner)
+          : _buildParticipantsGridStage(),
+    );
+  }
+
+  Widget _buildParticipantsGridStage() {
     final users = _voiceController.participants;
     if (users.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: Color(0xff8B4DFF)));
     }
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 260,
-        mainAxisExtent: 130, // Reducida para que se adapte perfectamente al pie de pantalla sin robar espacio
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: users.length,
-      itemBuilder: (context, index) {
-        final user = users[index];
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(22, 18, 35, 0.94),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: user.isSpeaking
-                  ? const Color(0xff50E6A5)
-                  : const Color(0xff3C2A50),
-              width: user.isSpeaking ? 2 : 1,
-            ),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int count = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
+        return GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 1.35,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: const Color(0xff5D3487),
-                    backgroundImage: user.avatarUrl.isNotEmpty
-                        ? NetworkImage(user.avatarUrl)
-                        : null,
-                    child: user.avatarUrl.isEmpty
-                        ? Text(
-                            user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  if (user.isScreenSharing)
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: _purple,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xff16121F),
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.screen_share_rounded,
-                          color: Colors.white,
-                          size: 10,
-                        ),
-                      ),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            final isSpeaking = user.isSpeaking;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: const Color(0xff120F1F),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isSpeaking ? const Color(0xff50E6A5) : const Color(0xff221C35),
+                  width: isSpeaking ? 2 : 1,
+                ),
+                boxShadow: [
+                  if (isSpeaking)
+                    BoxShadow(
+                      color: const Color(0xff50E6A5).withOpacity(0.08),
+                      blurRadius: 12,
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                user.isLocal ? '${user.name} (Tú)' : user.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSpeaking ? const Color(0xff50E6A5) : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 36,
+                          backgroundColor: const Color(0xff8B4DFF),
+                          backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
+                          child: user.avatarUrl.isEmpty
+                              ? Text(
+                                  user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                )
+                              : null,
+                        ),
+                      ),
+                      if (user.isMuted)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xffD64A68),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.mic_off_rounded, color: Colors.white, size: 10),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    user.isLocal ? '${user.name} (Tú)' : user.name,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isSpeaking
+                        ? 'Hablando'
+                        : user.isMuted
+                            ? 'Silenciado'
+                            : 'Escuchando',
+                    style: TextStyle(
+                      color: isSpeaking ? const Color(0xff50E6A5) : Colors.white38,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                user.isSpeaking
-                    ? 'Hablando · ${_connectedTime(user.connectedFor)}'
-                    : user.isMuted
-                    ? 'Silenciado · ${_connectedTime(user.connectedFor)}'
-                    : 'En el canal · ${_connectedTime(user.connectedFor)}',
-                style: TextStyle(
-                  color: user.isSpeaking
-                      ? const Color(0xff50E6A5)
-                      : const Color(0xff918B9B),
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _liveStage({required bool isOwner, bool hasStream = true}) {
-    if (!hasStream) {
-      // ESTADO VACÍO ATRACTIVO (CAMBIO 6)
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(0xff120F1F),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xff33264F)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.screen_share_rounded, color: _purple.withOpacity(0.35), size: 76),
-            const SizedBox(height: 16),
-            const Text(
-              'Nadie está compartiendo pantalla',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton.icon(
-              onPressed: _toggleScreenShare,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              icon: const Icon(Icons.screen_share_rounded, size: 18),
-              label: const Text('Compartir pantalla', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      );
+  Widget _buildScreenShareStage(List<VoiceParticipantState> screenSharers, bool isOwner) {
+    if (screenSharers.isEmpty) return const SizedBox.shrink();
+
+    // Sincronizar foco del stream activo
+    if (_focusedScreenSharerId == null || !screenSharers.any((p) => p.id == _focusedScreenSharerId)) {
+      _focusedScreenSharerId = screenSharers.first.id;
     }
 
-    final remoteTrack = isOwner ? null : _voiceController.remoteScreenShareTrack;
-    final sharerName = _voiceController.participants
-        .where((p) => p.id == _screenSharerId)
-        .map((p) => p.name)
-        .firstOrNull ?? "Alguien";
+    final focusedSharer = screenSharers.firstWhere((p) => p.id == _focusedScreenSharerId);
+    final isLocalOwner = focusedSharer.isLocal;
+    final remoteTrack = isLocalOwner ? null : _voiceController.remoteScreenShareTrack;
 
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: const Color(0xff08070C),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xff68419B)),
-      ),
-      child: Stack(
-        children: [
-          // 1. TRANSMISIÓN DE VIDEO O HOST ANNOUNCEMENT (CAMBIO 1)
-          isOwner
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.screen_share_rounded, color: _purple, size: 70),
-                      const SizedBox(height: 15),
-                      const Text(
-                        'Estás transmitiendo tu pantalla',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
+    return Column(
+      children: [
+        // Área principal del video en directo enfocado
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xff08070C),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xff8B4DFF)),
+            ),
+            child: Stack(
+              children: [
+                // Renderizado de la transmisión activa
+                isLocalOwner
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.screen_share_rounded, color: Color(0xff8B4DFF), size: 68),
+                            const SizedBox(height: 14),
+                            const Text('Estás transmitiendo tu pantalla', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            const Text('Los miembros del canal pueden ver tu directo', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 7),
-                      const Text(
-                        'Los miembros del canal pueden ver tu directo',
-                        style: TextStyle(color: Color(0xff96909F)),
-                      ),
-                    ],
-                  ),
-                )
-              : remoteTrack != null
-                  ? Center(child: VideoTrackRenderer(remoteTrack))
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.screen_share_rounded, color: _purple, size: 60),
-                          const SizedBox(height: 14),
-                          Text(
-                            '$sharerName está transmitiendo',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                      )
+                    : remoteTrack != null
+                        ? Center(child: VideoTrackRenderer(remoteTrack))
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.screen_share_rounded, color: Color(0xff8B4DFF), size: 54),
+                                const SizedBox(height: 12),
+                                Text('${focusedSharer.name} está transmitiendo...', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
 
-          // 2. HEADER DE CONTROL / QUIEN TRANSMITE (CAMBIO 5 y CAMBIO 7)
-          Positioned(
-            top: 14,
-            left: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.55),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xffD9485F),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    isOwner
-                        ? 'Estás transmitiendo tu pantalla'
-                        : 'Pantalla compartida por $sharerName',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 3. MINI AVATARES DE PARTICIPANTES EN LA ESQUINA (CAMBIO 2)
-          Positioned(
-            top: 14,
-            right: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.55),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var p in _voiceController.participants)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Tooltip(
-                        message: p.name,
-                        child: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: const Color(0xff5D3487),
-                          backgroundImage: p.avatarUrl.isNotEmpty ? NetworkImage(p.avatarUrl) : null,
-                          child: p.avatarUrl.isEmpty
-                              ? Text(
-                                  p.name.isEmpty ? '?' : p.name[0].toUpperCase(),
-                                  style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
-                                )
-                              : null,
+                // Cabecera superpuesta con el nombre del streamer enfocado
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xffD9485F))),
+                        const SizedBox(width: 6),
+                        Text(
+                          isLocalOwner ? 'Tu transmisión' : 'Pantalla de ${focusedSharer.name}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Botón de pantalla completa
+                if (!isLocalOwner && remoteTrack != null)
+                  Positioned(
+                    bottom: 14,
+                    right: 14,
+                    child: Container(
+                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+                      child: IconButton(
+                        icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 20),
+                        tooltip: 'Pantalla completa',
+                        onPressed: () => _openFullScreen(remoteTrack),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
+        ),
 
-          // 4. BOTONES EN PANTALLA SOBRE EL VIDEO (CAMBIO 3: PANTALLA COMPLETA)
-          if (!isOwner && remoteTrack != null)
-            Positioned(
-              bottom: 14,
-              right: 14,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.55),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 20),
-                      tooltip: 'Pantalla completa',
-                      onPressed: () => _openFullScreen(remoteTrack),
+        // Si hay más de un usuario compartiendo, mostramos la barra de miniaturas abajo para intercambiar el foco!
+        if (screenSharers.length > 1) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: screenSharers.length,
+              itemBuilder: (context, index) {
+                final sharer = screenSharers[index];
+                final isSelected = sharer.id == _focusedScreenSharerId;
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _focusedScreenSharerId = sharer.id;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xff8B4DFF).withOpacity(0.12) : const Color(0xff141120),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xff8B4DFF) : const Color(0xff221C35),
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
                     ),
-                  ],
-                ),
-              ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.live_tv_rounded, color: Colors.white38, size: 14),
+                        const SizedBox(width: 8),
+                        Text(
+                          sharer.isLocal ? 'Tu Directo' : sharer.name,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white60,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -1499,13 +1659,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  String _connectedTime(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    if (hours > 0) return '${hours}h ${minutes}m';
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
+
 
   void _submitChatMessage(String value, VoiceChannel channel) {
     final cleanValue = value.trim();
@@ -1527,46 +1681,53 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   }
 
   Widget _channelChat(VoiceChannel channel) {
-    final scrollController = ScrollController();
+    final activityScrollController = ScrollController();
+    final chatScrollController = ScrollController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+      if (activityScrollController.hasClients) {
+        activityScrollController.jumpTo(activityScrollController.position.maxScrollExtent);
+      }
+      if (chatScrollController.hasClients) {
+        chatScrollController.jumpTo(chatScrollController.position.maxScrollExtent);
       }
     });
 
+    final systemEvents = _activityLog.where((log) => log.type != 'text').toList();
+    if (systemEvents.length > 30) {
+      systemEvents.removeRange(0, systemEvents.length - 30);
+    }
+
+    final chatMessages = _activityLog.where((log) => log.type == 'text').toList();
+
     return Container(
       color: const Color.fromRGBO(15, 12, 25, 0.94),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. PANEL DE ACTIVIDAD DEL CANAL (Altura fija 150px con scroll independiente)
           const Text(
-            'ACTIVIDAD DEL CANAL',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+            '⚡ ACTIVIDAD DEL CANAL',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '#${channel.name}',
-            style: const TextStyle(color: Color(0xff918B9B), fontSize: 12, fontWeight: FontWeight.w500),
-          ),
-          const Divider(height: 25, color: Color(0xff38264F)),
-          Expanded(
-            child: _activityLog.isEmpty
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 140,
+            child: systemEvents.isEmpty
                 ? const Center(
                     child: Text(
-                      'No hay actividades aún.',
-                      style: TextStyle(color: Color(0xff777383), fontSize: 12),
+                      'Sin actividad reciente.',
+                      style: TextStyle(color: Colors.white24, fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                   )
                 : ListView.builder(
-                    controller: scrollController,
-                    itemCount: _activityLog.length,
+                    controller: activityScrollController,
+                    itemCount: systemEvents.length,
                     itemBuilder: (context, index) {
-                      final log = _activityLog[index];
+                      final log = systemEvents[index];
                       IconData? icon;
                       Color color = Colors.white70;
-                      TextStyle style = const TextStyle(fontSize: 12, color: Colors.white70);
 
                       if (log.type == 'join') {
                         icon = Icons.login_rounded;
@@ -1580,12 +1741,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                       } else if (log.type == 'stream_end') {
                         icon = Icons.wifi_tethering_off_rounded;
                         color = Colors.white38;
+                      } else if (log.type == 'mic_toggle' || log.type == 'deafen_toggle') {
+                        icon = Icons.settings_voice_rounded;
+                        color = const Color(0xffB986FF);
                       } else if (log.type == 'system') {
                         color = const Color(0xffB986FF);
-                        style = const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xffC5B4FF));
-                      } else if (log.type == 'text') {
-                        color = Colors.white;
-                        style = const TextStyle(fontSize: 13, color: Colors.white);
                       }
 
                       return Padding(
@@ -1594,26 +1754,19 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (icon != null) ...[
-                              Icon(icon, size: 14, color: color),
+                              Icon(icon, size: 12, color: color),
                               const SizedBox(width: 6),
                             ],
                             Expanded(
                               child: RichText(
                                 text: TextSpan(
+                                  style: const TextStyle(fontSize: 11, color: Colors.white54),
                                   children: [
-                                    if (log.user.isNotEmpty)
-                                      TextSpan(
-                                        text: '${log.user} ',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: color,
-                                          fontSize: 12,
-                                        ),
-                                      ),
                                     TextSpan(
-                                      text: log.text,
-                                      style: style,
+                                      text: '${log.user} ',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: color),
                                     ),
+                                    TextSpan(text: log.text),
                                   ],
                                 ),
                               ),
@@ -1624,7 +1777,63 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                     },
                   ),
           ),
-          const SizedBox(height: 12),
+          const Divider(height: 20, color: Color(0xff38264F)),
+
+          // 2. PANEL DE CHAT DEL CANAL (Ocupa el resto de la pantalla)
+          Row(
+            children: [
+              const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white38, size: 12),
+              const SizedBox(width: 6),
+              Text(
+                '💬 CHAT - #${channel.name.toUpperCase()}',
+                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: chatMessages.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No hay mensajes aún.',
+                      style: TextStyle(color: Colors.white24, fontSize: 12),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: chatScrollController,
+                    itemCount: chatMessages.length,
+                    itemBuilder: (context, index) {
+                      final log = chatMessages[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  log.user,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 11),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${log.time.hour}:${log.time.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(color: Colors.white24, fontSize: 8),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              log.text.replaceFirst(': ', ''),
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             controller: _chatInputController,
             style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -1652,99 +1861,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  Widget _roomControls(VoiceChannel channel) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16), // Muro flotante tipo cápsula Discord
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xff161325).withOpacity(0.96),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xff55338B), width: 1.2),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black45,
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min, // Ajustado ceñidamente alrededor de los botones
-          children: [
-            const Icon(Icons.wifi_tethering_rounded, color: Color(0xff50E6A5), size: 20),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _connectionLabel,
-                  style: TextStyle(
-                    color: _voiceController.status == VoiceConnectionStatus.reconnecting
-                        ? const Color(0xffF6C65B)
-                        : const Color(0xff50E6A5),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  channel.name,
-                  style: const TextStyle(color: Color(0xffA39DAD), fontSize: 11),
-                ),
-              ],
-            ),
-            const SizedBox(width: 24),
-            _controlButton(
-              icon: _muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-              active: _muted,
-              onTap: _voiceController.toggleMute,
-            ),
-            const SizedBox(width: 8),
-            _controlButton(
-              icon: _deafened ? Icons.headset_off_rounded : Icons.headphones_rounded,
-              active: _deafened,
-              onTap: _voiceController.toggleDeafen,
-              tooltip: 'Activar o silenciar el audio',
-            ),
-            const SizedBox(width: 8),
-            _controlButton(
-              icon: Icons.settings_rounded,
-              active: false,
-              onTap: _showAudioDevices,
-              tooltip: 'Configurar micrófono y audífonos',
-            ),
-            const SizedBox(width: 8),
-            _controlButton(
-              icon: Icons.screen_share_rounded,
-              active: _streaming,
-              onTap: _toggleScreenShare,
-            ),
-            const SizedBox(width: 16),
-            FilledButton.icon(
-              onPressed: _leaveVoiceRoom,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xffD64A68),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              icon: const Icon(Icons.call_end_rounded, size: 16),
-              label: const Text('Salir', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  String get _connectionLabel => switch (_voiceController.status) {
-    VoiceConnectionStatus.connecting => 'Conectando…',
-    VoiceConnectionStatus.reconnecting => 'Reconectando…',
-    VoiceConnectionStatus.connected => 'Voz conectada',
-    VoiceConnectionStatus.error => 'Error de conexión',
-    VoiceConnectionStatus.disconnected => 'Desconectado',
-  };
+
+
 
   Future<void> _leaveVoiceRoom() async {
     if (_activeChannel != null) {

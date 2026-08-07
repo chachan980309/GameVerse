@@ -12,6 +12,7 @@ import '../pages/profile_page.dart';
 import '../pages/friends_page.dart';
 import '../pages/voice_channels_page.dart';
 import '../pages/tournaments_page.dart';
+import '../pages/clans_page.dart';
 import '../services/profile_navigation_service.dart';
 import '../services/post_navigation_service.dart';
 import '../services/spotify_service.dart';
@@ -114,6 +115,7 @@ class _MainScreenState extends State<MainScreen> {
 
     PresenceController.instance.startPresence();
     VoiceRoomController.instance.listenToPrivateCalls();
+    VoiceRoomController.instance.initVoicePresence();
   }
 
   void _stopOnlinePresence() {
@@ -121,6 +123,7 @@ class _MainScreenState extends State<MainScreen> {
     _onlineHeartbeat = null;
 
     PresenceController.instance.stopPresence();
+    VoiceRoomController.instance.stopVoicePresence();
     _setOnline(false);
   }
 
@@ -166,6 +169,9 @@ class _MainScreenState extends State<MainScreen> {
         return const TournamentsPage();
 
       case 5:
+        return const ClansPage();
+
+      case 6:
         return const Center(
           child: Text(
             "Ajustes",
@@ -185,7 +191,7 @@ class _MainScreenState extends State<MainScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (selectedIndex == 0 || selectedIndex == 1 || selectedIndex == 3)
+          if (selectedIndex == 0 || selectedIndex == 1 || selectedIndex == 3 || selectedIndex == 5)
             const FeedBackground(),
           Column(
             children: [

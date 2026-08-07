@@ -23,6 +23,8 @@ class PostModel {
   final String? sharedPostId;
   final PostModel? sharedPost;
   final String? streamId;
+  final String? clanId;
+  final String? clanName;
 
   const PostModel({
     required this.id,
@@ -43,6 +45,8 @@ class PostModel {
     this.sharedPostId,
     this.sharedPost,
     this.streamId,
+    this.clanId,
+    this.clanName,
   });
 
   factory PostModel.fromMap(Map<String, dynamic> map) {
@@ -72,6 +76,10 @@ class PostModel {
           ? PostModel.fromMap(shared)
           : null,
       streamId: map['stream_id']?.toString(),
+      clanId: map['clan_id']?.toString(),
+      clanName: map['clans'] != null && map['clans'] is Map<String, dynamic>
+          ? (map['clans'] as Map<String, dynamic>)['name']?.toString()
+          : null,
     );
   }
 

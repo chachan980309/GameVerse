@@ -55,7 +55,7 @@ class Sidebar extends StatelessWidget {
 
     return Container(
       width: 240,
-      color: selected == 0 || selected == 1 || selected == 3
+      color: selected == 0 || selected == 1 || selected == 3 || selected == 5
           ? const Color.fromRGBO(8, 9, 16, 0.88)
           : const Color(0xff0D0E15),
       child: SafeArea(
@@ -164,7 +164,8 @@ class Sidebar extends StatelessWidget {
               title: 'Torneos',
               index: 4,
             ),
-            _menuItem(icon: Icons.settings_rounded, title: 'Ajustes', index: 5),
+            _menuItem(icon: Icons.fort_rounded, title: 'Clanes', index: 5),
+            _menuItem(icon: Icons.settings_rounded, title: 'Ajustes', index: 6),
             const Spacer(),
             const Text(
               'v1.0',

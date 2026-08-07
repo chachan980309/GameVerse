@@ -81,8 +81,8 @@ class LiveKitService {
       print("[CALL] Inicializando Room de LiveKit...");
       final room = Room(
         roomOptions: const RoomOptions(
-          adaptiveStream: false,
-          dynacast: false,
+          adaptiveStream: true,
+          dynacast: true,
           defaultAudioPublishOptions: AudioPublishOptions(
             encoding: AudioEncoding(maxBitrate: 128000),
           ),
@@ -91,7 +91,7 @@ class LiveKitService {
             captureScreenAudio: true,
           ),
           defaultVideoPublishOptions: VideoPublishOptions(
-            simulcast: false,
+            simulcast: true,
             videoEncoding: VideoEncoding(
               maxBitrate: 6000000,
               maxFramerate: 30,

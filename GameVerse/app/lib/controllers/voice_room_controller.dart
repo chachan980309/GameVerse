@@ -4,10 +4,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import '../models/voice_channel.dart';
 import '../services/livekit_service.dart';
 import '../services/voice_channel_service.dart';
+import 'profile_controller.dart';
 
 enum VoiceConnectionStatus {
   disconnected,
@@ -27,6 +29,8 @@ class VoiceParticipantState {
     required this.isSpeaking,
     required this.joinedAt,
     required this.isScreenSharing,
+    this.localVolume = 1.0,
+    this.isLocalMuted = false,
   });
 
   final String id;
@@ -37,6 +41,8 @@ class VoiceParticipantState {
   final bool isSpeaking;
   final DateTime joinedAt;
   final bool isScreenSharing;
+  final double localVolume;
+  final bool isLocalMuted;
 
   Duration get connectedFor => DateTime.now().toUtc().difference(joinedAt);
 }
@@ -111,6 +117,12 @@ class VoiceRoomController extends ChangeNotifier {
 
   Future<bool> connect(String roomName, {VoiceChannel? channel, Map<String, dynamic>? privateUser}) async {
     if (status == VoiceConnectionStatus.connecting) return false;
+
+    // Leave previous channel first if we are connected to one!
+    if (isConnected) {
+      await leaveRoom();
+    }
+
     status = VoiceConnectionStatus.connecting;
     errorMessage = null;
     connectedChannel = channel;
@@ -176,6 +188,16 @@ class VoiceRoomController extends ChangeNotifier {
     if (room != null) room.removeListener(_syncParticipants);
     await _events?.dispose();
     _events = null;
+
+    final channelId = connectedChannel?.id;
+    if (channelId != null) {
+      try {
+        await VoiceChannelService().leaveChannel(channelId);
+      } catch (e) {
+        print("Error leaving channel $channelId in DB: $e");
+      }
+    }
+
     await _service.leaveRoom();
     status = VoiceConnectionStatus.disconnected;
     participants = const [];
@@ -187,6 +209,9 @@ class VoiceRoomController extends ChangeNotifier {
     isPrivateCall = false;
     isMinimized = false;
     joinedAt = null;
+
+    _trackSelfInVoicePresence();
+
     notifyListeners();
   }
 
@@ -273,6 +298,120 @@ class VoiceRoomController extends ChangeNotifier {
 
   void clearError() {
     errorMessage = null;
+    notifyListeners();
+  }
+
+  RealtimeChannel? _voicePresenceChannel;
+  Map<String, List<VoiceChannelMember>> voicePresenceParticipants = {};
+  int presenceRevision = 0;
+  Map<String, dynamic>? _lastPresencePayload;
+
+  void initVoicePresence() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    if (_voicePresenceChannel != null) return;
+
+    _voicePresenceChannel = Supabase.instance.client.channel('global-voice-presence');
+    _voicePresenceChannel!.onPresenceSync((payload) {
+      _syncVoicePresenceState();
+    }).subscribe((status, _) {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        _trackSelfInVoicePresence();
+      }
+    });
+  }
+
+  void stopVoicePresence() {
+    final channel = _voicePresenceChannel;
+    _voicePresenceChannel = null;
+    if (channel != null) {
+      channel.untrack();
+      Supabase.instance.client.removeChannel(channel);
+    }
+    voicePresenceParticipants.clear();
+    _lastPresencePayload = null;
+    notifyListeners();
+  }
+
+  void _trackSelfInVoicePresence() {
+    final channel = _voicePresenceChannel;
+    if (channel == null) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final profile = ProfileController.instance;
+    final username = profile.username.isNotEmpty ? profile.username : (Supabase.instance.client.auth.currentUser?.email?.split('@').first ?? 'Usuario');
+    final avatarUrl = profile.avatarUrl ?? '';
+
+    final channelId = connectedChannel?.id;
+    
+    bool isSpeaking = false;
+    if (_room != null && _room!.localParticipant != null) {
+      isSpeaking = _room!.localParticipant!.isSpeaking;
+    }
+
+    final newPayload = {
+      'user_id': userId,
+      'username': username,
+      'avatar_url': avatarUrl,
+      'channel_id': channelId,
+      'muted': microphoneMuted,
+      'speaking': isSpeaking,
+      'screen_sharing': isScreenSharing,
+    };
+
+    if (_lastPresencePayload != null &&
+        _lastPresencePayload!['channel_id'] == newPayload['channel_id'] &&
+        _lastPresencePayload!['muted'] == newPayload['muted'] &&
+        _lastPresencePayload!['speaking'] == newPayload['speaking'] &&
+        _lastPresencePayload!['screen_sharing'] == newPayload['screen_sharing'] &&
+        _lastPresencePayload!['username'] == newPayload['username'] &&
+        _lastPresencePayload!['avatar_url'] == newPayload['avatar_url']) {
+      return;
+    }
+
+    _lastPresencePayload = newPayload;
+    channel.track(newPayload);
+  }
+
+  void _syncVoicePresenceState() {
+    final channel = _voicePresenceChannel;
+    if (channel == null) return;
+
+    final state = channel.presenceState();
+    final Map<String, List<VoiceChannelMember>> updatedPresence = {};
+
+    for (final singlePresence in state) {
+      final presences = singlePresence.presences;
+      for (final presence in presences) {
+        final payload = presence.payload;
+        if (payload != null && payload['user_id'] != null && payload['channel_id'] != null) {
+          final chId = payload['channel_id'].toString();
+          final uId = payload['user_id'].toString();
+          final uname = payload['username']?.toString() ?? 'Usuario';
+          final avatar = payload['avatar_url']?.toString() ?? '';
+          final muted = payload['muted'] == true;
+          final speaking = payload['speaking'] == true;
+          final screenSharing = payload['screen_sharing'] == true;
+
+          final member = VoiceChannelMember(
+            userId: uId,
+            username: uname,
+            avatarUrl: avatar,
+            isMuted: muted,
+            isSpeaking: speaking,
+            isScreenSharing: screenSharing,
+          );
+
+          updatedPresence.putIfAbsent(chId, () => []).add(member);
+        }
+      }
+    }
+
+    presenceRevision++;
+    voicePresenceParticipants = updatedPresence;
     notifyListeners();
   }
 
@@ -526,6 +665,11 @@ class VoiceRoomController extends ChangeNotifier {
     await leaveRoom();
   }
 
+  final Map<String, double> _participantVolumes = {};
+  final Map<String, bool> _participantLocalMutes = {};
+  final Map<String, double> _screenVolumes = {};
+  final Map<String, bool> _screenLocalMutes = {};
+
   void _syncParticipants() {
     final room = _room;
     if (room == null) return;
@@ -540,6 +684,7 @@ class VoiceRoomController extends ChangeNotifier {
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
     microphoneMuted = !(room.localParticipant?.isMicrophoneEnabled() ?? false);
+    _trackSelfInVoicePresence();
     notifyListeners();
   }
 
@@ -559,6 +704,9 @@ class VoiceRoomController extends ChangeNotifier {
       (publication) => !publication.muted,
     );
     final isScreenSharing = participant.videoTrackPublications.isNotEmpty;
+    final localVolume = _participantVolumes[participant.identity] ?? 1.0;
+    final isLocalMuted = _participantLocalMutes[participant.identity] ?? false;
+
     return VoiceParticipantState(
       id: participant.identity,
       name: participant.name.trim().isEmpty ? 'Usuario' : participant.name,
@@ -568,7 +716,65 @@ class VoiceRoomController extends ChangeNotifier {
       isSpeaking: participant.isSpeaking,
       joinedAt: participant.joinedAt,
       isScreenSharing: isScreenSharing,
+      localVolume: localVolume,
+      isLocalMuted: isLocalMuted,
     );
+  }
+
+  double getParticipantVolume(String participantId) => _participantVolumes[participantId] ?? 1.0;
+  bool isParticipantLocalMuted(String participantId) => _participantLocalMutes[participantId] ?? false;
+
+  void setParticipantVolume(String participantId, double volume) {
+    _participantVolumes[participantId] = volume;
+    _applyParticipantVolume(participantId);
+    _syncParticipants();
+  }
+
+  void toggleParticipantLocalMute(String participantId) {
+    final currentlyMuted = _participantLocalMutes[participantId] ?? false;
+    _participantLocalMutes[participantId] = !currentlyMuted;
+    _applyParticipantVolume(participantId);
+    _syncParticipants();
+  }
+
+  double getScreenVolume(String participantId) => _screenVolumes[participantId] ?? 1.0;
+  bool isScreenLocalMuted(String participantId) => _screenLocalMutes[participantId] ?? false;
+
+  void setScreenVolume(String participantId, double volume) {
+    _screenVolumes[participantId] = volume;
+    _applyParticipantVolume(participantId);
+    _syncParticipants();
+  }
+
+  void toggleScreenLocalMute(String participantId) {
+    final currentlyMuted = _screenLocalMutes[participantId] ?? false;
+    _screenLocalMutes[participantId] = !currentlyMuted;
+    _applyParticipantVolume(participantId);
+    _syncParticipants();
+  }
+
+  void _applyParticipantVolume(String participantId) {
+    final room = _room;
+    if (room == null) return;
+    
+    final participant = room.remoteParticipants[participantId];
+    if (participant == null) return;
+    
+    final isMuted = _participantLocalMutes[participantId] ?? false;
+    final volume = isMuted ? 0.0 : (_participantVolumes[participantId] ?? 1.0);
+    
+    for (final publication in participant.audioTrackPublications) {
+      final track = publication.track;
+      if (track is RemoteAudioTrack) {
+        if (publication.source == TrackSource.screenShareAudio) {
+          final isScreenMuted = _screenLocalMutes[participantId] ?? false;
+          final screenVol = isScreenMuted ? 0.0 : (_screenVolumes[participantId] ?? 1.0);
+          rtc.Helper.setVolume(screenVol, track.mediaStreamTrack);
+        } else {
+          rtc.Helper.setVolume(volume, track.mediaStreamTrack);
+        }
+      }
+    }
   }
 
   /// Limpieza completa al cerrar la app. No llamar desde dispose() de una página.

@@ -114,7 +114,6 @@ class GlobalSearchPerson {
   const GlobalSearchPerson({
     required this.id,
     required this.name,
-    required this.email,
     required this.avatarUrl,
     required this.status,
   });
@@ -123,7 +122,6 @@ class GlobalSearchPerson {
     return GlobalSearchPerson(
       id: map['id']?.toString() ?? '',
       name: map['username']?.toString() ?? 'Usuario',
-      email: map['email']?.toString() ?? '',
       avatarUrl: map['avatar_url']?.toString() ?? '',
       status: map['status']?.toString() ?? '',
     );
@@ -131,7 +129,6 @@ class GlobalSearchPerson {
 
   final String id;
   final String name;
-  final String email;
   final String avatarUrl;
   final String status;
 }
