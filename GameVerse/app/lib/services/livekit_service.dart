@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LiveKitService {
   LiveKitService({SupabaseClient? supabase})
@@ -16,6 +17,33 @@ class LiveKitService {
   bool get canPlaybackAudio => _room?.canPlaybackAudio ?? false;
   bool get isScreenSharing =>
       _room?.localParticipant?.isScreenShareEnabled() ?? false;
+
+  Future<AudioCaptureOptions> _getAudioCaptureOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mode = prefs.getString('noise_suppression_mode') ?? 'standard';
+    final echoEnabled = prefs.getBool('echo_cancellation_enabled') ?? true;
+    final agcEnabled = prefs.getBool('auto_gain_control_enabled') ?? false;
+
+    bool echo = echoEnabled;
+    bool ns = true;
+    bool agc = agcEnabled;
+
+    if (mode == 'off') {
+      echo = false;
+      ns = false;
+      agc = false;
+    } else if (mode == 'standard') {
+      ns = true;
+    } else if (mode == 'ai') {
+      ns = true;
+    }
+
+    return AudioCaptureOptions(
+      echoCancellation: echo,
+      noiseSuppression: ns,
+      autoGainControl: agc,
+    );
+  }
 
   Future<Room> connect(String roomName) async {
     final user = _supabase.auth.currentUser;
@@ -96,6 +124,10 @@ class LiveKitService {
               maxBitrate: 6000000,
               maxFramerate: 30,
             ),
+            screenShareEncoding: VideoEncoding(
+              maxBitrate: 6000000,
+              maxFramerate: 30,
+            ),
           ),
         ),
       );
@@ -114,10 +146,13 @@ class LiveKitService {
       print("[CALL] startAudio OK");
 
       print("[CALL] Publicando micrófono...");
+      final options = await _getAudioCaptureOptions();
       final publication = await room.localParticipant?.setMicrophoneEnabled(
         true,
+        audioCaptureOptions: options,
       );
       print("[CALL] setMicrophoneEnabled OK. micPublished=${publication != null}");
+
       print("[CALL] ¡Conexión WebRTC / LiveKit completada con éxito!");
       print("Sala unida en LiveKit: $roomName");
       print("Identity enviada a LiveKit: ${user.id}");
@@ -185,7 +220,12 @@ class LiveKitService {
     final participant = _room?.localParticipant;
     if (participant == null) return false;
     final enabled = !participant.isMicrophoneEnabled();
-    await participant.setMicrophoneEnabled(enabled);
+    if (enabled) {
+      final options = await _getAudioCaptureOptions();
+      await participant.setMicrophoneEnabled(enabled, audioCaptureOptions: options);
+    } else {
+      await participant.setMicrophoneEnabled(enabled);
+    }
     return enabled;
   }
 

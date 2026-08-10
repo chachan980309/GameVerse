@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/direct_message_service.dart';
 import '../../services/friend_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/profile_navigation_service.dart';
 import '../chat/direct_message_sheet.dart';
 
 class TopBarAlerts extends StatefulWidget {
@@ -301,14 +302,31 @@ class _TopBarAlertsState extends State<TopBarAlerts> {
         padding: const EdgeInsets.only(bottom: 10),
         child: Row(
           children: [
-            _avatar(name, avatar),
-            const SizedBox(width: 9),
             Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    final userId = sender['id']?.toString();
+                    if (userId != null && userId.isNotEmpty) {
+                      ProfileNavigationService.instance.openProfile(userId);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      _avatar(name, avatar),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

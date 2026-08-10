@@ -466,12 +466,21 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
   }
 
   Widget _buildJoinOrRequestButton(ClanModel clan, Color accent) {
+    final hasPending = _controller.myPendingRequest != null;
     return ElevatedButton(
-      onPressed: () => _controller.joinClan(clan.id),
-      style: ElevatedButton.styleFrom(backgroundColor: accent),
+      onPressed: hasPending ? null : () => _controller.joinClan(clan.id),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: hasPending ? Colors.white10 : accent,
+        disabledBackgroundColor: Colors.white10,
+      ),
       child: Text(
-        clan.visibility == 'public' ? 'Unirse al Gremio' : 'Solicitar Ingreso',
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        hasPending
+            ? 'Solicitud Pendiente'
+            : (clan.visibility == 'public' ? 'Unirse al Gremio' : 'Solicitar Ingreso'),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: hasPending ? Colors.white38 : Colors.white,
+        ),
       ),
     );
   }
@@ -598,7 +607,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
   // ==========================
 
   Widget _buildMembersTab(ClanModel clan, Color accent) {
-    final isLeaderOrCo = _controller.myMemberInfo?.role?.name == 'Leader' || _controller.myMemberInfo?.role?.name == 'Co-Leader';
+    final canManageMembers = _controller.selectedClanCanManageMembers;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -607,7 +616,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isLeaderOrCo && _controller.selectedClanRequests.isNotEmpty) ...[
+            if (canManageMembers && _controller.selectedClanRequests.isNotEmpty) ...[
               const Text('📌 Solicitudes Pendientes de Ingreso', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               ListView.builder(
@@ -686,7 +695,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
                                   ? Colors.orange.withOpacity(0.15)
                                   : Colors.blueAccent.withOpacity(0.15),
                         ),
-                        if (isLeaderOrCo && !isMe && roleName != 'Leader') ...[
+                        if (canManageMembers && !isMe && roleName != 'Leader') ...[
                           const SizedBox(width: 10),
                           PopupMenuButton<String>(
                             itemBuilder: (context) => [
@@ -750,7 +759,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
   // ==========================
 
   Widget _buildTournamentsTab(ClanModel clan, Color accent) {
-    final isLeaderOrCo = _controller.myMemberInfo?.role?.name == 'Leader' || _controller.myMemberInfo?.role?.name == 'Co-Leader';
+    final canManageTournaments = _controller.selectedClanCanManageTournaments || _controller.selectedClanCanCreateTournaments;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -765,7 +774,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('🏆 Torneos de este Clan', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      if (isLeaderOrCo)
+                      if (canManageTournaments)
                         Row(
                           children: [
                             ElevatedButton.icon(
@@ -859,6 +868,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
                       trailing: const Icon(Icons.link, color: Colors.blueAccent),
                       onTap: () async {
                         await TournamentService().transferOwnershipToClan(t.id, widget.clanId);
+                        if (!context.mounted) return;
                         Navigator.pop(context);
                         _loadTournaments();
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -878,7 +888,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
   // ==========================
 
   Widget _buildEventsTab(ClanModel clan, Color accent) {
-    final isLeaderOrCo = _controller.myMemberInfo?.role?.name == 'Leader' || _controller.myMemberInfo?.role?.name == 'Co-Leader';
+    final canCreateEvents = _controller.selectedClanCanCreateEvents || _controller.selectedClanCanManageEvents;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -891,7 +901,7 @@ class _ClanDetailPageState extends State<ClanDetailPage> with SingleTickerProvid
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('📅 Calendario de Eventos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                if (isLeaderOrCo)
+                if (canCreateEvents)
                   ElevatedButton.icon(
                     onPressed: _showCreateEventDialog,
                     style: ElevatedButton.styleFrom(backgroundColor: accent),
@@ -1410,6 +1420,15 @@ class _EditClanDialogState extends State<_EditClanDialog> {
 
   final List<String> _colors = ['#6438FF', '#FF4655', '#1ED760', '#FFB800', '#00A3FF', '#E31B23'];
 
+  int get _daysSinceCreation {
+    final now = DateTime.now();
+    return now.difference(widget.clan.createdAt).inDays;
+  }
+
+  bool get _canDelete {
+    return _daysSinceCreation >= 30;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1423,8 +1442,109 @@ class _EditClanDialogState extends State<_EditClanDialog> {
     _accentColor = widget.clan.accentColor;
   }
 
+  void _deleteClan() async {
+    final controller = ClanController.instance;
+    final clan = widget.clan;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || clan.ownerId != user.id) return;
+
+    final nameController = TextEditingController();
+    final isConfirmEnabled = ValueNotifier<bool>(false);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xff1B1625),
+          title: Text('¿Eliminar el gremio ${clan.name}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Estás a punto de eliminar permanentemente el gremio "${clan.name}". Esta acción no se puede deshacer.',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Escribe "${clan.name}" para confirmar:',
+                style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<bool>(
+                valueListenable: isConfirmEnabled,
+                builder: (context, enabled, _) {
+                  return Column(
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: 'Nombre del clan',
+                          hintStyle: TextStyle(color: Colors.white30),
+                        ),
+                        onChanged: (val) {
+                          isConfirmEnabled.value = val.trim() == clan.name.trim();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: isConfirmEnabled,
+              builder: (context, enabled, _) {
+                return ElevatedButton(
+                  onPressed: enabled
+                      ? () => Navigator.pop(context, true)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffE31B23),
+                  ),
+                  child: const Text('ELIMINAR DEFINITIVAMENTE'),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        await controller.deleteClan(clan.id);
+        if (mounted) {
+          // Cerrar el diálogo de edición
+          Navigator.pop(context);
+          // Cerrar la página de detalles del clan
+          Navigator.pop(context);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Clan eliminado correctamente.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al eliminar el clan: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final isOwner = widget.clan.ownerId == user?.id;
+
     return AlertDialog(
       backgroundColor: const Color(0xff1B1625),
       title: const Text('Editar Gremio'),
@@ -1493,6 +1613,49 @@ class _EditClanDialogState extends State<_EditClanDialog> {
                   );
                 }).toList(),
               ),
+              if (isOwner) ...[
+                const Divider(color: Colors.white12, height: 32),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'ZONA DE PELIGRO',
+                    style: TextStyle(color: Color(0xffFF4655), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Eliminar clan',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _canDelete
+                                ? 'Esta acción eliminará permanentemente el clan y no se puede deshacer.'
+                                : 'Podrás eliminar el clan en ${30 - _daysSinceCreation} días (Disponible el ${widget.clan.createdAt.add(const Duration(days: 30)).day}/${widget.clan.createdAt.add(const Duration(days: 30)).month}/${widget.clan.createdAt.add(const Duration(days: 30)).year}).',
+                            style: const TextStyle(color: Colors.white38, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _canDelete ? _deleteClan : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xffFF4655),
+                        disabledBackgroundColor: Colors.white10,
+                      ),
+                      child: const Text('Eliminar'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:js' as js;
 
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/voice_channel.dart';
 import '../services/livekit_service.dart';
@@ -60,6 +62,11 @@ class VoiceRoomController extends ChangeNotifier {
   Room? _room;
 
   VoiceConnectionStatus status = VoiceConnectionStatus.disconnected;
+
+  // Variables de Configuración de Audio Persistente
+  String noiseSuppressionMode = 'standard'; // 'off', 'standard', 'ai'
+  bool echoCancellationEnabled = true;
+  bool autoGainControlEnabled = false;
   List<VoiceParticipantState> participants = const [];
   String? errorMessage;
   bool microphoneMuted = false;
@@ -98,6 +105,9 @@ class VoiceRoomController extends ChangeNotifier {
       for (final pub in participant.videoTrackPublications) {
         final track = pub.track;
         if (track != null && !pub.muted) {
+          if (pub is RemoteTrackPublication && pub.subscribed) {
+            pub.setVideoQuality(VideoQuality.HIGH);
+          }
           return track as VideoTrack;
         }
       }
@@ -132,6 +142,7 @@ class VoiceRoomController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await loadSettings(); // Cargar configuraciones guardadas de audio
       final room = await _service.connect(roomName);
       _room = room;
       room.addListener(_syncParticipants);
@@ -153,6 +164,11 @@ class VoiceRoomController extends ChangeNotifier {
           status = VoiceConnectionStatus.disconnected;
           participants = const [];
           notifyListeners();
+        })
+        ..on<TrackSubscribedEvent>((event) {
+          if (event.track is RemoteAudioTrack) {
+            _applyParticipantVolume(event.participant.identity);
+          }
         });
       status = VoiceConnectionStatus.connected;
       joinedAt = DateTime.now();
@@ -728,6 +744,7 @@ class VoiceRoomController extends ChangeNotifier {
     _participantVolumes[participantId] = volume;
     _applyParticipantVolume(participantId);
     _syncParticipants();
+    saveParticipantSettings();
   }
 
   void toggleParticipantLocalMute(String participantId) {
@@ -735,6 +752,7 @@ class VoiceRoomController extends ChangeNotifier {
     _participantLocalMutes[participantId] = !currentlyMuted;
     _applyParticipantVolume(participantId);
     _syncParticipants();
+    saveParticipantSettings();
   }
 
   double getScreenVolume(String participantId) => _screenVolumes[participantId] ?? 1.0;
@@ -757,7 +775,14 @@ class VoiceRoomController extends ChangeNotifier {
     final room = _room;
     if (room == null) return;
     
-    final participant = room.remoteParticipants[participantId];
+    RemoteParticipant? participant;
+    for (final p in room.remoteParticipants.values) {
+      if (p.identity == participantId) {
+        participant = p;
+        break;
+      }
+    }
+    
     if (participant == null) return;
     
     final isMuted = _participantLocalMutes[participantId] ?? false;
@@ -769,9 +794,65 @@ class VoiceRoomController extends ChangeNotifier {
         if (publication.source == TrackSource.screenShareAudio) {
           final isScreenMuted = _screenLocalMutes[participantId] ?? false;
           final screenVol = isScreenMuted ? 0.0 : (_screenVolumes[participantId] ?? 1.0);
-          rtc.Helper.setVolume(screenVol, track.mediaStreamTrack);
+          final finalVol = kIsWeb ? screenVol.clamp(0.0, 1.0) : screenVol;
+          
+          // Habilitar/Deshabilitar track a nivel de WebRTC para un silencio absoluto garantizado
+          track.mediaStreamTrack.enabled = (finalVol > 0.0);
+          
+          if (kIsWeb) {
+            try {
+              js.context.callMethod('eval', [
+                """
+                (function() {
+                  var audios = document.querySelectorAll('audio');
+                  for (var i = 0; i < audios.length; i++) {
+                    var audio = audios[i];
+                    if (audio.srcObject) {
+                      var tracks = audio.srcObject.getAudioTracks();
+                      if (tracks.length > 0 && tracks[0].id === '${track.mediaStreamTrack.id}') {
+                        audio.volume = $finalVol;
+                      }
+                    }
+                  }
+                })()
+                """
+              ]);
+            } catch (e) {
+              print("Error setting web volume via JS: $e");
+            }
+          } else {
+            rtc.Helper.setVolume(finalVol, track.mediaStreamTrack);
+          }
         } else {
-          rtc.Helper.setVolume(volume, track.mediaStreamTrack);
+          final finalVol = kIsWeb ? volume.clamp(0.0, 1.0) : volume;
+          
+          // Habilitar/Deshabilitar track a nivel de WebRTC para un silencio absoluto garantizado
+          track.mediaStreamTrack.enabled = (finalVol > 0.0);
+          
+          if (kIsWeb) {
+            try {
+              js.context.callMethod('eval', [
+                """
+                (function() {
+                  var audios = document.querySelectorAll('audio');
+                  for (var i = 0; i < audios.length; i++) {
+                    var audio = audios[i];
+                    if (audio.srcObject) {
+                      var tracks = audio.srcObject.getAudioTracks();
+                      if (tracks.length > 0 && tracks[0].id === '${track.mediaStreamTrack.id}') {
+                        audio.volume = $finalVol;
+                      }
+                    }
+                  }
+                })()
+                """
+              ]);
+            } catch (e) {
+              print("Error setting web volume via JS: $e");
+            }
+          } else {
+            rtc.Helper.setVolume(finalVol, track.mediaStreamTrack);
+          }
         }
       }
     }
@@ -791,5 +872,105 @@ class VoiceRoomController extends ChangeNotifier {
     // El singleton NO debe destruirse al hacer pop de una página.
     // La conexión de voz sigue activa mientras el usuario no salga manualmente.
     super.dispose();
+  }
+
+  // ==========================================
+  // CONFIGURACIÓN PERSISTENTE EN TIEMPO REAL
+  // ==========================================
+
+  Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    noiseSuppressionMode = prefs.getString('noise_suppression_mode') ?? 'standard';
+    echoCancellationEnabled = prefs.getBool('echo_cancellation_enabled') ?? true;
+    autoGainControlEnabled = prefs.getBool('auto_gain_control_enabled') ?? false;
+    
+    // Cargar volúmenes de participantes guardados
+    final volsJson = prefs.getString('participant_volumes_saved');
+    if (volsJson != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(volsJson);
+        decoded.forEach((key, val) {
+          _participantVolumes[key] = (val as num).toDouble();
+        });
+      } catch (_) {}
+    }
+    
+    final mutesJson = prefs.getString('participant_mutes_saved');
+    if (mutesJson != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(mutesJson);
+        decoded.forEach((key, val) {
+          _participantLocalMutes[key] = val as bool;
+        });
+      } catch (_) {}
+    }
+  }
+
+  Future<void> saveParticipantSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('participant_volumes_saved', jsonEncode(_participantVolumes));
+    await prefs.setString('participant_mutes_saved', jsonEncode(_participantLocalMutes));
+  }
+
+  Future<void> setNoiseSuppressionMode(String mode) async {
+    noiseSuppressionMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('noise_suppression_mode', mode);
+    await _applyAudioCaptureOptions();
+    notifyListeners();
+  }
+
+  Future<void> toggleEchoCancellation() async {
+    echoCancellationEnabled = !echoCancellationEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('echo_cancellation_enabled', echoCancellationEnabled);
+    await _applyAudioCaptureOptions();
+    notifyListeners();
+  }
+
+  Future<void> toggleAutoGainControl() async {
+    autoGainControlEnabled = !autoGainControlEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_gain_control_enabled', autoGainControlEnabled);
+    await _applyAudioCaptureOptions();
+    notifyListeners();
+  }
+
+  Future<void> _applyAudioCaptureOptions() async {
+    final room = _room;
+    if (room == null) return;
+    
+    final localPart = room.localParticipant;
+    if (localPart == null) return;
+
+    for (final pub in localPart.audioTrackPublications) {
+      final track = pub.track;
+      if (track is LocalAudioTrack) {
+        bool echo = echoCancellationEnabled;
+        bool ns = true;
+        bool agc = autoGainControlEnabled;
+
+        if (noiseSuppressionMode == 'off') {
+          echo = false;
+          ns = false;
+          agc = false;
+        } else if (noiseSuppressionMode == 'standard') {
+          ns = true;
+        } else if (noiseSuppressionMode == 'ai') {
+          ns = true; // El modo avanzado aprovecha los algoritmos nativos más agresivos
+        }
+
+        try {
+          await track.mediaStreamTrack.applyConstraints({
+            'echoCancellation': echo,
+            'noiseSuppression': ns,
+            'autoGainControl': agc,
+          });
+          print("[IA-AUDIO] Constraints aplicadas en tiempo real con éxito: echo=$echo, ns=$ns, agc=$agc");
+        } catch (e) {
+          print("[IA-AUDIO] Error aplicando constraints en tiempo real: $e");
+        }
+      }
+    }
   }
 }

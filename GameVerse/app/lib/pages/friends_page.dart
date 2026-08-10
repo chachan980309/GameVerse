@@ -4,6 +4,7 @@ import '../controllers/presence_controller.dart';
 import '../models/direct_message.dart';
 import '../services/direct_message_service.dart';
 import '../services/friend_service.dart';
+import '../services/profile_navigation_service.dart';
 import '../widgets/chat/shared_post_message_card.dart';
 
 class FriendsPage extends StatefulWidget {
@@ -273,9 +274,16 @@ class _FriendsPageState extends State<FriendsPage> {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final request = _pending[index];
+        final profile = Map<String, dynamic>.from(request['sender'] as Map);
         return _personCard(
-          profile: Map<String, dynamic>.from(request['sender'] as Map),
+          profile: profile,
           subtitle: 'Te envió una solicitud de amistad',
+          onTap: () {
+            final userId = profile['id']?.toString();
+            if (userId != null && userId.isNotEmpty) {
+              ProfileNavigationService.instance.openProfile(userId);
+            }
+          },
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

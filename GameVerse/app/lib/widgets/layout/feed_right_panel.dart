@@ -8,13 +8,22 @@ import '../../models/post_model.dart';
 import '../../screens/main_screen.dart';
 import '../../services/friend_service.dart';
 import '../../services/post_service.dart';
+import '../../services/profile_navigation_service.dart';
+import '../../services/post_navigation_service.dart';
 import '../../services/spotify_service.dart';
 import '../../services/user_games_service.dart';
 
 class FeedRightPanel extends StatefulWidget {
-  const FeedRightPanel({super.key, this.onOpenChat});
+  const FeedRightPanel({
+    super.key,
+    this.onOpenChat,
+    this.onShowAllFriends,
+    this.onShowAllActivity,
+  });
 
   final void Function(Map<String, dynamic> profile)? onOpenChat;
+  final VoidCallback? onShowAllFriends;
+  final VoidCallback? onShowAllActivity;
 
   @override
   State<FeedRightPanel> createState() => _FeedRightPanelState();
@@ -203,60 +212,72 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Row(
                         children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: const Color(0xFF3D2B6C),
-                                backgroundImage: friend.avatarUrl.isNotEmpty
-                                    ? NetworkImage(friend.avatarUrl)
-                                    : null,
-                                child: friend.avatarUrl.isEmpty
-                                    ? Text(
-                                        friend.initial,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              Positioned(
-                                right: -1,
-                                bottom: -1,
-                                child: CircleAvatar(
-                                  radius: 5,
-                                  backgroundColor: isOnline
-                                      ? const Color(0xFF48E69A)
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 9),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  friend.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                  ),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                onTap: () => ProfileNavigationService.instance.openProfile(friend.id),
+                                child: Row(
+                                  children: [
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: const Color(0xFF3D2B6C),
+                                          backgroundImage: friend.avatarUrl.isNotEmpty
+                                              ? NetworkImage(friend.avatarUrl)
+                                              : null,
+                                          child: friend.avatarUrl.isEmpty
+                                              ? Text(
+                                                  friend.initial,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                        Positioned(
+                                          right: -1,
+                                          bottom: -1,
+                                          child: CircleAvatar(
+                                            radius: 5,
+                                            backgroundColor: isOnline
+                                                ? const Color(0xFF48E69A)
+                                                : Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 9),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            friend.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            friend.status.isNotEmpty
+                                                ? friend.status
+                                                : (isOnline ? 'En línea' : 'Desconectado'),
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  friend.status.isNotEmpty
-                                      ? friend.status
-                                      : (isOnline ? 'En línea' : 'Desconectado'),
-                                  style: const TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                           IconButton(
@@ -360,7 +381,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
   Widget _activity() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _title('Actividad de amigos', 'Ver todo'),
+      _title('Actividad de amigos', 'Ver todo', onTap: widget.onShowAllActivity),
       const SizedBox(height: 10),
       if (_loading)
         const Expanded(
@@ -379,40 +400,46 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       ..._friendPosts.map(
         (post) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF29213F),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.article_outlined,
-                  color: Color(0xFFAF8CFF),
-                  size: 17,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  '${post.username} publicó\n${post.content.isEmpty ? 'contenido nuevo' : post.content}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    height: 1.25,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => PostNavigationService.instance.openPost(post.id),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF29213F),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.article_outlined,
+                      color: Color(0xFFAF8CFF),
+                      size: 17,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      '${post.username} publicó\n${post.content.isEmpty ? 'contenido nuevo' : post.content}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _timeAgo(post.createdAt),
+                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  ),
+                ],
               ),
-              Text(
-                _timeAgo(post.createdAt),
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -535,7 +562,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
     return '${difference.inDays} d';
   }
 
-  Widget _title(String text, String action) => Row(
+  Widget _title(String text, String action, {VoidCallback? onTap}) => Row(
     children: [
       Expanded(
         child: Text(
@@ -547,9 +574,15 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
           ),
         ),
       ),
-      Text(
-        action,
-        style: const TextStyle(color: Color(0xFFAF8CFF), fontSize: 11),
+      MouseRegion(
+        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Text(
+            action,
+            style: const TextStyle(color: Color(0xFFAF8CFF), fontSize: 11),
+          ),
+        ),
       ),
     ],
   );

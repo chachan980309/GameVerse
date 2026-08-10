@@ -31,6 +31,7 @@ class VoiceSidePanel extends StatefulWidget {
 class _VoiceSidePanelState extends State<VoiceSidePanel> {
   int _ping = 28;
   Timer? _pingTimer;
+  Offset _tapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -145,6 +146,18 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
 
                 return GestureDetector(
                   onTap: () => _showParticipantDetailsPopout(user, roleName),
+                  onSecondaryTapDown: (details) {
+                    _tapPosition = details.globalPosition;
+                  },
+                  onSecondaryTap: () {
+                    _showContextMenu(context, user, roleName, _tapPosition);
+                  },
+                  onLongPressStart: (details) {
+                    _tapPosition = details.globalPosition;
+                  },
+                  onLongPress: () {
+                    _showContextMenu(context, user, roleName, _tapPosition);
+                  },
                   child: Container(
                     margin: const EdgeInsets.only(right: 12),
                     alignment: Alignment.center,
@@ -348,15 +361,27 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
       ),
       color: const Color(0xff161324),
       onSelected: (val) async {
-        final parts = val.split('||');
-        if (parts[0] == 'input') {
-          final devices = await widget.controller.audioInputs();
-          final target = devices.firstWhere((d) => d.deviceId == parts[1]);
-          await widget.controller.selectAudioInput(target);
-        } else if (parts[0] == 'output') {
-          final devices = await widget.controller.audioOutputs();
-          final target = devices.firstWhere((d) => d.deviceId == parts[1]);
-          await widget.controller.selectAudioOutput(target);
+        if (val == 'ns_off') {
+          await widget.controller.setNoiseSuppressionMode('off');
+        } else if (val == 'ns_standard') {
+          await widget.controller.setNoiseSuppressionMode('standard');
+        } else if (val == 'ns_ai') {
+          await widget.controller.setNoiseSuppressionMode('ai');
+        } else if (val == 'toggle_aec') {
+          await widget.controller.toggleEchoCancellation();
+        } else if (val == 'toggle_agc') {
+          await widget.controller.toggleAutoGainControl();
+        } else {
+          final parts = val.split('||');
+          if (parts[0] == 'input') {
+            final devices = await widget.controller.audioInputs();
+            final target = devices.firstWhere((d) => d.deviceId == parts[1]);
+            await widget.controller.selectAudioInput(target);
+          } else if (parts[0] == 'output') {
+            final devices = await widget.controller.audioOutputs();
+            final target = devices.firstWhere((d) => d.deviceId == parts[1]);
+            await widget.controller.selectAudioOutput(target);
+          }
         }
       },
       itemBuilder: (context) {
@@ -372,6 +397,86 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             child: Text('🔊 SALIDA DE AUDIO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
           ),
           ..._buildDeviceMenuItems('output'),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            enabled: false,
+            child: Text('🎙️ SUPRESIÓN DE RUIDO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+          PopupMenuItem(
+            value: 'ns_off',
+            child: Row(
+              children: [
+                Icon(
+                  widget.controller.noiseSuppressionMode == 'off' ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'off' ? widget.accentColor : Colors.white24,
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                const Text('Desactivada', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'ns_standard',
+            child: Row(
+              children: [
+                Icon(
+                  widget.controller.noiseSuppressionMode == 'standard' ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'standard' ? widget.accentColor : Colors.white24,
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                const Text('Estándar', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'ns_ai',
+            child: Row(
+              children: [
+                Icon(
+                  widget.controller.noiseSuppressionMode == 'ai' ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'ai' ? widget.accentColor : Colors.white24,
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                const Text('IA / Avanzada', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            enabled: false,
+            child: Text('⚙️ PROCESAMIENTO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+          ),
+          PopupMenuItem(
+            value: 'toggle_aec',
+            child: Row(
+              children: [
+                Icon(
+                  widget.controller.echoCancellationEnabled ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: widget.controller.echoCancellationEnabled ? widget.accentColor : Colors.white24,
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                const Text('Cancelación de eco', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'toggle_agc',
+            child: Row(
+              children: [
+                Icon(
+                  widget.controller.autoGainControlEnabled ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: widget.controller.autoGainControlEnabled ? widget.accentColor : Colors.white24,
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                const Text('Control de ganancia (AGC)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
         ];
       },
     );
@@ -528,6 +633,164 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showContextMenu(BuildContext context, VoiceParticipantState user, String roleName, Offset position) {
+    if (user.isLocal) return; // No tiene sentido cambiar nuestro propio volumen local
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent, // Fondo invisible para cerrarlo con un clic fuera
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned(
+              left: position.dx.clamp(10.0, MediaQuery.of(context).size.width - 250.0),
+              top: position.dy.clamp(10.0, MediaQuery.of(context).size.height - 230.0),
+              child: Material(
+                color: Colors.transparent,
+                child: StatefulBuilder(
+                  builder: (context, setStateDialog) {
+                    return Container(
+                      width: 230,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff161324),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xff2d2543), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nombre
+                          Text(
+                            user.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+                          
+                          // Título Volumen
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Volumen de usuario', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                              Text(
+                                '${(user.localVolume * 100).toInt()}%',
+                                style: TextStyle(color: widget.accentColor, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          
+                          // Slider de Volumen
+                          SizedBox(
+                            height: 32,
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                activeTrackColor: widget.accentColor,
+                                inactiveTrackColor: Colors.white12,
+                                thumbColor: widget.accentColor,
+                                trackHeight: 3,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                              ),
+                              child: Slider(
+                                value: user.localVolume,
+                                min: 0.0,
+                                max: 2.0,
+                                onChanged: (val) {
+                                  setStateDialog(() {
+                                    widget.controller.setParticipantVolume(user.id, val);
+                                    user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                  });
+                                  setState(() {}); // Refrescar panel principal
+                                },
+                              ),
+                            ),
+                          ),
+                          
+                          const Divider(color: Colors.white12, height: 16),
+                          
+                          // Opción Silenciar
+                          InkWell(
+                            onTap: () {
+                              setStateDialog(() {
+                                widget.controller.toggleParticipantLocalMute(user.id);
+                                user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                              });
+                              setState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    user.isLocalMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                    color: user.isLocalMuted ? const Color(0xffD64A68) : Colors.white60,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('Silenciar para mí', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                  const Spacer(),
+                                  SizedBox(
+                                    height: 16,
+                                    width: 28,
+                                    child: Switch(
+                                      value: user.isLocalMuted,
+                                      activeColor: const Color(0xffD64A68),
+                                      onChanged: (val) {
+                                        setStateDialog(() {
+                                          widget.controller.toggleParticipantLocalMute(user.id);
+                                          user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                        });
+                                        setState(() {});
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          // Restablecer a 100%
+                          InkWell(
+                            onTap: () {
+                              setStateDialog(() {
+                                widget.controller.setParticipantVolume(user.id, 1.0);
+                                user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                              });
+                              setState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.refresh_rounded, color: Colors.white60, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text('Restablecer volumen (100%)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

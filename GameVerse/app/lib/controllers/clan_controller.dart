@@ -39,6 +39,49 @@ class ClanController extends ChangeNotifier {
   int historyOffset = 0;
   bool hasMoreHistory = true;
 
+  // Solicitud pendiente del usuario para el clan seleccionado
+  ClanRequestModel? myPendingRequest;
+
+  // Información de membresía del usuario para el clan seleccionado
+  ClanMemberModel? selectedClanMyMemberInfo;
+
+  // Getters de permisos del clan seleccionado
+  bool get selectedClanCanEditClan =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canEditClan ?? false);
+
+  bool get selectedClanCanManageMembers =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canManageMembers ?? false);
+
+  bool get selectedClanCanKick =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canKick ?? false);
+
+  bool get selectedClanCanCreateEvents =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canCreateEvents ?? false);
+
+  bool get selectedClanCanManageEvents =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canManageEvents ?? false);
+
+  bool get selectedClanCanCreateTournaments =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canCreateTournaments ?? false);
+
+  bool get selectedClanCanManageTournaments =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canManageTournaments ?? false);
+
+  bool get selectedClanCanManageVoice =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canManageVoice ?? false);
+
+  bool get selectedClanCanPostAnnouncements =>
+      (selectedClan?.ownerId == _supabase.auth.currentUser?.id) ||
+      (selectedClanMyMemberInfo?.role?.canPostAnnouncements ?? false);
+
   // Invitaciones del Usuario
   List<ClanInviteModel> myInvites = [];
   bool loadingInvites = false;
@@ -185,14 +228,22 @@ class ClanController extends ChangeNotifier {
         // Si somos admin del clan seleccionado, cargar solicitudes
         final userId = _supabase.auth.currentUser?.id;
         final isMyClanDetail = myClan?.id == clanId;
-        final currentMember = isMyClanDetail
+        
+        selectedClanMyMemberInfo = isMyClanDetail
             ? myMemberInfo
             : selectedClanMembers.cast<ClanMemberModel?>().firstWhere(
                 (m) => m?.userId == userId,
                 orElse: () => null,
               );
 
-        if (currentMember != null && (currentMember.role?.canManageMembers == true || selectedClan!.ownerId == userId)) {
+        if (userId != null) {
+          myPendingRequest = await _clanService.getMyPendingRequest(clanId);
+        } else {
+          myPendingRequest = null;
+        }
+
+        if (selectedClanMyMemberInfo != null &&
+            (selectedClanMyMemberInfo!.role?.canManageMembers == true || selectedClan!.ownerId == userId)) {
           selectedClanRequests = await _clanService.getClanRequests(clanId);
         } else {
           selectedClanRequests = [];
@@ -231,6 +282,32 @@ class ClanController extends ChangeNotifier {
   // ==========================
   // ACCIONES DEL CLAN
   // ==========================
+
+  Future<void> deleteClan(String clanId) async {
+    try {
+      await _clanService.deleteClan(clanId);
+      
+      if (myClan?.id == clanId) {
+        myClan = null;
+        myMemberInfo = null;
+      }
+      
+      if (selectedClan?.id == clanId) {
+        selectedClan = null;
+        selectedClanMembers = [];
+        selectedClanEvents = [];
+        selectedClanHistory = [];
+        selectedClanRequests = [];
+        selectedClanMyMemberInfo = null;
+      }
+      
+      await loadMyClan();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error en ClanController.deleteClan: $e');
+      rethrow;
+    }
+  }
 
   Future<ClanModel> createClan({
     required String name,
@@ -512,7 +589,23 @@ class ClanController extends ChangeNotifier {
           ),
           callback: (payload) async {
             debugPrint('Realtime join request updated!');
-            selectedClanRequests = await _clanService.getClanRequests(clanId);
+            final userId = _supabase.auth.currentUser?.id;
+            if (userId != null) {
+              myPendingRequest = await _clanService.getMyPendingRequest(clanId);
+              // Verificar si el usuario ahora es miembro de este clan
+              final member = await _clanService.getClanMember(clanId, userId);
+              if (member != null && myClan?.id != clanId) {
+                await loadMyClan();
+                await loadClanDetail(clanId, forceSelected: true);
+                return;
+              }
+            }
+            if (selectedClanMyMemberInfo != null &&
+                (selectedClanMyMemberInfo!.role?.canManageMembers == true || selectedClan!.ownerId == userId)) {
+              selectedClanRequests = await _clanService.getClanRequests(clanId);
+            } else {
+              selectedClanRequests = [];
+            }
             notifyListeners();
           },
         )

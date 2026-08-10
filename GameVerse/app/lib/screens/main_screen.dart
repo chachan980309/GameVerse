@@ -229,6 +229,17 @@ class _MainScreenState extends State<MainScreen> {
                                           activeFriendChat = profile;
                                         });
                                       },
+                                      onShowAllFriends: () {
+                                        setState(() {
+                                          selectedIndex = 2;
+                                          activeFriendChat = null;
+                                        });
+                                      },
+                                      onShowAllActivity: () {
+                                        setState(() {
+                                          selectedIndex = 0; // Feed principal
+                                        });
+                                      },
                                     )
                                   : const MyProfilePanel())
                             : PublicProfilePanel(

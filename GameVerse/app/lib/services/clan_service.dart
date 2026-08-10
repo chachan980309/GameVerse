@@ -169,6 +169,18 @@ class ClanService {
   }
 
   Future<void> deleteClan(String id) async {
+    // 1. Borrar archivos del clan en Storage (logo, banner, etc.) de forma segura
+    try {
+      final List<dynamic> files = await _supabase.storage.from('clans').list(path: id);
+      if (files.isNotEmpty) {
+        final List<String> pathsToDelete = files.map((file) => '$id/${file.name}').toList();
+        await _supabase.storage.from('clans').remove(pathsToDelete);
+      }
+    } catch (e) {
+      debugPrint('Error borrando archivos de Storage del clan: $e');
+    }
+
+    // 2. Eliminar clan de la base de datos (ON DELETE CASCADE se encarga del resto)
     await _supabase.from('clans').delete().eq('id', id);
   }
 
@@ -377,6 +389,27 @@ class ClanService {
   // ==========================
   // SOLICITUDES DE INGRESO
   // ==========================
+
+  Future<ClanRequestModel?> getMyPendingRequest(String clanId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final row = await _supabase
+          .from('clan_requests')
+          .select('*, profiles(username, avatar_url)')
+          .eq('clan_id', clanId)
+          .eq('user_id', userId)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+      if (row == null) return null;
+      return ClanRequestModel.fromMap(row);
+    } catch (e) {
+      debugPrint('Error getting my pending request: $e');
+      return null;
+    }
+  }
 
   Future<List<ClanRequestModel>> getClanRequests(String clanId) async {
     try {

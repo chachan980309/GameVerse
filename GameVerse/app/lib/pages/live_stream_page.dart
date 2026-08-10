@@ -85,7 +85,28 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
       if (token.split('.').length != 3) throw Exception('Token inválido.');
 
       final room = Room(
-        roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
+        roomOptions: const RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+          defaultAudioPublishOptions: AudioPublishOptions(
+            encoding: AudioEncoding(maxBitrate: 128000),
+          ),
+          defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
+            params: VideoParametersPresets.screenShareH1080FPS30,
+            captureScreenAudio: true,
+          ),
+          defaultVideoPublishOptions: VideoPublishOptions(
+            simulcast: true,
+            videoEncoding: VideoEncoding(
+              maxBitrate: 6000000,
+              maxFramerate: 30,
+            ),
+            screenShareEncoding: VideoEncoding(
+              maxBitrate: 6000000,
+              maxFramerate: 30,
+            ),
+          ),
+        ),
       );
       _room = room;
 
@@ -125,6 +146,9 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
       for (final pub in List.of(pubs)) {
         final track = pub.track;
         if (track is VideoTrack && !pub.muted) {
+          if (pub is RemoteTrackPublication && pub.subscribed) {
+            pub.setVideoQuality(VideoQuality.HIGH);
+          }
           found = track;
           break;
         }
