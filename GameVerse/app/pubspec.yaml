@@ -20,12 +20,13 @@ dependencies:
   crypto: ^3.0.6
   url_launcher: ^6.3.2
 
+  # Variables de entorno
+  flutter_dotenv: ^5.2.1
 
-
-  # Seleccionar imágenes y videos
+  # Seleccionar imágenes
   image_picker: ^1.1.2
 
-  # Selector de archivos (Windows/Web)
+  # Selector de archivos
   file_picker: ^10.3.2
 
   # Guardar datos localmente
@@ -34,7 +35,7 @@ dependencies:
   # Reproductor de video móvil
   video_player: ^2.9.2
 
-  # Reproductor multiplataforma Windows + Chrome
+  # Reproductor multiplataforma
   media_kit: ^1.1.10
   media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4
@@ -44,7 +45,13 @@ dependencies:
 
   # Formateo de fechas
   intl: ^0.20.2
+
+  # Canales de voz / WebRTC
   livekit_client: ^2.10.0
+  flutter_webrtc: ^1.5.2
+
+  # APIs modernas del navegador
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -54,3 +61,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - .env
