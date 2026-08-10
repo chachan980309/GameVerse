@@ -9,6 +9,10 @@ class Sidebar extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelected;
 
+  // ============================================================
+  // ITEM DEL MENÚ
+  // ============================================================
+
   Widget _menuItem({
     required IconData icon,
     required String title,
@@ -21,6 +25,15 @@ class Sidebar extends StatelessWidget {
       decoration: BoxDecoration(
         color: active ? const Color(0xff6438FF) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: const Color(0xff6438FF).withOpacity(0.25),
+                  blurRadius: 12,
+                  spreadRadius: -4,
+                ),
+              ]
+            : null,
       ),
       child: InkWell(
         onTap: () => onSelected(index),
@@ -60,24 +73,108 @@ class Sidebar extends StatelessWidget {
           children: [
             const SizedBox(height: 18),
 
-            // LOGO
-            const Text(
-              '🎮 nubzzz',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            // ====================================================
+            // LOGO NUBZZZ
+            // ====================================================
+            Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // ICONO GAMER
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: const Color(0xff6438FF),
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xff6438FF).withOpacity(0.55),
+                            blurRadius: 14,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.sports_esports_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+
+                    const SizedBox(width: 9),
+
+                    // NUBZZZ
+                    Text(
+                      'NUBZZZ',
+                      style: TextStyle(
+                        fontFamily: 'NubzzzGamer',
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.normal,
+                        letterSpacing: 1.0,
+                        height: 1.0,
+                        shadows: [
+                          Shadow(
+                            color: const Color(0xff8B4DFF).withOpacity(0.95),
+                            blurRadius: 12,
+                            offset: const Offset(0, 0),
+                          ),
+                          Shadow(
+                            color: const Color(0xff6438FF).withOpacity(0.55),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                          const Shadow(
+                            color: Color(0xff120A24),
+                            blurRadius: 3,
+                            offset: Offset(1, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 5),
+
+                // SUBTÍTULO
+                Text(
+                  'TU JUEGO · TU COMUNIDAD',
+                  style: TextStyle(
+                    color: const Color(0xff914DFF),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.35,
+                    height: 1.0,
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xff6438FF).withOpacity(0.7),
+                        blurRadius: 7,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 25),
 
+            // ====================================================
             // FOTO DE PERFIL
+            // ====================================================
             Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xff7B4DFF), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xff6438FF).withOpacity(0.25),
+                    blurRadius: 15,
+                  ),
+                ],
               ),
               child: CircleAvatar(
                 radius: 42,
@@ -94,7 +191,9 @@ class Sidebar extends StatelessWidget {
 
             const SizedBox(height: 10),
 
+            // ====================================================
             // USUARIO
+            // ====================================================
             Text(
               profile.username,
               style: const TextStyle(
@@ -106,7 +205,9 @@ class Sidebar extends StatelessWidget {
 
             const SizedBox(height: 4),
 
+            // ====================================================
             // ESTADO
+            // ====================================================
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -121,13 +222,16 @@ class Sidebar extends StatelessWidget {
 
             const SizedBox(height: 18),
 
+            // ====================================================
             // XP
+            // ====================================================
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xff1B1926),
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xff2A263A)),
               ),
               child: Column(
                 children: [
@@ -148,7 +252,7 @@ class Sidebar extends StatelessWidget {
                       value: profile.levelProgress,
                       minHeight: 5,
                       backgroundColor: Colors.white12,
-                      valueColor: const AlwaysStoppedAnimation(
+                      valueColor: const AlwaysStoppedAnimation<Color>(
                         Color(0xff7B4DFF),
                       ),
                     ),
@@ -167,9 +271,9 @@ class Sidebar extends StatelessWidget {
 
             const SizedBox(height: 22),
 
-            // =========================
+            // ====================================================
             // MENÚ PRINCIPAL
-            // =========================
+            // ====================================================
             _menuItem(icon: Icons.home_rounded, title: 'Inicio', index: 0),
 
             _menuItem(icon: Icons.person_rounded, title: 'Perfil', index: 1),
@@ -190,9 +294,9 @@ class Sidebar extends StatelessWidget {
 
             _menuItem(icon: Icons.fort_rounded, title: 'Clanes', index: 5),
 
-            // =========================
+            // ====================================================
             // ESPACIO INFERIOR
-            // =========================
+            // ====================================================
             const Spacer(),
 
             const Text(

@@ -13,17 +13,17 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # Base de datos
+  # Variables de entorno
+  flutter_dotenv: ^5.2.1
+
+  # Base de datos y autenticación
   supabase_flutter: ^2.9.1
   provider: ^6.1.2
   http: ^1.6.0
   crypto: ^3.0.6
   url_launcher: ^6.3.2
 
-  # Variables de entorno
-  flutter_dotenv: ^5.2.1
-
-  # Seleccionar imágenes
+  # Seleccionar imágenes y videos
   image_picker: ^1.1.2
 
   # Selector de archivos
@@ -50,9 +50,6 @@ dependencies:
   livekit_client: ^2.10.0
   flutter_webrtc: ^1.5.2
 
-  # APIs modernas del navegador
-  web: ^1.1.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -62,5 +59,14 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # Archivo de configuración de Supabase
   assets:
-    - .env
+    - supabase.env
+
+  # ============================================================
+  # FUENTE GAMER NUBZZZ
+  # ============================================================
+  fonts:
+    - family: NubzzzGamer
+      fonts:
+        - asset: assets/fonts/RussoOne-Regular.ttf

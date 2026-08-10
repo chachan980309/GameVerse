@@ -27,7 +27,7 @@ Future<void> main() async {
   // ============================================================
 
   try {
-    await dotenv.load(fileName: '.env');
+    await dotenv.load(fileName: 'supabase.env');
   } catch (e) {
     debugPrint(
       'Advertencia: No se pudo cargar el archivo .env ($e). '
