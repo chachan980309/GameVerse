@@ -41,34 +41,45 @@ class _TopBarState extends State<TopBar> {
 
   void _onQueryChanged(String value) {
     _debounce?.cancel();
+
     final query = value.trim();
+
     if (query.length < 2) {
       setState(() {
         _searching = false;
         _results = GlobalSearchResults.empty();
       });
+
       _removeSearchOverlay();
       return;
     }
 
     _showSearchOverlay();
+
     setState(() => _searching = true);
+
     final request = ++_searchRequest;
+
     _debounce = Timer(const Duration(milliseconds: 300), () async {
       try {
         final results = await _searchService.search(query);
+
         if (!mounted || request != _searchRequest) return;
+
         setState(() {
           _results = results;
           _searching = false;
         });
+
         _searchOverlay?.markNeedsBuild();
       } catch (_) {
         if (!mounted || request != _searchRequest) return;
+
         setState(() {
           _results = GlobalSearchResults.empty();
           _searching = false;
         });
+
         _searchOverlay?.markNeedsBuild();
       }
     });
@@ -79,7 +90,9 @@ class _TopBarState extends State<TopBar> {
       _searchOverlay!.markNeedsBuild();
       return;
     }
+
     _searchOverlay = OverlayEntry(builder: (_) => _searchPanel());
+
     Overlay.of(context, rootOverlay: true).insert(_searchOverlay!);
   }
 
@@ -98,6 +111,7 @@ class _TopBarState extends State<TopBar> {
     _removeSearchOverlay();
     _searchController.clear();
     _searchFocusNode.unfocus();
+
     widget.onProfileSelected?.call(person.id);
   }
 
@@ -119,6 +133,9 @@ class _TopBarState extends State<TopBar> {
           ),
           child: Row(
             children: [
+              // =========================
+              // BUSCADOR
+              // =========================
               Expanded(
                 child: Container(
                   height: 44,
@@ -136,7 +153,7 @@ class _TopBarState extends State<TopBar> {
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: "Buscar jugadores, juegos o amigos...",
-                        hintStyle: TextStyle(
+                        hintStyle: const TextStyle(
                           color: Colors.white54,
                           fontSize: 13,
                         ),
@@ -166,15 +183,40 @@ class _TopBarState extends State<TopBar> {
 
               const SizedBox(width: 18),
 
+              // =========================
+              // NOTIFICACIONES
+              // =========================
               const TopBarAlerts(),
 
               const SizedBox(width: 22),
 
+              // =========================
+              // MENÚ DEL PERFIL
+              // =========================
               PopupMenuButton(
                 offset: const Offset(0, 55),
                 color: const Color(0xff211D2E),
 
                 itemBuilder: (context) => [
+                  // =========================
+                  // AJUSTES
+                  // =========================
+                  PopupMenuItem(
+                    onTap: () {
+                      Navigator.pushNamed(context, "/settings");
+                    },
+                    child: const Row(
+                      children: [
+                        Icon(Icons.settings, color: Colors.white70, size: 20),
+                        SizedBox(width: 10),
+                        Text("Ajustes", style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
+
+                  // =========================
+                  // CERRAR SESIÓN
+                  // =========================
                   PopupMenuItem(
                     onTap: () async {
                       await AuthService().signOut();
@@ -187,13 +229,10 @@ class _TopBarState extends State<TopBar> {
                         (route) => false,
                       );
                     },
-
                     child: const Row(
                       children: [
                         Icon(Icons.logout, color: Colors.white70, size: 20),
-
                         SizedBox(width: 10),
-
                         Text(
                           "Cerrar sesión",
                           style: TextStyle(color: Colors.white),
@@ -203,6 +242,9 @@ class _TopBarState extends State<TopBar> {
                   ),
                 ],
 
+                // =========================
+                // AVATAR + USUARIO
+                // =========================
                 child: Row(
                   children: [
                     Container(
@@ -214,7 +256,6 @@ class _TopBarState extends State<TopBar> {
                           width: 2,
                         ),
                       ),
-
                       child: CircleAvatar(
                         radius: 18,
                         backgroundColor: const Color(0xff6438FF),
@@ -240,11 +281,9 @@ class _TopBarState extends State<TopBar> {
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
-
                       children: [
                         Text(
                           profile.username,
-
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -259,7 +298,6 @@ class _TopBarState extends State<TopBar> {
                             Container(
                               width: 8,
                               height: 8,
-
                               decoration: const BoxDecoration(
                                 color: Colors.greenAccent,
                                 shape: BoxShape.circle,
@@ -270,7 +308,6 @@ class _TopBarState extends State<TopBar> {
 
                             Text(
                               profile.status,
-
                               style: const TextStyle(
                                 color: Colors.white60,
                                 fontSize: 12,
@@ -290,10 +327,16 @@ class _TopBarState extends State<TopBar> {
     );
   }
 
+  // =========================
+  // PANEL DE BÚSQUEDA
+  // =========================
+
   Widget _searchPanel() {
     final renderBox =
         _searchFieldKey.currentContext?.findRenderObject() as RenderBox?;
+
     final width = renderBox?.size.width ?? 620.0;
+
     return CompositedTransformFollower(
       link: _searchLink,
       showWhenUnlinked: false,
@@ -345,14 +388,17 @@ class _TopBarState extends State<TopBar> {
                           _sectionTitle('Personas'),
                           ..._results.people.map(_personResult),
                         ],
+
                         if (_results.friends.isNotEmpty) ...[
                           _sectionTitle('Amigos'),
                           ..._results.friends.map(_personResult),
                         ],
+
                         if (_results.games.isNotEmpty) ...[
                           _sectionTitle('Juegos'),
                           ..._results.games.map(_gameResult),
                         ],
+
                         if (_results.posts.isNotEmpty) ...[
                           _sectionTitle('Publicaciones'),
                           ..._results.posts.map(_postResult),
@@ -366,55 +412,62 @@ class _TopBarState extends State<TopBar> {
     );
   }
 
-  Widget _sectionTitle(String title) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 11, 16, 5),
-    child: Text(
-      title.toUpperCase(),
-      style: const TextStyle(
-        color: Color(0xFFBDAAFF),
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 11, 16, 5),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          color: Color(0xFFBDAAFF),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _personResult(GlobalSearchPerson person) => ListTile(
-    dense: true,
-    onTap: () => _openUserProfile(person),
-    leading: CircleAvatar(
-      backgroundColor: const Color(0xFF6438FF),
-      backgroundImage: person.avatarUrl.isEmpty
-          ? null
-          : NetworkImage(person.avatarUrl),
-      child: person.avatarUrl.isEmpty
-          ? Text(person.name.isEmpty ? '?' : person.name[0].toUpperCase())
-          : null,
-    ),
-    title: Text(
-      person.name,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
+  Widget _personResult(GlobalSearchPerson person) {
+    return ListTile(
+      dense: true,
+      onTap: () => _openUserProfile(person),
+      leading: CircleAvatar(
+        backgroundColor: const Color(0xFF6438FF),
+        backgroundImage: person.avatarUrl.isEmpty
+            ? null
+            : NetworkImage(person.avatarUrl),
+        child: person.avatarUrl.isEmpty
+            ? Text(person.name.isEmpty ? '?' : person.name[0].toUpperCase())
+            : null,
       ),
-    ),
-    subtitle: Text(
-      person.status.isNotEmpty ? person.status : 'En GameVerse',
-      style: const TextStyle(color: Colors.white54, fontSize: 12),
-    ),
-  );
+      title: Text(
+        person.name,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        person.status.isNotEmpty ? person.status : 'En GameVerse',
+        style: const TextStyle(color: Colors.white54, fontSize: 12),
+      ),
+    );
+  }
 
-  Widget _gameResult(String game) => ListTile(
-    dense: true,
-    leading: const Icon(Icons.sports_esports, color: Color(0xFF7B4DFF)),
-    title: Text(
-      game,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-    ),
-  );
+  Widget _gameResult(String game) {
+    return ListTile(
+      dense: true,
+      leading: const Icon(Icons.sports_esports, color: Color(0xFF7B4DFF)),
+      title: Text(
+        game,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+      ),
+    );
+  }
 
   Widget _postResult(GlobalSearchPost post) {
     final text = post.content.isNotEmpty ? post.content : post.game;
+
     return ListTile(
       dense: true,
       leading: const Icon(Icons.article_outlined, color: Colors.white70),

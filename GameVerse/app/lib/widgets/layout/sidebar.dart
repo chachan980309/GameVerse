@@ -4,11 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/profile_controller.dart';
 
 class Sidebar extends StatelessWidget {
-  const Sidebar({
-    super.key,
-    required this.selected,
-    required this.onSelected,
-  });
+  const Sidebar({super.key, required this.selected, required this.onSelected});
 
   final int selected;
   final ValueChanged<int> onSelected;
@@ -19,6 +15,7 @@ class Sidebar extends StatelessWidget {
     required int index,
   }) {
     final active = selected == index;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
@@ -62,6 +59,8 @@ class Sidebar extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 18),
+
+            // LOGO
             const Text(
               '🎮 nubzzz',
               style: TextStyle(
@@ -70,7 +69,10 @@ class Sidebar extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 25),
+
+            // FOTO DE PERFIL
             Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
@@ -80,7 +82,8 @@ class Sidebar extends StatelessWidget {
               child: CircleAvatar(
                 radius: 42,
                 backgroundColor: const Color(0xff6438FF),
-                backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
+                backgroundImage:
+                    profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
                     ? NetworkImage(profile.avatarUrl!)
                     : null,
                 child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
@@ -88,7 +91,10 @@ class Sidebar extends StatelessWidget {
                     : null,
               ),
             ),
+
             const SizedBox(height: 10),
+
+            // USUARIO
             Text(
               profile.username,
               style: const TextStyle(
@@ -97,7 +103,10 @@ class Sidebar extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 4),
+
+            // ESTADO
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -109,7 +118,10 @@ class Sidebar extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 18),
+
+            // XP
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(12),
@@ -127,7 +139,9 @@ class Sidebar extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+
                   const SizedBox(height: 10),
+
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
@@ -139,38 +153,53 @@ class Sidebar extends StatelessWidget {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 6),
+
                   Text(
-                    'Nivel ${profile.level} · ${profile.xpInCurrentLevel}/250 XP',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                    ),
+                    'Nivel ${profile.level} · '
+                    '${profile.xpInCurrentLevel}/250 XP',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 22),
+
+            // =========================
+            // MENÚ PRINCIPAL
+            // =========================
             _menuItem(icon: Icons.home_rounded, title: 'Inicio', index: 0),
+
             _menuItem(icon: Icons.person_rounded, title: 'Perfil', index: 1),
+
             _menuItem(icon: Icons.people_rounded, title: 'Amigos', index: 2),
+
             _menuItem(
               icon: Icons.graphic_eq_rounded,
               title: 'Canales de voz',
               index: 3,
             ),
+
             _menuItem(
               icon: Icons.emoji_events_rounded,
               title: 'Torneos',
               index: 4,
             ),
+
             _menuItem(icon: Icons.fort_rounded, title: 'Clanes', index: 5),
-            _menuItem(icon: Icons.settings_rounded, title: 'Ajustes', index: 6),
+
+            // =========================
+            // ESPACIO INFERIOR
+            // =========================
             const Spacer(),
+
             const Text(
               'v1.0',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
+
             const SizedBox(height: 15),
           ],
         ),
