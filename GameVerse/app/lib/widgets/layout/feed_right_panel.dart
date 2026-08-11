@@ -10,7 +10,6 @@ import '../../services/friend_service.dart';
 import '../../services/post_service.dart';
 import '../../services/profile_navigation_service.dart';
 import '../../services/post_navigation_service.dart';
-import '../../services/spotify_service.dart';
 import '../../services/user_games_service.dart';
 
 class FeedRightPanel extends StatefulWidget {
@@ -158,24 +157,6 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
         const SizedBox(height: 12),
         _smartCard(),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 44,
-          child: ElevatedButton.icon(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Próximamente podrás crear grupos.'),
-              ),
-            ),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Crear grupo'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6D35F5),
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const _SpotifyRightPanelPlayer(),
       ],
     ),
   );
@@ -185,7 +166,9 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       listenable: PresenceController.instance,
       builder: (context, _) {
         final presence = PresenceController.instance;
-        final onlineCount = _friends.where((friend) => presence.isUserOnline(friend.id)).length;
+        final onlineCount = _friends
+            .where((friend) => presence.isUserOnline(friend.id))
+            .length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -203,106 +186,105 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
-            ..._friends
-                .take(4)
-                .map(
-                  (friend) {
-                    final isOnline = presence.isUserOnline(friend.id);
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: () => ProfileNavigationService.instance.openProfile(friend.id),
-                                child: Row(
-                                  children: [
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor: const Color(0xFF3D2B6C),
-                                          backgroundImage: friend.avatarUrl.isNotEmpty
-                                              ? NetworkImage(friend.avatarUrl)
-                                              : null,
-                                          child: friend.avatarUrl.isEmpty
-                                              ? Text(
-                                                  friend.initial,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                )
-                                              : null,
-                                        ),
-                                        Positioned(
-                                          right: -1,
-                                          bottom: -1,
-                                          child: CircleAvatar(
-                                            radius: 5,
-                                            backgroundColor: isOnline
-                                                ? const Color(0xFF48E69A)
-                                                : Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 9),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            friend.name,
+            ..._friends.take(4).map((friend) {
+              final isOnline = presence.isUserOnline(friend.id);
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => ProfileNavigationService.instance
+                              .openProfile(friend.id),
+                          child: Row(
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: const Color(0xFF3D2B6C),
+                                    backgroundImage: friend.avatarUrl.isNotEmpty
+                                        ? NetworkImage(friend.avatarUrl)
+                                        : null,
+                                    child: friend.avatarUrl.isEmpty
+                                        ? Text(
+                                            friend.initial,
                                             style: const TextStyle(
                                               color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ),
-                                          Text(
-                                            friend.status.isNotEmpty
-                                                ? friend.status
-                                                : (isOnline ? 'En línea' : 'Desconectado'),
-                                            style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
+                                          )
+                                        : null,
+                                  ),
+                                  Positioned(
+                                    right: -1,
+                                    bottom: -1,
+                                    child: CircleAvatar(
+                                      radius: 5,
+                                      backgroundColor: isOnline
+                                          ? const Color(0xFF48E69A)
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      friend.name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      friend.status.isNotEmpty
+                                          ? friend.status
+                                          : (isOnline
+                                                ? 'En línea'
+                                                : 'Desconectado'),
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 10,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                          IconButton(
-                            onPressed: () {
-                              final callback = widget.onOpenChat;
-                              if (callback != null) {
-                                callback({
-                                  'id': friend.id,
-                                  'username': friend.name,
-                                  'avatar_url': friend.avatarUrl,
-                                  'is_online': isOnline,
-                                });
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              color: Color(0xff8B4DFF),
-                              size: 18,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        final callback = widget.onOpenChat;
+                        if (callback != null) {
+                          callback({
+                            'id': friend.id,
+                            'username': friend.name,
+                            'avatar_url': friend.avatarUrl,
+                            'is_online': isOnline,
+                          });
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        color: Color(0xff8B4DFF),
+                        size: 18,
+                      ),
+                    ),
+                  ],
                 ),
+              );
+            }),
           ],
         );
       },
@@ -381,7 +363,11 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
   Widget _activity() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _title('Actividad de amigos', 'Ver todo', onTap: widget.onShowAllActivity),
+      _title(
+        'Actividad de amigos',
+        'Ver todo',
+        onTap: widget.onShowAllActivity,
+      ),
       const SizedBox(height: 10),
       if (_loading)
         const Expanded(
@@ -575,7 +561,9 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
         ),
       ),
       MouseRegion(
-        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        cursor: onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         child: GestureDetector(
           onTap: onTap,
           child: Text(
@@ -628,201 +616,4 @@ class _Trend {
   const _Trend(this.name, this.players);
   final String name;
   final int players;
-}
-
-class _SpotifyRightPanelPlayer extends StatefulWidget {
-  const _SpotifyRightPanelPlayer();
-
-  @override
-  State<_SpotifyRightPanelPlayer> createState() => _SpotifyRightPanelPlayerState();
-}
-
-class _SpotifyRightPanelPlayerState extends State<_SpotifyRightPanelPlayer> {
-  static bool _isExpanded = false;
-  static const _spotifyGreen = Color(0xff1ED760);
-
-  @override
-  Widget build(BuildContext context) {
-    final spotify = SpotifyService.instance;
-    return ListenableBuilder(
-      listenable: spotify,
-      builder: (context, _) {
-        final track = spotify.playback;
-        final isConnected = spotify.isConnected;
-        final isPlaying = track != null && track.isPlaying;
-
-        return AnimatedCrossFade(
-          duration: const Duration(milliseconds: 300),
-          firstCurve: Curves.easeInOut,
-          secondCurve: Curves.easeInOut,
-          sizeCurve: Curves.easeInOut,
-          crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: _buildCollapsedButton(),
-          secondChild: _buildExpandedPlayer(spotify, track, isConnected, isPlaying),
-        );
-      },
-    );
-  }
-
-  Widget _buildCollapsedButton() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: const Color(0xff1DB954).withOpacity(0.12),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xff1DB954).withOpacity(0.35),
-            width: 1.2,
-          ),
-        ),
-        child: InkWell(
-          onTap: () => setState(() => _isExpanded = true),
-          borderRadius: BorderRadius.circular(23),
-          child: const Center(
-            child: Icon(Icons.music_note_rounded, color: _spotifyGreen, size: 22),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpandedPlayer(
-    SpotifyService spotify,
-    SpotifyPlayback? track,
-    bool isConnected,
-    bool isPlaying,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xff141121),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xff3D325E),
-          width: 1.2,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xff30253E),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: track?.artworkUrl == null
-                    ? const Icon(Icons.music_note_rounded, color: Colors.white, size: 18)
-                    : Image.network(track!.artworkUrl!, fit: BoxFit.cover),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track?.title ?? (isConnected ? 'Sin reproducción' : 'Conecta Spotify'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      track?.artist ?? (isConnected ? 'Reproduce en Spotify' : 'Escucha tu música'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xff9D96A7),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                color: Colors.white70,
-                onPressed: () => setState(() => _isExpanded = false),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (isConnected) ...[
-                IconButton(
-                  tooltip: 'Canción anterior',
-                  icon: const Icon(Icons.skip_previous_rounded, size: 20),
-                  color: const Color(0xffD4CFDA),
-                  onPressed: spotify.previous,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                IconButton(
-                  tooltip: isPlaying ? 'Pausar' : 'Reproducir',
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
-                    size: 32,
-                  ),
-                  color: Colors.white,
-                  onPressed: spotify.togglePlayback,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                IconButton(
-                  tooltip: 'Siguiente canción',
-                  icon: const Icon(Icons.skip_next_rounded, size: 20),
-                  color: const Color(0xffD4CFDA),
-                  onPressed: spotify.next,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                IconButton(
-                  tooltip: 'Buscar canción',
-                  icon: const Icon(Icons.search_rounded, size: 18),
-                  color: const Color(0xffD4CFDA),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => SpotifySearchDialog(spotify: spotify),
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ] else ...[
-                TextButton.icon(
-                  onPressed: spotify.connect,
-                  icon: const Icon(Icons.music_note_rounded, color: _spotifyGreen, size: 16),
-                  label: const Text(
-                    'Conectar Spotify',
-                    style: TextStyle(
-                      color: _spotifyGreen,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -80,18 +80,4 @@ class AudioDeviceService {
 
     await stream.dispose();
   }
-
-  // =========================================================
-  // SELECCIONAR SALIDA
-  // =========================================================
-
-  static Future<bool> selectOutputDevice(String deviceId) async {
-    try {
-      await Helper.selectAudioOutput(deviceId);
-      return true;
-    } catch (e) {
-      print('Error seleccionando salida de audio: $e');
-      return false;
-    }
-  }
 }

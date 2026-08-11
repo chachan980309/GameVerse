@@ -54,7 +54,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   void initState() {
     super.initState();
     widget.videoController.addListener(_onActiveVideoChanged);
-    debugPrint("[LOG-VIDEO] Widget creado. ID: ${widget.videoId}, URL: ${widget.url}");
+    debugPrint(
+      "[LOG-VIDEO] Widget creado. ID: ${widget.videoId}, URL: ${widget.url}",
+    );
   }
 
   @override
@@ -68,7 +70,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   void _onActiveVideoChanged() {
     if (!widget.videoController.isActive(widget.videoId) && playing) {
-      debugPrint("[LOG-VIDEO] Exclusividad: Otro video se reprodujo. Autodestruyendo...");
+      debugPrint(
+        "[LOG-VIDEO] Exclusividad: Otro video se reprodujo. Autodestruyendo...",
+      );
       _destroyPlayer();
     }
   }
@@ -77,14 +81,17 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     if (_isOpening) return false;
     if (_openedUrl == widget.url && player != null) return true;
     _isOpening = true;
-    
-    debugPrint("[LOG-VIDEO] Inicialización iniciada para el video: ${widget.videoId}");
+
+    debugPrint(
+      "[LOG-VIDEO] Inicialización iniciada para el video: ${widget.videoId}",
+    );
     debugPrint("[LOG-VIDEO] URL del video: ${widget.url}");
-    
+
     if (mounted) setState(() => loading = true);
     try {
       final p = Player();
       player = p;
+
       controller = VideoController(p);
 
       // Suscribir eventos del reproductor dinámico
@@ -95,7 +102,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               position = value;
               if (value > Duration.zero && !_videoReadyToRender && playing) {
                 _videoReadyToRender = true;
-                debugPrint("[LOG-VIDEO] Primer frame renderizado. readyToRender = true");
+                debugPrint(
+                  "[LOG-VIDEO] Primer frame renderizado. readyToRender = true",
+                );
               }
             });
           }
@@ -118,7 +127,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           final ratio = value.aspect;
           if (mounted && ratio != null && ratio > 0) {
             setState(() => videoAspectRatio = ratio);
-            debugPrint("[LOG-VIDEO] Parámetros de video cargados. Aspect Ratio: $ratio");
+            debugPrint(
+              "[LOG-VIDEO] Parámetros de video cargados. Aspect Ratio: $ratio",
+            );
           }
         }),
       );
@@ -135,17 +146,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
       _subscriptions.add(
         p.stream.completed.listen((completed) {
-          if (!mounted || !widget.videoController.isActive(widget.videoId)) return;
-          
+          if (!mounted || !widget.videoController.isActive(widget.videoId))
+            return;
+
           // Verificar de forma robusta si el video realmente ha finalizado
-          final isAtEnd = p.state.position >= p.state.duration && 
-                          p.state.duration != Duration.zero;
-                          
+          final isAtEnd =
+              p.state.position >= p.state.duration &&
+              p.state.duration != Duration.zero;
+
           if (completed && isAtEnd) {
-            debugPrint("[LOG-VIDEO] Video completado REALMENTE. Posición: ${p.state.position}, Duración: ${p.state.duration}. Ejecutando limpieza...");
+            debugPrint(
+              "[LOG-VIDEO] Video completado REALMENTE. Posición: ${p.state.position}, Duración: ${p.state.duration}. Ejecutando limpieza...",
+            );
             _destroyPlayer();
           } else {
-            debugPrint("[LOG-VIDEO] Ignorando evento completed transitorio. Posición actual: ${p.state.position}, Duración: ${p.state.duration}");
+            debugPrint(
+              "[LOG-VIDEO] Ignorando evento completed transitorio. Posición actual: ${p.state.position}, Duración: ${p.state.duration}",
+            );
           }
         }),
       );
@@ -154,7 +171,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       await p.open(Media(widget.url), play: false);
       _openedUrl = widget.url;
       _isOpened = true;
-      
+
       // DIAGNÓSTICO INMEDIATO POST-INITIALIZE
       debugPrint("[LOG-VIDEO-DIAGNOSTIC] === POST-INITIALIZE STATES ===");
       debugPrint("  - p.state.duration: ${p.state.duration}");
@@ -163,10 +180,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       debugPrint("  - p.state.playing (isPlaying): ${p.state.playing}");
       debugPrint("  - p.state.completed (isCompleted): ${p.state.completed}");
       debugPrint("=================================================");
-      
+
       return true;
     } catch (e) {
-      debugPrint("[LOG-VIDEO-ERROR] Excepción silenciosa capturada en inicialización: $e");
+      debugPrint(
+        "[LOG-VIDEO-ERROR] Excepción silenciosa capturada en inicialización: $e",
+      );
       return false;
     } finally {
       _isOpening = false;
@@ -189,25 +208,31 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     playing = false;
     _videoReadyToRender = false;
     _openedUrl = null;
-    
+
     if (mounted) {
       setState(() {});
     }
 
     if (p != null) {
       await p.dispose();
-      debugPrint("[LOG-VIDEO] Dispose/Destroy completado (reproductor liberado).");
+      debugPrint(
+        "[LOG-VIDEO] Dispose/Destroy completado (reproductor liberado).",
+      );
     }
   }
 
   void visibilityChanged(VisibilityInfo info) async {
     final fraction = info.visibleFraction;
-    debugPrint("[LOG-VIDEO] VisibilityChanged: Fracción Visible = $fraction, Playing = $playing, Opened = $_isOpened");
-    
+    debugPrint(
+      "[LOG-VIDEO] VisibilityChanged: Fracción Visible = $fraction, Playing = $playing, Opened = $_isOpened",
+    );
+
     // Si sale completamente de pantalla (0.0 visible), destruir para liberar recursos
     // Se usa fraction == 0.0 para evitar detener el video por falsos positivos de fracciones intermedias durante rebuilds
     if (fraction == 0.0 && (playing || _isOpened)) {
-      debugPrint("[LOG-VIDEO] Video salió completamente de la pantalla. Autodestruyendo...");
+      debugPrint(
+        "[LOG-VIDEO] Video salió completamente de la pantalla. Autodestruyendo...",
+      );
       await _destroyPlayer();
     }
   }
@@ -224,7 +249,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       } else {
         debugPrint("[LOG-VIDEO] Solicitando Play...");
         if (!await _ensureOpened()) {
-          debugPrint("[LOG-VIDEO-ERROR] No se pudo inicializar el reproductor.");
+          debugPrint(
+            "[LOG-VIDEO-ERROR] No se pudo inicializar el reproductor.",
+          );
           return;
         }
         widget.videoController.setActiveVideo(widget.videoId);
@@ -234,7 +261,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           _videoReadyToRender = true;
         });
         debugPrint("[LOG-VIDEO] Play ejecutado");
-        
+
         // Polling de diagnóstico por 5 segundos (cada 500ms)
         int count = 0;
         Timer.periodic(const Duration(milliseconds: 500), (timer) {
@@ -243,7 +270,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             return;
           }
           count++;
-          debugPrint("[LOG-VIDEO-POLL] #${count} - Posición: ${player?.state.position}, Duración: ${player?.state.duration}, isPlaying: ${player?.state.playing}, isCompleted: ${player?.state.completed}");
+          debugPrint(
+            "[LOG-VIDEO-POLL] #${count} - Posición: ${player?.state.position}, Duración: ${player?.state.duration}, isPlaying: ${player?.state.playing}, isCompleted: ${player?.state.completed}",
+          );
         });
       }
     } catch (e) {
@@ -294,14 +323,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FullVideoScreen(player: player!, controller: controller!),
+        builder: (_) =>
+            FullVideoScreen(player: player!, controller: controller!),
       ),
     );
   }
 
   Widget _buildThumbnail() {
-    final hasThumbnail = widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty;
-    
+    final hasThumbnail =
+        widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -310,10 +341,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             ? Image.network(
                 widget.thumbnailUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildProceduralPlaceholder(),
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildProceduralPlaceholder(),
               )
             : _buildProceduralPlaceholder(),
-            
+
         // Vignette oscura
         const DecoratedBox(
           decoration: BoxDecoration(
@@ -324,7 +356,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             ),
           ),
         ),
-        
+
         // Botón Play centrado gigante
         Center(
           child: Container(
@@ -347,7 +379,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             ),
           ),
         ),
-        
+
         // Esquina inferior derecha: Duración
         if (widget.duration != null && widget.duration!.isNotEmpty)
           Positioned(
@@ -379,11 +411,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xff1f1338),
-            Color(0xff120e22),
-            Color(0xff090712),
-          ],
+          colors: [Color(0xff1f1338), Color(0xff120e22), Color(0xff090712)],
         ),
       ),
       child: const Center(
@@ -445,7 +473,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                       ),
 
                       // Capa 2: Reproductor de Video (Se crea y renderiza SOLO bajo demanda y cuando está listo)
-                      if (_isOpened && controller != null && _videoReadyToRender)
+                      if (_isOpened &&
+                          controller != null &&
+                          _videoReadyToRender)
                         Positioned.fill(
                           child: Video(
                             controller: controller!,
