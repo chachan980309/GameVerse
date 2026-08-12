@@ -6,6 +6,7 @@ import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/global_search_service.dart';
+import '../../services/global_search_focus_service.dart';
 import 'topbar_alerts.dart';
 
 class TopBar extends StatefulWidget {
@@ -31,11 +32,23 @@ class _TopBarState extends State<TopBar> {
   int _searchRequest = 0;
 
   @override
+  void initState() {
+    super.initState();
+    GlobalSearchFocusService.instance.addListener(_focusGlobalSearch);
+  }
+
+  void _focusGlobalSearch() {
+    if (!mounted) return;
+    _searchFocusNode.requestFocus();
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _searchOverlay?.remove();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    GlobalSearchFocusService.instance.removeListener(_focusGlobalSearch);
     super.dispose();
   }
 

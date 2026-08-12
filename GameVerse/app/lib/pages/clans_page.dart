@@ -9,6 +9,7 @@ import '../models/clan_model.dart';
 import 'clan_detail_page.dart';
 import '../services/clan_service.dart';
 import '../services/image_picker_service.dart';
+import '../widgets/clans/clan_hero_video_background.dart';
 
 class ClansPage extends StatefulWidget {
   const ClansPage({super.key});
@@ -26,23 +27,66 @@ class _ClansPageState extends State<ClansPage> {
   String _selectedFilter = 'all';
   String _selectedRegion = 'Todos';
   String _selectedLanguage = 'Todos';
+  bool _joiningFeaturedClan = false;
+  bool _featuredClanHovered = false;
 
   final List<Map<String, dynamic>> _filters = [
-    {'id': 'all', 'label': 'Todos', 'icon': Icons.grid_view_rounded, 'color': Color(0xff7B4DFF)},
-    {'id': 'official', 'label': 'Oficiales', 'icon': Icons.verified_rounded, 'color': Color(0xff00A3FF)},
-    {'id': 'competitive', 'label': 'Competitivos', 'icon': Icons.flash_on_rounded, 'color': Color(0xffFF4655)},
-    {'id': 'casual', 'label': 'Casuales', 'icon': Icons.sports_esports_rounded, 'color': Color(0xff1ED760)},
-    {'id': 'my_clans', 'label': 'Mis Clanes', 'icon': Icons.fort_rounded, 'color': Color(0xffFFB800)},
+    {
+      'id': 'all',
+      'label': 'Todos',
+      'icon': Icons.grid_view_rounded,
+      'color': Color(0xff7B4DFF),
+    },
+    {
+      'id': 'official',
+      'label': 'Oficiales',
+      'icon': Icons.verified_rounded,
+      'color': Color(0xff00A3FF),
+    },
+    {
+      'id': 'competitive',
+      'label': 'Competitivos',
+      'icon': Icons.flash_on_rounded,
+      'color': Color(0xffFF4655),
+    },
+    {
+      'id': 'casual',
+      'label': 'Casuales',
+      'icon': Icons.sports_esports_rounded,
+      'color': Color(0xff1ED760),
+    },
+    {
+      'id': 'my_clans',
+      'label': 'Mis Clanes',
+      'icon': Icons.fort_rounded,
+      'color': Color(0xffFFB800),
+    },
   ];
 
-  final List<String> _regions = ['Todos', 'Global', 'LATAM', 'Norteamérica', 'Europa', 'Asia'];
-  final List<String> _languages = ['Todos', 'Español', 'English', 'Português', '日本語', 'Français'];
+  final List<String> _regions = [
+    'Todos',
+    'Global',
+    'LATAM',
+    'Norteamérica',
+    'Europa',
+    'Asia',
+  ];
+  final List<String> _languages = [
+    'Todos',
+    'Español',
+    'English',
+    'Português',
+    '日本語',
+    'Français',
+  ];
 
   @override
   void initState() {
     super.initState();
     _controller.initialize();
     _controller.loadClans(refresh: true);
+    _controller.loadFeaturedClan();
+    _controller.loadCommunityStats();
     _scrollController.addListener(_onScroll);
   }
 
@@ -90,6 +134,8 @@ class _ClansPageState extends State<ClansPage> {
             onRefresh: () async {
               await _controller.initialize();
               _applyFilters();
+              await _controller.loadFeaturedClan();
+              await _controller.loadCommunityStats();
             },
             color: const Color(0xff7B4DFF),
             backgroundColor: const Color(0xff141120),
@@ -97,24 +143,16 @@ class _ClansPageState extends State<ClansPage> {
               controller: _scrollController,
               slivers: [
                 // Hero Banner AAA
-                SliverToBoxAdapter(
-                  child: _buildAAAHeroBanner(screenWidth),
-                ),
+                SliverToBoxAdapter(child: _buildAAAHeroBanner(screenWidth)),
 
                 // Clan Destacado
-                if (_controller.clans.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: _buildFeaturedClanSection(),
-                  ),
+                if (_controller.featuredClan != null)
+                  SliverToBoxAdapter(child: _buildFeaturedClanSection()),
 
                 // Secciones Horizontales de Calidad: Top Clanes y Reclutando
                 if (_controller.clans.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: _buildTopClansSection(),
-                  ),
-                  SliverToBoxAdapter(
-                    child: _buildRecruitingClansSection(),
-                  ),
+                  SliverToBoxAdapter(child: _buildTopClansSection()),
+                  SliverToBoxAdapter(child: _buildRecruitingClansSection()),
                 ],
 
                 // Buscador y Filtros Premium
@@ -124,12 +162,15 @@ class _ClansPageState extends State<ClansPage> {
 
                 // Grid de Clanes Principal
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
                   sliver: _controller.loadingClans && _controller.clans.isEmpty
                       ? _buildSkeletonsGrid(screenWidth)
                       : _controller.clans.isEmpty
-                          ? _buildEmptyState()
-                          : _buildClansGrid(screenWidth),
+                      ? _buildEmptyState()
+                      : _buildClansGrid(screenWidth),
                 ),
 
                 // Loader de paginación
@@ -138,7 +179,9 @@ class _ClansPageState extends State<ClansPage> {
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
                       child: Center(
-                        child: CircularProgressIndicator(color: Color(0xff7B4DFF)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xff7B4DFF),
+                        ),
                       ),
                     ),
                   ),
@@ -155,11 +198,11 @@ class _ClansPageState extends State<ClansPage> {
   // ==========================
 
   Widget _buildAAAHeroBanner(double screenWidth) {
-    // Calcular estadísticas dinámicamente basadas en clanes cargados
-    final totalClans = _controller.clans.length;
-    final totalMembers = _controller.clans.fold<int>(0, (prev, element) => prev + element.membersCount);
-    final totalTournaments = _controller.clans.fold<int>(0, (prev, element) => prev + element.tournamentsCreated);
-    final totalEvents = _controller.clans.fold<int>(0, (prev, element) => prev + element.eventsHosted);
+    final stats = _controller.communityStats;
+    final totalClans = stats['clans'] ?? 0;
+    final totalMembers = stats['members'] ?? 0;
+    final totalTournaments = stats['tournaments'] ?? 0;
+    final totalEvents = stats['eventsThisMonth'] ?? 0;
 
     final isMobile = screenWidth < 800;
 
@@ -189,6 +232,36 @@ class _ClansPageState extends State<ClansPage> {
       child: Stack(
         children: [
           // Partículas y brillo sutil de fondo
+          if (_controller.featuredClanHeroVideoUrl != null)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.82,
+                child: Transform.scale(
+                  // Recorta el borde negro propio del video y lleva el foco
+                  // de la animación hacia la zona derecha del hero.
+                  scale: 1.13,
+                  alignment: Alignment.centerLeft,
+                  child: ClanHeroVideoBackground(
+                    url: _controller.featuredClanHeroVideoUrl!,
+                  ),
+                ),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xff31006d).withOpacity(0.82),
+                    const Color(0xff170829).withOpacity(0.42),
+                    const Color(0xff08040e).withOpacity(0.18),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+          ),
           Positioned(
             right: -40,
             bottom: -60,
@@ -218,22 +291,34 @@ class _ClansPageState extends State<ClansPage> {
           ),
 
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24 : 40, vertical: isMobile ? 32 : 44),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 24 : 40,
+              vertical: isMobile ? 32 : 44,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xff7B4DFF).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xff7B4DFF).withOpacity(0.3)),
+                        border: Border.all(
+                          color: const Color(0xff7B4DFF).withOpacity(0.3),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.auto_awesome, color: Colors.amberAccent.shade400, size: 12),
+                          Icon(
+                            Icons.auto_awesome,
+                            color: Colors.amberAccent.shade400,
+                            size: 12,
+                          ),
                           const SizedBox(width: 6),
                           const Text(
                             'LAUNCHER AAA GREMIOS',
@@ -251,7 +336,7 @@ class _ClansPageState extends State<ClansPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'El Corazón Competitivo\nde GameVerse',
+                  'El Corazón Competitivo\nde NUBZZZ',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 36,
@@ -276,10 +361,26 @@ class _ClansPageState extends State<ClansPage> {
                   spacing: 16,
                   runSpacing: 12,
                   children: [
-                    _buildGlobalStatCard(Icons.fort_rounded, '${totalClans + 3} Clanes', 'Registrados'),
-                    _buildGlobalStatCard(Icons.people_rounded, '${totalMembers + 152} Miembros', 'Activos hoy'),
-                    _buildGlobalStatCard(Icons.emoji_events_rounded, '${totalTournaments + 14} Torneos', 'En juego'),
-                    _buildGlobalStatCard(Icons.calendar_month_rounded, '${totalEvents + 31} Eventos', 'Este mes'),
+                    _buildGlobalStatCard(
+                      Icons.fort_rounded,
+                      '$totalClans Clanes',
+                      'Registrados',
+                    ),
+                    _buildGlobalStatCard(
+                      Icons.people_rounded,
+                      '$totalMembers Miembros',
+                      'Registrados',
+                    ),
+                    _buildGlobalStatCard(
+                      Icons.emoji_events_rounded,
+                      '$totalTournaments Torneos',
+                      'Creados',
+                    ),
+                    _buildGlobalStatCard(
+                      Icons.calendar_month_rounded,
+                      '$totalEvents Eventos',
+                      'Este mes',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -291,35 +392,58 @@ class _ClansPageState extends State<ClansPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xff7B4DFF),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 12,
                           shadowColor: const Color(0xff7B4DFF).withOpacity(0.5),
                         ),
-                        icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                        label: const Text('Fundar Nuevo Clan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        icon: const Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 20,
+                        ),
+                        label: const Text(
+                          'Fundar Nuevo Clan',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       )
                     : OutlinedButton.icon(
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ClanDetailPage(clanId: _controller.myClan!.id),
+                              builder: (_) => ClanDetailPage(
+                                clanId: _controller.myClan!.id,
+                              ),
                             ),
                           );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white24, width: 1.5),
-                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                          side: const BorderSide(
+                            color: Colors.white24,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                         icon: const Icon(Icons.fort_rounded, size: 18),
-                        label: const Text('Entrar a mi Clan', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          'Entrar a mi Clan',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
               ],
             ),
@@ -345,8 +469,18 @@ class _ClansPageState extends State<ClansPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-              Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white38, fontSize: 9),
+              ),
             ],
           ),
         ],
@@ -359,25 +493,68 @@ class _ClansPageState extends State<ClansPage> {
   // ==========================
 
   Widget _buildFeaturedClanSection() {
-    // Tomamos el clan de mayor nivel como "Destacado"
-    final sorted = List<ClanModel>.from(_controller.clans)
-      ..sort((a, b) => b.level.compareTo(a.level));
-    final clan = sorted.first;
-    final accent = Color(int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ?? 0xff7B4DFF);
+    final clan = _controller.featuredClan!;
+    final accent = Color(
+      int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ?? 0xff7B4DFF,
+    );
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _featuredClanHovered = true),
+      onExit: (_) => setState(() => _featuredClanHovered = false),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: clan.id)),
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.diagonal3Values(
+            _featuredClanHovered ? 1.008 : 1,
+            _featuredClanHovered ? 1.008 : 1,
+            1,
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         color: const Color(0xff141120),
-        border: Border.all(color: accent.withOpacity(0.2), width: 1.5),
+        border: Border.all(
+          color: accent.withOpacity(_featuredClanHovered ? 0.62 : 0.2),
+          width: _featuredClanHovered ? 1.8 : 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: accent.withOpacity(0.04), blurRadius: 30, offset: const Offset(0, 10)),
+          BoxShadow(
+            color: accent.withOpacity(_featuredClanHovered ? 0.24 : 0.04),
+            blurRadius: _featuredClanHovered ? 44 : 30,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeOutCubic,
+            top: 0,
+            bottom: 0,
+            left: _featuredClanHovered ? 420 : -260,
+            width: 220,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.white.withOpacity(0.10),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Banner de fondo difuminado
           Positioned(
             right: 0,
@@ -385,8 +562,9 @@ class _ClansPageState extends State<ClansPage> {
             bottom: 0,
             width: 480,
             child: clan.bannerUrl != null && clan.bannerUrl!.isNotEmpty
-                ? Opacity(
-                    opacity: 0.15,
+                ? AnimatedOpacity(
+                    duration: const Duration(milliseconds: 220),
+                    opacity: _featuredClanHovered ? 0.25 : 0.15,
                     child: Image.network(clan.bannerUrl!, fit: BoxFit.cover),
                   )
                 : const SizedBox.shrink(),
@@ -395,7 +573,10 @@ class _ClansPageState extends State<ClansPage> {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [const Color(0xff141120), const Color(0xff141120).withOpacity(0.4)],
+                  colors: [
+                    const Color(0xff141120),
+                    const Color(0xff141120).withOpacity(0.4),
+                  ],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
@@ -410,7 +591,11 @@ class _ClansPageState extends State<ClansPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 16),
+                    const Icon(
+                      Icons.emoji_events_rounded,
+                      color: Colors.amberAccent,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'CLAN DESTACADO DE LA SEMANA',
@@ -419,6 +604,20 @@ class _ClansPageState extends State<ClansPage> {
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                         letterSpacing: 1.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: _featuredClanHovered ? 1 : 0.55,
+                      child: const Text(
+                        'EXPLORAR PERFIL  →',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
                   ],
@@ -436,66 +635,213 @@ class _ClansPageState extends State<ClansPage> {
                             children: [
                               Text(
                                 clan.name,
-                                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               if (clan.verified) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.verified_rounded, color: Colors.blueAccent, size: 18),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: Colors.blueAccent,
+                                  size: 18,
+                                ),
                               ],
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '[${clan.tag}]  ·  Nivel ${clan.level}',
-                            style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                              color: accent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: clan.id)),
-                        );
-                      },
+                      onPressed: _joiningFeaturedClan
+                          ? null
+                          : () => _handleFeaturedClanAction(clan),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: accent,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      child: const Text('Entrar al Clan', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: _joiningFeaturedClan
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              _featuredClanActionLabel(clan),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  clan.description.isNotEmpty ? clan.description : 'Este clan compite ferozmente en torneos locales. ¡Únete para subir de nivel!',
+                  clan.description.isNotEmpty
+                      ? clan.description
+                      : 'Este clan compite ferozmente en torneos locales. ¡Únete para subir de nivel!',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.45),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    const Icon(Icons.people_rounded, color: Colors.white30, size: 14),
+                    const Icon(
+                      Icons.people_rounded,
+                      color: Colors.white30,
+                      size: 14,
+                    ),
                     const SizedBox(width: 6),
-                    Text('${clan.membersCount} guerreros', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    Text(
+                      '${clan.membersCount} guerreros',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(width: 24),
-                    const Icon(Icons.location_on_rounded, color: Colors.white30, size: 14),
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: Colors.white30,
+                      size: 14,
+                    ),
                     const SizedBox(width: 6),
-                    Text(clan.region, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    Text(
+                      clan.region,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(width: 24),
-                    const Icon(Icons.language_rounded, color: Colors.white30, size: 14),
+                    const Icon(
+                      Icons.language_rounded,
+                      color: Colors.white30,
+                      size: 14,
+                    ),
                     const SizedBox(width: 6),
-                    Text(clan.language, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    Text(
+                      clan.language,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
+                ),
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 220),
+                  sizeCurve: Curves.easeOutCubic,
+                  crossFadeState: _featuredClanHovered
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  firstChild: const SizedBox(width: double.infinity),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.only(top: 18),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _featuredMetric(Icons.article_rounded, '${clan.postsCount} publicaciones'),
+                        _featuredMetric(Icons.emoji_events_rounded, '${clan.tournamentsWon} victorias'),
+                        _featuredMetric(Icons.calendar_month_rounded, '${clan.eventsHosted} eventos'),
+                        _featuredMetric(
+                          Icons.groups_rounded,
+                          '${(clan.maxMembers - clan.membersCount).clamp(0, clan.maxMembers)} cupos',
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+        ),
+      ),
+    );
+  }
+
+  Widget _featuredMetric(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.amberAccent),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  String _featuredClanActionLabel(ClanModel clan) {
+    if (_controller.myClan?.id == clan.id) return 'Ver mi clan';
+    if (_controller.myClan != null) return 'Ver detalles';
+    return clan.visibility == 'public' ? 'Unirme al clan' : 'Solicitar ingreso';
+  }
+
+  Future<void> _handleFeaturedClanAction(ClanModel clan) async {
+    // Si ya pertenece a un clan (o al destacado), el botón es navegación;
+    // evita que la tarjeta anuncie una entrada que no se puede completar.
+    if (_controller.myClan != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: clan.id)),
+      );
+      return;
+    }
+
+    setState(() => _joiningFeaturedClan = true);
+    final completed = await _controller.joinClan(clan.id);
+    await _controller.loadClans(refresh: true);
+    await _controller.loadFeaturedClan();
+    if (!mounted) return;
+    setState(() => _joiningFeaturedClan = false);
+
+    final joined = _controller.myClan?.id == clan.id;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          !completed
+              ? 'No se pudo completar la acción. Inténtalo de nuevo.'
+              : joined
+              ? 'Ya eres miembro de ${clan.name}.'
+              : 'Solicitud enviada a ${clan.name}.',
+        ),
       ),
     );
   }
@@ -516,7 +862,11 @@ class _ClansPageState extends State<ClansPage> {
           padding: EdgeInsets.fromLTRB(24, 24, 24, 12),
           child: Text(
             '🏆 Clasificación de Top Gremios',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         SizedBox(
@@ -527,7 +877,10 @@ class _ClansPageState extends State<ClansPage> {
             itemCount: topClans.length,
             itemBuilder: (context, index) {
               final clan = topClans[index];
-              final accent = Color(int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ?? 0xff7B4DFF);
+              final accent = Color(
+                int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ??
+                    0xff7B4DFF,
+              );
               final rank = index + 1;
 
               return Container(
@@ -543,7 +896,9 @@ class _ClansPageState extends State<ClansPage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: clan.id)),
+                      MaterialPageRoute(
+                        builder: (_) => ClanDetailPage(clanId: clan.id),
+                      ),
                     );
                   },
                   child: Padding(
@@ -559,8 +914,8 @@ class _ClansPageState extends State<ClansPage> {
                             color: rank == 1
                                 ? Colors.amber.withOpacity(0.12)
                                 : rank == 2
-                                    ? Colors.grey.withOpacity(0.12)
-                                    : Colors.brown.withOpacity(0.12),
+                                ? Colors.grey.withOpacity(0.12)
+                                : Colors.brown.withOpacity(0.12),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -569,8 +924,8 @@ class _ClansPageState extends State<ClansPage> {
                               color: rank == 1
                                   ? Colors.amber
                                   : rank == 2
-                                      ? Colors.grey
-                                      : Colors.brown.shade300,
+                                  ? Colors.grey
+                                  : Colors.brown.shade300,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
@@ -591,33 +946,56 @@ class _ClansPageState extends State<ClansPage> {
                                       clan.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                   if (clan.verified) ...[
                                     const SizedBox(width: 4),
-                                    const Icon(Icons.verified, color: Colors.blueAccent, size: 12),
+                                    const Icon(
+                                      Icons.verified,
+                                      color: Colors.blueAccent,
+                                      size: 12,
+                                    ),
                                   ],
                                 ],
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 '[${clan.tag}]',
-                                style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11),
+                                style: TextStyle(
+                                  color: accent,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Text(
                                     'NIVEL ${clan.level}',
-                                    style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
-                                  const Icon(Icons.people_rounded, color: Colors.white24, size: 12),
+                                  const Icon(
+                                    Icons.people_rounded,
+                                    color: Colors.white24,
+                                    size: 12,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${clan.membersCount}',
-                                    style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                    style: const TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 10,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -654,7 +1032,11 @@ class _ClansPageState extends State<ClansPage> {
           padding: EdgeInsets.fromLTRB(24, 24, 24, 12),
           child: Text(
             '🔥 Reclutando Miembros',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         SizedBox(
@@ -665,7 +1047,10 @@ class _ClansPageState extends State<ClansPage> {
             itemCount: recruiting.length,
             itemBuilder: (context, index) {
               final clan = recruiting[index];
-              final accent = Color(int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ?? 0xff7B4DFF);
+              final accent = Color(
+                int.tryParse(clan.accentColor.replaceAll('#', '0xff')) ??
+                    0xff7B4DFF,
+              );
 
               return Container(
                 width: 310,
@@ -679,7 +1064,9 @@ class _ClansPageState extends State<ClansPage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: clan.id)),
+                      MaterialPageRoute(
+                        builder: (_) => ClanDetailPage(clanId: clan.id),
+                      ),
                     );
                   },
                   child: Padding(
@@ -700,11 +1087,19 @@ class _ClansPageState extends State<ClansPage> {
                                     clan.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                   Text(
                                     '[${clan.tag}]',
-                                    style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 10),
+                                    style: TextStyle(
+                                      color: accent,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -714,13 +1109,33 @@ class _ClansPageState extends State<ClansPage> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            const Icon(Icons.location_on_rounded, color: Colors.white30, size: 12),
+                            const Icon(
+                              Icons.location_on_rounded,
+                              color: Colors.white30,
+                              size: 12,
+                            ),
                             const SizedBox(width: 4),
-                            Text(clan.region, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                            Text(
+                              clan.region,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 10,
+                              ),
+                            ),
                             const Spacer(),
-                            const Icon(Icons.people_rounded, color: Colors.white30, size: 12),
+                            const Icon(
+                              Icons.people_rounded,
+                              color: Colors.white30,
+                              size: 12,
+                            ),
                             const SizedBox(width: 4),
-                            Text('${clan.membersCount}/${clan.maxMembers}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                            Text(
+                              '${clan.membersCount}/${clan.maxMembers}',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -735,9 +1150,20 @@ class _ClansPageState extends State<ClansPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_task_rounded, color: accent, size: 12),
+                              Icon(
+                                Icons.add_task_rounded,
+                                color: accent,
+                                size: 12,
+                              ),
                               const SizedBox(width: 6),
-                              const Text('Unirse al Gremio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              const Text(
+                                'Unirse al Gremio',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -781,9 +1207,16 @@ class _ClansPageState extends State<ClansPage> {
                   },
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38),
-                    hintText: 'Buscar por nombre, tag, juego, región o idioma...',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white38,
+                    ),
+                    hintText:
+                        'Buscar por nombre, tag, juego, región o idioma...',
+                    hintStyle: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 13,
+                    ),
                     filled: true,
                     fillColor: const Color(0xff09070F),
                     border: OutlineInputBorder(
@@ -796,14 +1229,18 @@ class _ClansPageState extends State<ClansPage> {
               ),
               if (!isMobile) ...[
                 const SizedBox(width: 14),
-                _buildModernDropdown('Región', _selectedRegion, _regions, (val) {
+                _buildModernDropdown('Región', _selectedRegion, _regions, (
+                  val,
+                ) {
                   if (val != null) {
                     setState(() => _selectedRegion = val);
                     _applyFilters();
                   }
                 }),
                 const SizedBox(width: 14),
-                _buildModernDropdown('Idioma', _selectedLanguage, _languages, (val) {
+                _buildModernDropdown('Idioma', _selectedLanguage, _languages, (
+                  val,
+                ) {
                   if (val != null) {
                     setState(() => _selectedLanguage = val);
                     _applyFilters();
@@ -817,21 +1254,31 @@ class _ClansPageState extends State<ClansPage> {
             Row(
               children: [
                 Expanded(
-                  child: _buildModernDropdown('Región', _selectedRegion, _regions, (val) {
-                    if (val != null) {
-                      setState(() => _selectedRegion = val);
-                      _applyFilters();
-                    }
-                  }),
+                  child: _buildModernDropdown(
+                    'Región',
+                    _selectedRegion,
+                    _regions,
+                    (val) {
+                      if (val != null) {
+                        setState(() => _selectedRegion = val);
+                        _applyFilters();
+                      }
+                    },
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildModernDropdown('Idioma', _selectedLanguage, _languages, (val) {
-                    if (val != null) {
-                      setState(() => _selectedLanguage = val);
-                      _applyFilters();
-                    }
-                  }),
+                  child: _buildModernDropdown(
+                    'Idioma',
+                    _selectedLanguage,
+                    _languages,
+                    (val) {
+                      if (val != null) {
+                        setState(() => _selectedLanguage = val);
+                        _applyFilters();
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
@@ -856,9 +1303,13 @@ class _ClansPageState extends State<ClansPage> {
                 } else if (filter['id'] == 'official') {
                   count = _controller.clans.where((c) => c.verified).length;
                 } else if (filter['id'] == 'competitive') {
-                  count = _controller.clans.where((c) => c.clanType == 'competitive').length;
+                  count = _controller.clans
+                      .where((c) => c.clanType == 'competitive')
+                      .length;
                 } else if (filter['id'] == 'casual') {
-                  count = _controller.clans.where((c) => c.clanType == 'casual').length;
+                  count = _controller.clans
+                      .where((c) => c.clanType == 'casual')
+                      .length;
                 } else if (filter['id'] == 'my_clans') {
                   count = _controller.myClan != null ? 1 : 0;
                 }
@@ -880,16 +1331,23 @@ class _ClansPageState extends State<ClansPage> {
                           filter['label']!,
                           style: TextStyle(
                             color: active ? Colors.white : Colors.white60,
-                            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: active
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 12,
                           ),
                         ),
                         if (count > 0) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: active ? Colors.white24 : color.withOpacity(0.15),
+                              color: active
+                                  ? Colors.white24
+                                  : color.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -923,7 +1381,12 @@ class _ClansPageState extends State<ClansPage> {
     );
   }
 
-  Widget _buildModernDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+  Widget _buildModernDropdown(
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
@@ -932,11 +1395,25 @@ class _ClansPageState extends State<ClansPage> {
       ),
       child: DropdownButton<String>(
         value: value,
-        items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontSize: 12, color: Colors.white70)))).toList(),
+        items: items
+            .map(
+              (i) => DropdownMenuItem(
+                value: i,
+                child: Text(
+                  i,
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ),
+            )
+            .toList(),
         onChanged: onChanged,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xff141120),
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
         icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white38),
       ),
     );
@@ -947,7 +1424,9 @@ class _ClansPageState extends State<ClansPage> {
   // ==========================
 
   Widget _buildClansGrid(double screenWidth) {
-    int count = screenWidth > 1200 ? 4 : (screenWidth > 850 ? 3 : (screenWidth > 600 ? 2 : 1));
+    int count = screenWidth > 1200
+        ? 4
+        : (screenWidth > 850 ? 3 : (screenWidth > 600 ? 2 : 1));
 
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -956,18 +1435,17 @@ class _ClansPageState extends State<ClansPage> {
         crossAxisSpacing: 18,
         childAspectRatio: 1.45,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final clan = _controller.clans[index];
-          return _ClanCard(clan: clan);
-        },
-        childCount: _controller.clans.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final clan = _controller.clans[index];
+        return _ClanCard(clan: clan);
+      }, childCount: _controller.clans.length),
     );
   }
 
   Widget _buildSkeletonsGrid(double screenWidth) {
-    int count = screenWidth > 1200 ? 4 : (screenWidth > 850 ? 3 : (screenWidth > 600 ? 2 : 1));
+    int count = screenWidth > 1200
+        ? 4
+        : (screenWidth > 850 ? 3 : (screenWidth > 600 ? 2 : 1));
 
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -976,12 +1454,9 @@ class _ClansPageState extends State<ClansPage> {
         crossAxisSpacing: 18,
         childAspectRatio: 1.45,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          return _buildSkeletonCard();
-        },
-        childCount: 8,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        return _buildSkeletonCard();
+      }, childCount: 8),
     );
   }
 
@@ -998,26 +1473,68 @@ class _ClansPageState extends State<ClansPage> {
         children: [
           Row(
             children: [
-              Container(width: 48, height: 48, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white10)),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white10,
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(width: 120, height: 16, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4))),
+                    Container(
+                      width: 120,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    Container(width: 50, height: 12, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4))),
+                    Container(
+                      width: 50,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           const Spacer(),
-          Container(width: double.infinity, height: 12, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4))),
+          Container(
+            width: double.infinity,
+            height: 12,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
           const SizedBox(height: 8),
-          Container(width: 150, height: 12, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4))),
+          Container(
+            width: 150,
+            height: 12,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
           const Spacer(),
-          Container(width: double.infinity, height: 32, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8))),
+          Container(
+            width: double.infinity,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ],
       ),
     );
@@ -1036,12 +1553,20 @@ class _ClansPageState extends State<ClansPage> {
                 shape: BoxShape.circle,
                 color: const Color(0xff7B4DFF).withOpacity(0.04),
               ),
-              child: const Icon(Icons.fort_rounded, size: 84, color: Color(0xff7B4DFF)),
+              child: const Icon(
+                Icons.fort_rounded,
+                size: 84,
+                color: Color(0xff7B4DFF),
+              ),
             ),
             const SizedBox(height: 24),
             const Text(
               'Todavía no existen clanes.',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -1055,11 +1580,19 @@ class _ClansPageState extends State<ClansPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff7B4DFF),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               icon: const Icon(Icons.add),
-              label: const Text('Fundar Clan', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Fundar Clan',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -1079,7 +1612,11 @@ class _ClansPageState extends State<ClansPage> {
     );
   }
 
-  static Widget _buildLogoAvatar(ClanModel clan, {double size = 48, required Color accent}) {
+  static Widget _buildLogoAvatar(
+    ClanModel clan, {
+    double size = 48,
+    required Color accent,
+  }) {
     return Container(
       width: size,
       height: size,
@@ -1091,7 +1628,11 @@ class _ClansPageState extends State<ClansPage> {
       clipBehavior: Clip.antiAlias,
       child: clan.logoUrl != null && clan.logoUrl!.isNotEmpty
           ? Image.network(clan.logoUrl!, fit: BoxFit.cover)
-          : Icon(Icons.fort_rounded, color: accent.withOpacity(0.6), size: size * 0.45),
+          : Icon(
+              Icons.fort_rounded,
+              color: accent.withOpacity(0.6),
+              size: size * 0.45,
+            ),
     );
   }
 }
@@ -1114,7 +1655,10 @@ class _ClanCardState extends State<_ClanCard> {
   @override
   Widget build(BuildContext context) {
     final isMyClan = ClanController.instance.myClan?.id == widget.clan.id;
-    final accent = Color(int.tryParse(widget.clan.accentColor.replaceAll('#', '0xff')) ?? 0xff7B4DFF);
+    final accent = Color(
+      int.tryParse(widget.clan.accentColor.replaceAll('#', '0xff')) ??
+          0xff7B4DFF,
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1122,11 +1666,22 @@ class _ClanCardState extends State<_ClanCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeInOut,
-        transform: _isHovered ? (Matrix4.identity()..scale(1.025)..translate(0, -4)) : Matrix4.identity(),
+        transform: _isHovered
+            ? (Matrix4.identity()
+                ..scale(1.025)
+                ..translate(0, -4))
+            : Matrix4.identity(),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           color: const Color(0xff141120),
-          border: Border.all(color: isMyClan ? accent : (_isHovered ? accent.withOpacity(0.5) : const Color(0xff221C35)), width: isMyClan ? 1.5 : 1.0),
+          border: Border.all(
+            color: isMyClan
+                ? accent
+                : (_isHovered
+                      ? accent.withOpacity(0.5)
+                      : const Color(0xff221C35)),
+            width: isMyClan ? 1.5 : 1.0,
+          ),
           boxShadow: [
             if (_isHovered || isMyClan)
               BoxShadow(
@@ -1145,12 +1700,17 @@ class _ClanCardState extends State<_ClanCard> {
               right: 0,
               top: 0,
               height: 48,
-              child: widget.clan.bannerUrl != null && widget.clan.bannerUrl!.isNotEmpty
+              child:
+                  widget.clan.bannerUrl != null &&
+                      widget.clan.bannerUrl!.isNotEmpty
                   ? Image.network(widget.clan.bannerUrl!, fit: BoxFit.cover)
                   : Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [accent.withOpacity(0.5), accent.withOpacity(0.1)],
+                          colors: [
+                            accent.withOpacity(0.5),
+                            accent.withOpacity(0.1),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1170,7 +1730,11 @@ class _ClanCardState extends State<_ClanCard> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        _ClansPageState._buildLogoAvatar(widget.clan, size: 48, accent: accent),
+                        _ClansPageState._buildLogoAvatar(
+                          widget.clan,
+                          size: 48,
+                          accent: accent,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -1184,31 +1748,50 @@ class _ClanCardState extends State<_ClanCard> {
                                       widget.clan.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                   if (widget.clan.verified) ...[
                                     const SizedBox(width: 4),
-                                    const Icon(Icons.verified_rounded, color: Colors.blueAccent, size: 14),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.blueAccent,
+                                      size: 14,
+                                    ),
                                   ],
                                 ],
                               ),
                               Text(
                                 '[${widget.clan.tag}]',
-                                style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11),
+                                style: TextStyle(
+                                  color: accent,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: accent.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             'LVL ${widget.clan.level}',
-                            style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: accent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -1216,26 +1799,58 @@ class _ClanCardState extends State<_ClanCard> {
                     const SizedBox(height: 12),
                     Expanded(
                       child: Text(
-                        widget.clan.description.isNotEmpty ? widget.clan.description : 'Sin descripción escrita.',
+                        widget.clan.description.isNotEmpty
+                            ? widget.clan.description
+                            : 'Sin descripción escrita.',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.3),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.people_rounded, color: Colors.white24, size: 14),
+                        const Icon(
+                          Icons.people_rounded,
+                          color: Colors.white24,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
-                        Text('${widget.clan.membersCount}/${widget.clan.maxMembers}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        Text(
+                          '${widget.clan.membersCount}/${widget.clan.maxMembers}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(width: 14),
-                        const Icon(Icons.location_on_rounded, color: Colors.white24, size: 14),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white24,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
-                        Text(widget.clan.region, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        Text(
+                          widget.clan.region,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
                         const Spacer(),
                         Text(
-                          widget.clan.clanType == 'competitive' ? '⚔️ Comp' : '🎮 Casual',
-                          style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                          widget.clan.clanType == 'competitive'
+                              ? '⚔️ Comp'
+                              : '🎮 Casual',
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -1247,18 +1862,28 @@ class _ClanCardState extends State<_ClanCard> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => ClanDetailPage(clanId: widget.clan.id)),
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ClanDetailPage(clanId: widget.clan.id),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isMyClan ? accent : const Color(0xff221C35),
+                          backgroundColor: isMyClan
+                              ? accent
+                              : const Color(0xff221C35),
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           elevation: 0,
                         ),
                         child: Text(
                           isMyClan ? 'Entrar al Clan' : 'Ver Detalles',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -1303,14 +1928,31 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
   Uint8List? _logoBytes;
   Uint8List? _bannerBytes;
 
-  final List<String> _colors = ['#6438FF', '#FF4655', '#1ED760', '#FFB800', '#00A3FF', '#E31B23'];
-  final List<String> _games = ['Valorant', 'League of Legends', 'Counter-Strike 2', 'Apex Legends', 'Fortnite', 'Minecraft', 'Otro'];
+  final List<String> _colors = [
+    '#6438FF',
+    '#FF4655',
+    '#1ED760',
+    '#FFB800',
+    '#00A3FF',
+    '#E31B23',
+  ];
+  final List<String> _games = [
+    'Valorant',
+    'League of Legends',
+    'Counter-Strike 2',
+    'Apex Legends',
+    'Fortnite',
+    'Minecraft',
+    'Otro',
+  ];
 
   bool _submitting = false;
 
   void _nextStep() {
     if (_currentStep == 0 && _nameCtrl.text.trim().length < 3) return;
-    if (_currentStep == 1 && (_tagCtrl.text.trim().length < 2 || _tagCtrl.text.trim().length > 6)) return;
+    if (_currentStep == 1 &&
+        (_tagCtrl.text.trim().length < 2 || _tagCtrl.text.trim().length > 6))
+      return;
 
     if (_currentStep < _totalSteps - 1) {
       setState(() => _currentStep++);
@@ -1348,8 +1990,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Fundar Nuevo Gremio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              Text('Paso ${_currentStep + 1} de $_totalSteps', style: const TextStyle(fontSize: 12, color: Colors.white38)),
+              const Text(
+                'Fundar Nuevo Gremio',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              Text(
+                'Paso ${_currentStep + 1} de $_totalSteps',
+                style: const TextStyle(fontSize: 12, color: Colors.white38),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1383,21 +2031,41 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
         const Spacer(),
         TextButton(
           onPressed: _submitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancelar', style: TextStyle(color: Colors.white38)),
+          child: const Text(
+            'Cancelar',
+            style: TextStyle(color: Colors.white38),
+          ),
         ),
         if (_currentStep < _totalSteps - 1)
           ElevatedButton(
             onPressed: _nextStep,
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7B4DFF)),
-            child: const Text('Siguiente', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff7B4DFF),
+            ),
+            child: const Text(
+              'Siguiente',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           )
         else
           ElevatedButton(
             onPressed: _submitting ? null : _submit,
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7B4DFF)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff7B4DFF),
+            ),
             child: _submitting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Confirmar & Crear', style: TextStyle(fontWeight: FontWeight.bold)),
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    'Confirmar & Crear',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
           ),
       ],
     );
@@ -1410,7 +2078,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 1: NOMBRE DEL CLAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 1: NOMBRE DEL CLAN',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             TextFormField(
               controller: _nameCtrl,
@@ -1429,7 +2104,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 2: ETIQUETA / TAG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 2: ETIQUETA / TAG',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             TextFormField(
               controller: _tagCtrl,
@@ -1448,7 +2130,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 3: EMBLEMA / LOGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 3: EMBLEMA / LOGO',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             Center(
               child: GestureDetector(
@@ -1467,9 +2156,19 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
                       : const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo_rounded, color: Colors.white54, size: 28),
+                            Icon(
+                              Icons.add_a_photo_rounded,
+                              color: Colors.white54,
+                              size: 28,
+                            ),
                             SizedBox(height: 6),
-                            Text('Subir Logo', style: TextStyle(color: Colors.white30, fontSize: 10)),
+                            Text(
+                              'Subir Logo',
+                              style: TextStyle(
+                                color: Colors.white30,
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
                 ),
@@ -1482,7 +2181,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 4: BANNER DE PORTADA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 4: BANNER DE PORTADA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             GestureDetector(
               onTap: _pickBanner,
@@ -1500,9 +2206,19 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
                     : const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.camera_alt_rounded, color: Colors.white54, size: 28),
+                          Icon(
+                            Icons.camera_alt_rounded,
+                            color: Colors.white54,
+                            size: 28,
+                          ),
                           SizedBox(height: 6),
-                          Text('Subir Banner de Portada', style: TextStyle(color: Colors.white30, fontSize: 11)),
+                          Text(
+                            'Subir Banner de Portada',
+                            style: TextStyle(
+                              color: Colors.white30,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
               ),
@@ -1514,18 +2230,29 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 5: JUEGO PRINCIPAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 5: JUEGO PRINCIPAL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _mainGame,
-              items: _games.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+              items: _games
+                  .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                  .toList(),
               onChanged: (val) => setState(() => _mainGame = val!),
               decoration: const InputDecoration(labelText: 'Juego Principal'),
             ),
             const SizedBox(height: 14),
             TextFormField(
               controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Escribe una breve descripción del clan...'),
+              decoration: const InputDecoration(
+                labelText: 'Escribe una breve descripción del clan...',
+              ),
               maxLines: 2,
             ),
           ],
@@ -1535,11 +2262,24 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 6: REGION DEL CLAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 6: REGION DEL CLAN',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _region,
-              items: ['LATAM', 'Global', 'Norteamérica', 'Europa', 'Asia'].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              items: [
+                'LATAM',
+                'Global',
+                'Norteamérica',
+                'Europa',
+                'Asia',
+              ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (val) => setState(() => _region = val!),
               decoration: const InputDecoration(labelText: 'Región'),
             ),
@@ -1550,11 +2290,24 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 7: IDIOMA OFICIAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 7: IDIOMA OFICIAL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _language,
-              items: ['Español', 'English', 'Português', '日本語', 'Français'].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              items: [
+                'Español',
+                'English',
+                'Português',
+                '日本語',
+                'Français',
+              ].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
               onChanged: (val) => setState(() => _language = val!),
               decoration: const InputDecoration(labelText: 'Idioma'),
             ),
@@ -1565,24 +2318,48 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 8: PRIVACIDAD Y ACCESO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 8: PRIVACIDAD Y ACCESO',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _visibility,
               items: [
-                DropdownMenuItem(value: 'public', child: Text('Público (Cualquiera se une)')),
-                DropdownMenuItem(value: 'private', child: Text('Privado (Requiere solicitud)')),
-                DropdownMenuItem(value: 'invite_only', child: Text('Sólo Invitación')),
+                DropdownMenuItem(
+                  value: 'public',
+                  child: Text('Público (Cualquiera se une)'),
+                ),
+                DropdownMenuItem(
+                  value: 'private',
+                  child: Text('Privado (Requiere solicitud)'),
+                ),
+                DropdownMenuItem(
+                  value: 'invite_only',
+                  child: Text('Sólo Invitación'),
+                ),
               ],
               onChanged: (val) => setState(() => _visibility = val!),
-              decoration: const InputDecoration(labelText: 'Visibilidad del Clan'),
+              decoration: const InputDecoration(
+                labelText: 'Visibilidad del Clan',
+              ),
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _clanType,
               items: [
-                DropdownMenuItem(value: 'casual', child: Text('Casual (Sólo diversión)')),
-                DropdownMenuItem(value: 'competitive', child: Text('Competitivo (Torneos y Entrenamiento)')),
+                DropdownMenuItem(
+                  value: 'casual',
+                  child: Text('Casual (Sólo diversión)'),
+                ),
+                DropdownMenuItem(
+                  value: 'competitive',
+                  child: Text('Competitivo (Torneos y Entrenamiento)'),
+                ),
               ],
               onChanged: (val) => setState(() => _clanType = val!),
               decoration: const InputDecoration(labelText: 'Estilo de Clan'),
@@ -1594,19 +2371,50 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PASO 9: CONFIRMACIÓN Y ESTILO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xff7B4DFF))),
+            const Text(
+              'PASO 9: CONFIRMACIÓN Y ESTILO',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff7B4DFF),
+              ),
+            ),
             const SizedBox(height: 16),
-            Text('Nombre: ${_nameCtrl.text.trim()}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            Text('Tag: [${_tagCtrl.text.trim().toUpperCase()}]', style: const TextStyle(color: Colors.white70)),
-            Text('Región: $_region  ·  Idioma: $_language', style: const TextStyle(color: Colors.white70)),
-            Text('Juego: $_mainGame', style: const TextStyle(color: Colors.white70)),
+            Text(
+              'Nombre: ${_nameCtrl.text.trim()}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Tag: [${_tagCtrl.text.trim().toUpperCase()}]',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            Text(
+              'Región: $_region  ·  Idioma: $_language',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            Text(
+              'Juego: $_mainGame',
+              style: const TextStyle(color: Colors.white70),
+            ),
             const SizedBox(height: 16),
-            const Text('Color de Acento del Clan', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+            const Text(
+              'Color de Acento del Clan',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: _colors.map((color) {
                 final isSelected = _accentColor == color;
-                final colorVal = Color(int.tryParse(color.replaceAll('#', '0xff')) ?? 0xff7B4DFF);
+                final colorVal = Color(
+                  int.tryParse(color.replaceAll('#', '0xff')) ?? 0xff7B4DFF,
+                );
                 return GestureDetector(
                   onTap: () => setState(() => _accentColor = color),
                   child: Container(
@@ -1616,9 +2424,14 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
                     decoration: BoxDecoration(
                       color: colorVal,
                       shape: BoxShape.circle,
-                      border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 2),
+                      border: Border.all(
+                        color: isSelected ? Colors.white : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
-                    child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 16)
+                        : null,
                   ),
                 );
               }).toList(),
@@ -1659,15 +2472,20 @@ class _ClanCreationWizardState extends State<_ClanCreationWizard> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Has fundado tu clan con éxito! 🚀'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('¡Has fundado tu clan con éxito! 🚀'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         String errorMessage = 'Error al fundar clan: $e';
         final errStr = e.toString();
-        if (errStr.contains('PGRST205') || errStr.toLowerCase().contains('clans')) {
-          errorMessage = '❌ El módulo de Clanes no está configurado en tu servidor de Supabase.\n\nPor favor, ejecuta "supabase db push" o copia y ejecuta el archivo "supabase/migrations/20260810000001_clans_system.sql" en el SQL Editor de tu Dashboard de Supabase.';
+        if (errStr.contains('PGRST205') ||
+            errStr.toLowerCase().contains('clans')) {
+          errorMessage =
+              '❌ El módulo de Clanes no está configurado en tu servidor de Supabase.\n\nPor favor, ejecuta "supabase db push" o copia y ejecuta el archivo "supabase/migrations/20260810000001_clans_system.sql" en el SQL Editor de tu Dashboard de Supabase.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

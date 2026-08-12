@@ -24,6 +24,11 @@ class ClanController extends ChangeNotifier {
 
   // Listados (ClansPage)
   List<ClanModel> clans = [];
+  ClanModel? featuredClan;
+  String? featuredClanHeroVideoUrl;
+  bool loadingFeaturedClan = false;
+  Map<String, int> communityStats = const {};
+  bool loadingCommunityStats = false;
   bool loadingClans = false;
   int clansOffset = 0;
   bool hasMoreClans = true;
@@ -97,10 +102,13 @@ class ClanController extends ChangeNotifier {
   bool get canKick => myMemberInfo?.role?.canKick ?? false;
   bool get canCreateEvents => myMemberInfo?.role?.canCreateEvents ?? false;
   bool get canManageEvents => myMemberInfo?.role?.canManageEvents ?? false;
-  bool get canCreateTournaments => myMemberInfo?.role?.canCreateTournaments ?? false;
-  bool get canManageTournaments => myMemberInfo?.role?.canManageTournaments ?? false;
+  bool get canCreateTournaments =>
+      myMemberInfo?.role?.canCreateTournaments ?? false;
+  bool get canManageTournaments =>
+      myMemberInfo?.role?.canManageTournaments ?? false;
   bool get canManageVoice => myMemberInfo?.role?.canManageVoice ?? false;
-  bool get canPostAnnouncements => myMemberInfo?.role?.canPostAnnouncements ?? false;
+  bool get canPostAnnouncements =>
+      myMemberInfo?.role?.canPostAnnouncements ?? false;
 
   // ==========================
   // INICIALIZACIÓN / CARGA
@@ -201,11 +209,43 @@ class ClanController extends ChangeNotifier {
     }
   }
 
+  Future<void> loadFeaturedClan() async {
+    loadingFeaturedClan = true;
+    notifyListeners();
+
+    try {
+      featuredClan = await _clanService.getFeaturedClanWeekly();
+      featuredClanHeroVideoUrl = await _clanService.getClanHeroVideoUrl();
+    } catch (e) {
+      debugPrint('Error loading featured clan: $e');
+    } finally {
+      loadingFeaturedClan = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadCommunityStats() async {
+    loadingCommunityStats = true;
+    notifyListeners();
+
+    try {
+      communityStats = await _clanService.getCommunityStats();
+    } catch (e) {
+      debugPrint('Error loading clan community stats: $e');
+    } finally {
+      loadingCommunityStats = false;
+      notifyListeners();
+    }
+  }
+
   // ==========================
   // CLAN DETAIL PAGE
   // ==========================
 
-  Future<void> loadClanDetail(String clanId, {bool forceSelected = false}) async {
+  Future<void> loadClanDetail(
+    String clanId, {
+    bool forceSelected = false,
+  }) async {
     loadingDetail = true;
     notifyListeners();
 
@@ -217,18 +257,22 @@ class ClanController extends ChangeNotifier {
       if (selectedClan != null) {
         selectedClanMembers = await _clanService.getClanMembers(clanId);
         selectedClanEvents = await _clanService.getClanEvents(clanId);
-        
+
         // Carga de historial inicial
         historyOffset = 0;
         hasMoreHistory = true;
-        selectedClanHistory = await _clanService.getClanHistory(clanId, offset: historyOffset, limit: 20);
+        selectedClanHistory = await _clanService.getClanHistory(
+          clanId,
+          offset: historyOffset,
+          limit: 20,
+        );
         historyOffset += selectedClanHistory.length;
         if (selectedClanHistory.length < 20) hasMoreHistory = false;
 
         // Si somos admin del clan seleccionado, cargar solicitudes
         final userId = _supabase.auth.currentUser?.id;
         final isMyClanDetail = myClan?.id == clanId;
-        
+
         selectedClanMyMemberInfo = isMyClanDetail
             ? myMemberInfo
             : selectedClanMembers.cast<ClanMemberModel?>().firstWhere(
@@ -243,7 +287,8 @@ class ClanController extends ChangeNotifier {
         }
 
         if (selectedClanMyMemberInfo != null &&
-            (selectedClanMyMemberInfo!.role?.canManageMembers == true || selectedClan!.ownerId == userId)) {
+            (selectedClanMyMemberInfo!.role?.canManageMembers == true ||
+                selectedClan!.ownerId == userId)) {
           selectedClanRequests = await _clanService.getClanRequests(clanId);
         } else {
           selectedClanRequests = [];
@@ -266,7 +311,11 @@ class ClanController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final loaded = await _clanService.getClanHistory(selectedClan!.id, offset: historyOffset, limit: 20);
+      final loaded = await _clanService.getClanHistory(
+        selectedClan!.id,
+        offset: historyOffset,
+        limit: 20,
+      );
       if (loaded.length < 20) hasMoreHistory = false;
 
       selectedClanHistory.addAll(loaded);
@@ -286,12 +335,12 @@ class ClanController extends ChangeNotifier {
   Future<void> deleteClan(String clanId) async {
     try {
       await _clanService.deleteClan(clanId);
-      
+
       if (myClan?.id == clanId) {
         myClan = null;
         myMemberInfo = null;
       }
-      
+
       if (selectedClan?.id == clanId) {
         selectedClan = null;
         selectedClanMembers = [];
@@ -300,7 +349,7 @@ class ClanController extends ChangeNotifier {
         selectedClanRequests = [];
         selectedClanMyMemberInfo = null;
       }
-      
+
       await loadMyClan();
       notifyListeners();
     } catch (e) {
@@ -336,13 +385,13 @@ class ClanController extends ChangeNotifier {
     return clan;
   }
 
-  Future<void> joinClan(String clanId) async {
+  Future<bool> joinClan(String clanId) async {
     final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    if (userId == null) return false;
 
     try {
       final clan = await _clanService.getClanById(clanId);
-      if (clan == null) return;
+      if (clan == null) return false;
 
       if (clan.visibility == 'public') {
         // Unirse directamente
@@ -355,7 +404,11 @@ class ClanController extends ChangeNotifier {
           'role_id': memberRole.id,
         });
 
-        final profile = await _supabase.from('profiles').select('username').eq('id', userId).single();
+        final profile = await _supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', userId)
+            .single();
         final username = profile['username']?.toString() ?? 'Miembro';
 
         await _clanService.logHistory(
@@ -372,11 +425,16 @@ class ClanController extends ChangeNotifier {
         await loadClanDetail(clanId, forceSelected: true);
       } else {
         // Enviar solicitud de ingreso
-        await _clanService.createClanRequest(clanId, 'Me gustaría unirme a su clan.');
+        await _clanService.createClanRequest(
+          clanId,
+          'Me gustaría unirme a su clan.',
+        );
         await loadClanDetail(clanId, forceSelected: true);
       }
+      return true;
     } catch (e) {
       debugPrint('Error joining clan: $e');
+      return false;
     }
   }
 
@@ -426,14 +484,22 @@ class ClanController extends ChangeNotifier {
   Future<void> handleClanRequest(String requestId, String status) async {
     if (selectedClan == null) return;
     try {
-      await _clanService.updateClanRequestStatus(requestId, selectedClan!.id, status);
+      await _clanService.updateClanRequestStatus(
+        requestId,
+        selectedClan!.id,
+        status,
+      );
       await loadClanDetail(selectedClan!.id, forceSelected: true);
     } catch (e) {
       debugPrint('Error handling clan request: $e');
     }
   }
 
-  Future<void> handleClanInvite(String inviteId, String clanId, String status) async {
+  Future<void> handleClanInvite(
+    String inviteId,
+    String clanId,
+    String status,
+  ) async {
     try {
       await _clanService.updateClanInviteStatus(inviteId, clanId, status);
       await loadMyInvites();
@@ -543,7 +609,8 @@ class ClanController extends ChangeNotifier {
             debugPrint('Realtime member change detected!');
             final userId = _supabase.auth.currentUser?.id;
             // Si el cambio nos afecta a nosotros directamente (cambio de rol, expulsión)
-            if (payload.newRecord['user_id'] == userId || payload.oldRecord['user_id'] == userId) {
+            if (payload.newRecord['user_id'] == userId ||
+                payload.oldRecord['user_id'] == userId) {
               await loadMyClan();
             }
           },
@@ -567,7 +634,11 @@ class ClanController extends ChangeNotifier {
           ),
           callback: (payload) async {
             debugPrint('Realtime history entry inserted!');
-            final historyItem = await _clanService.getClanHistory(clanId, offset: 0, limit: 1);
+            final historyItem = await _clanService.getClanHistory(
+              clanId,
+              offset: 0,
+              limit: 1,
+            );
             if (historyItem.isNotEmpty) {
               selectedClanHistory.insert(0, historyItem.first);
               notifyListeners();
@@ -601,7 +672,8 @@ class ClanController extends ChangeNotifier {
               }
             }
             if (selectedClanMyMemberInfo != null &&
-                (selectedClanMyMemberInfo!.role?.canManageMembers == true || selectedClan!.ownerId == userId)) {
+                (selectedClanMyMemberInfo!.role?.canManageMembers == true ||
+                    selectedClan!.ownerId == userId)) {
               selectedClanRequests = await _clanService.getClanRequests(clanId);
             } else {
               selectedClanRequests = [];

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tournament_model.dart';
+import '../models/tournament_bracket_match.dart';
 import '../controllers/profile_controller.dart';
 import '../controllers/tournament_controller.dart';
 import '../services/tournament_service.dart';
@@ -26,20 +27,42 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
   TournamentModel? _tournament;
   bool _loading = true;
   bool _submitting = false;
+  List<TournamentBracketMatch> _bracketMatches = const [];
+  bool _bracketLoading = false;
+  RealtimeChannel? _bracketSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadTournamentDetails();
+    _subscribeBracketRealtime();
     _controller.addListener(_onControllerStateChanged);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _bracketSubscription?.unsubscribe();
     _controller.removeListener(_onControllerStateChanged);
     super.dispose();
+  }
+
+  void _subscribeBracketRealtime() {
+    _bracketSubscription = Supabase.instance.client
+        .channel('tournament-bracket-${widget.tournamentId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'tournament_matches',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'tournament_id',
+            value: widget.tournamentId,
+          ),
+          callback: (_) => _loadBracket(),
+        )
+        .subscribe();
   }
 
   void _onControllerStateChanged() {
@@ -61,6 +84,45 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
         _tournament = data;
         _loading = false;
       });
+      if (data != null) _loadBracket();
+    }
+  }
+
+  Future<void> _loadBracket() async {
+    if (_tournament == null) return;
+    setState(() => _bracketLoading = true);
+    try {
+      final matches = await _service.getBracketMatches(_tournament!.id);
+      if (mounted) setState(() => _bracketMatches = matches);
+    } finally {
+      if (mounted) setState(() => _bracketLoading = false);
+    }
+  }
+
+  Future<void> _startTournamentWithBracket() async {
+    setState(() => _loading = true);
+    try {
+      await _controller.initializeBracket(_tournament!.id);
+      await _loadTournamentDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Llave generada y participantes mezclados al azar.'),
+            backgroundColor: Color(0xff50E6A5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo iniciar: $e'),
+            backgroundColor: const Color(0xffD64A68),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -692,7 +754,9 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
               // Iniciar Torneo
               if (canStart)
                 ElevatedButton.icon(
-                  onPressed: () => _updateStatus('in_progress', 'Iniciar'),
+                  onPressed: _tournament!.type == 'single_elimination'
+                      ? _startTournamentWithBracket
+                      : () => _updateStatus('in_progress', 'Iniciar'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff50E6A5),
                     foregroundColor: Colors.black,
@@ -1089,9 +1153,22 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
   }
 
   Widget _bracketsTab() {
-    final parts = _tournament!.participants.map((p) => p.username).toList();
-    while (parts.length < 8) {
-      parts.add('Por definir (TBD)');
+    if (_bracketLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xff7B4DFF)),
+      );
+    }
+    if (_bracketMatches.isEmpty) {
+      return const Center(
+        child: Text(
+          'La llave se genera al iniciar el torneo.',
+          style: TextStyle(color: Colors.white54),
+        ),
+      );
+    }
+    final byRound = <int, List<TournamentBracketMatch>>{};
+    for (final match in _bracketMatches) {
+      byRound.putIfAbsent(match.roundNumber, () => []).add(match);
     }
 
     return SingleChildScrollView(
@@ -1102,21 +1179,13 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildBracketRound('CUARTOS DE FINAL', [
-                _matchNode(parts[0], parts[1], 'Match 1'),
-                _matchNode(parts[2], parts[3], 'Match 2'),
-                _matchNode(parts[4], parts[5], 'Match 3'),
-                _matchNode(parts[6], parts[7], 'Match 4'),
-              ]),
-              _bracketConnectorLine(),
-              _buildBracketRound('SEMIFINALES', [
-                _matchNode('Ganador Match 1', 'Ganador Match 2', 'Match 5'),
-                _matchNode('Ganador Match 3', 'Ganador Match 4', 'Match 6'),
-              ]),
-              _bracketConnectorLine(),
-              _buildBracketRound('GRAN FINAL', [
-                _matchNode('Ganador Match 5', 'Ganador Match 6', 'Campeonato'),
-              ]),
+              for (var round = 1; round <= byRound.length; round++) ...[
+                _buildBracketRound(
+                  _roundTitle(round, byRound.length),
+                  byRound[round]!.map(_matchNode).toList(),
+                ),
+                if (round < byRound.length) _bracketConnectorLine(),
+              ],
             ],
           ),
         ),
@@ -1152,7 +1221,14 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
     return Container(width: 40, height: 2, color: const Color(0xff2d2543));
   }
 
-  Widget _matchNode(String p1, String p2, String label) {
+  String _roundTitle(int round, int totalRounds) {
+    if (round == totalRounds) return 'GRAN FINAL';
+    return 'RONDA ${round.toString()}';
+  }
+
+  Widget _matchNode(TournamentBracketMatch match) {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final isOwner = currentUserId == _tournament!.creatorId;
     return Container(
       width: 180,
       decoration: BoxDecoration(
@@ -1175,7 +1251,7 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
               ),
             ),
             child: Text(
-              label,
+              'Match ${match.matchNumber}',
               style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 9,
@@ -1183,17 +1259,71 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
               ),
             ),
           ),
-          _participantNodeRow(p1),
+          _participantNodeRow(
+            match.playerOneName ?? 'Por definir',
+            isWinner: match.winnerId == match.playerOneId,
+          ),
           const Divider(color: Color(0xff2d2543), height: 1),
-          _participantNodeRow(p2),
+          _participantNodeRow(
+            match.playerTwoName ?? 'Por definir',
+            isWinner: match.winnerId == match.playerTwoId,
+          ),
+          if (isOwner &&
+              !match.isCompleted &&
+              match.playerOneId != null &&
+              match.playerTwoId != null)
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _winnerButton(
+                      match,
+                      match.playerOneId!,
+                      match.playerOneName ?? 'Jugador 1',
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _winnerButton(
+                      match,
+                      match.playerTwoId!,
+                      match.playerTwoName ?? 'Jugador 2',
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _participantNodeRow(String username) {
-    final isTbd =
-        username.contains('Por definir') || username.contains('Ganador');
+  Widget _winnerButton(
+    TournamentBracketMatch match,
+    String playerId,
+    String name,
+  ) {
+    return OutlinedButton(
+      onPressed: () async {
+        await _service.reportMatchWinner(match.id, playerId);
+        await _loadBracket();
+        await _loadTournamentDetails();
+      },
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        side: const BorderSide(color: Color(0xff7B4DFF)),
+      ),
+      child: Text(
+        name,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 9),
+      ),
+    );
+  }
+
+  Widget _participantNodeRow(String username, {bool isWinner = false}) {
+    final isTbd = username == 'Por definir';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Text(
@@ -1201,7 +1331,9 @@ class _TournamentDetailPageState extends State<TournamentDetailPage>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isTbd ? Colors.white30 : Colors.white,
+          color: isWinner
+              ? const Color(0xff50E6A5)
+              : (isTbd ? Colors.white30 : Colors.white),
           fontSize: 12,
           fontWeight: isTbd ? FontWeight.normal : FontWeight.bold,
         ),

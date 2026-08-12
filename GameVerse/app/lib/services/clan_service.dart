@@ -59,7 +59,9 @@ class ClanService {
             .from('clan_members')
             .select('clan_id')
             .eq('user_id', userId);
-        final clanIds = membersRows.map((r) => r['clan_id'].toString()).toList();
+        final clanIds = membersRows
+            .map((r) => r['clan_id'].toString())
+            .toList();
         if (clanIds.isEmpty) return [];
         query = query.inFilter('id', clanIds);
       }
@@ -87,6 +89,60 @@ class ClanService {
       return ClanModel.fromMap(row);
     } catch (e) {
       debugPrint('Error getting clan by id: $e');
+      return null;
+    }
+  }
+
+  /// Devuelve el clan con mayor actividad real de los últimos siete días.
+  /// La clasificación se calcula en PostgreSQL para no depender de la página
+  /// actual ni de la paginación del listado de clanes.
+  Future<ClanModel?> getFeaturedClanWeekly() async {
+    try {
+      final rows = await _supabase.rpc('get_featured_clan_weekly');
+      if (rows is! List || rows.isEmpty) return null;
+      return ClanModel.fromMap(Map<String, dynamic>.from(rows.first as Map));
+    } catch (e) {
+      debugPrint('Error getting weekly featured clan: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, int>> getCommunityStats() async {
+    try {
+      final rows = await _supabase.rpc('get_clan_community_stats');
+      if (rows is! List || rows.isEmpty) return const {};
+      final row = Map<String, dynamic>.from(rows.first as Map);
+      int value(String key) => int.tryParse(row[key]?.toString() ?? '') ?? 0;
+      return {
+        'clans': value('clans_count'),
+        'members': value('members_count'),
+        'tournaments': value('tournaments_count'),
+        'eventsThisMonth': value('events_this_month_count'),
+      };
+    } catch (e) {
+      debugPrint('Error getting clan community stats: $e');
+      return const {};
+    }
+  }
+
+  /// Resuelve el medio del hero desde Supabase, nunca desde assets locales.
+  Future<String?> getClanHeroVideoUrl() async {
+    try {
+      final row = await _supabase
+          .from('app_media_config')
+          .select('storage_bucket, storage_path')
+          .eq('key', 'clans_hero_background')
+          .maybeSingle();
+      if (row == null) return null;
+
+      final bucket = row['storage_bucket']?.toString();
+      final path = row['storage_path']?.toString();
+      if (bucket == null || path == null || bucket.isEmpty || path.isEmpty) {
+        return null;
+      }
+      return _supabase.storage.from(bucket).getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error getting clan hero video URL: $e');
       return null;
     }
   }
@@ -171,9 +227,13 @@ class ClanService {
   Future<void> deleteClan(String id) async {
     // 1. Borrar archivos del clan en Storage (logo, banner, etc.) de forma segura
     try {
-      final List<dynamic> files = await _supabase.storage.from('clans').list(path: id);
+      final List<dynamic> files = await _supabase.storage
+          .from('clans')
+          .list(path: id);
       if (files.isNotEmpty) {
-        final List<String> pathsToDelete = files.map((file) => '$id/${file.name}').toList();
+        final List<String> pathsToDelete = files
+            .map((file) => '$id/${file.name}')
+            .toList();
         await _supabase.storage.from('clans').remove(pathsToDelete);
       }
     } catch (e) {
@@ -249,7 +309,11 @@ class ClanService {
     }
   }
 
-  Future<void> promoteMember(String clanId, String userId, String roleId) async {
+  Future<void> promoteMember(
+    String clanId,
+    String userId,
+    String roleId,
+  ) async {
     final oldMember = await getClanMember(clanId, userId);
     await _supabase
         .from('clan_members')
@@ -276,9 +340,14 @@ class ClanService {
     final member = await getClanMember(clanId, userId);
     final actorId = _supabase.auth.currentUser?.id;
     final actorProfile = actorId != null
-        ? await _supabase.from('profiles').select('username').eq('id', actorId).maybeSingle()
+        ? await _supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', actorId)
+              .maybeSingle()
         : null;
-    final actorUsername = actorProfile?['username']?.toString() ?? 'Administrador';
+    final actorUsername =
+        actorProfile?['username']?.toString() ?? 'Administrador';
 
     await _supabase
         .from('clan_members')
@@ -323,7 +392,9 @@ class ClanService {
 
   Future<String> uploadLogo(String clanId, Uint8List bytes) async {
     final path = '$clanId/logo_${DateTime.now().millisecondsSinceEpoch}.png';
-    await _supabase.storage.from('clans').uploadBinary(
+    await _supabase.storage
+        .from('clans')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(contentType: 'image/png'),
@@ -336,7 +407,9 @@ class ClanService {
 
   Future<String> uploadBanner(String clanId, Uint8List bytes) async {
     final path = '$clanId/banner_${DateTime.now().millisecondsSinceEpoch}.png';
-    await _supabase.storage.from('clans').uploadBinary(
+    await _supabase.storage
+        .from('clans')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(contentType: 'image/png'),
@@ -351,7 +424,11 @@ class ClanService {
   // HISTORIAL / ACTIVIDAD
   // ==========================
 
-  Future<List<ClanHistoryModel>> getClanHistory(String clanId, {int offset = 0, int limit = 20}) async {
+  Future<List<ClanHistoryModel>> getClanHistory(
+    String clanId, {
+    int offset = 0,
+    int limit = 20,
+  }) async {
     try {
       final rows = await _supabase
           .from('clan_history')
@@ -439,7 +516,11 @@ class ClanService {
     });
   }
 
-  Future<void> updateClanRequestStatus(String requestId, String clanId, String status) async {
+  Future<void> updateClanRequestStatus(
+    String requestId,
+    String clanId,
+    String status,
+  ) async {
     final requestRow = await _supabase
         .from('clan_requests')
         .update({'status': status})
@@ -459,7 +540,11 @@ class ClanService {
         'role_id': memberRole.id,
       });
 
-      final profile = await _supabase.from('profiles').select('username').eq('id', targetUserId).single();
+      final profile = await _supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', targetUserId)
+          .single();
       final username = profile['username']?.toString() ?? 'Miembro';
 
       await logHistory(
@@ -510,7 +595,11 @@ class ClanService {
     });
   }
 
-  Future<void> updateClanInviteStatus(String inviteId, String clanId, String status) async {
+  Future<void> updateClanInviteStatus(
+    String inviteId,
+    String clanId,
+    String status,
+  ) async {
     final inviteRow = await _supabase
         .from('clan_invites')
         .update({'status': status})
@@ -530,7 +619,11 @@ class ClanService {
         'role_id': memberRole.id,
       });
 
-      final profile = await _supabase.from('profiles').select('username').eq('id', inviteeId).single();
+      final profile = await _supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', inviteeId)
+          .single();
       final username = profile['username']?.toString() ?? 'Miembro';
 
       await logHistory(
@@ -618,9 +711,7 @@ class ClanService {
       // Cada nivel requiere 1000 XP
       final newLevel = (newXp / 1000).floor() + 1;
 
-      final updates = {
-        'experience': newXp,
-      };
+      final updates = {'experience': newXp};
 
       if (newLevel > clan.level) {
         updates['level'] = newLevel;
@@ -659,16 +750,21 @@ class ClanService {
           final userId = _supabase.auth.currentUser?.id;
           if (userId != null) {
             final roomName = 'clan_voice_${clan.id.replaceAll('-', '')}';
-            final newRow = await _supabase.from('voice_channels').insert({
-              'name': '🔊 General - ${clan.name}',
-              'room_name': roomName,
-              'description': 'Canal de voz permanente del clan ${clan.name}',
-              'created_by': userId,
-              'clan_id': clan.id,
-              'is_featured': false,
-              'is_active': true,
-            }).select().single();
-            
+            final newRow = await _supabase
+                .from('voice_channels')
+                .insert({
+                  'name': '🔊 General - ${clan.name}',
+                  'room_name': roomName,
+                  'description':
+                      'Canal de voz permanente del clan ${clan.name}',
+                  'created_by': userId,
+                  'clan_id': clan.id,
+                  'is_featured': false,
+                  'is_active': true,
+                })
+                .select()
+                .single();
+
             row = newRow;
           }
         }

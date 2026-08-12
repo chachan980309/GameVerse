@@ -85,4 +85,36 @@ class DirectMessageService {
         .eq('sender_id', senderId)
         .isFilter('read_at', null);
   }
+
+  Future<List<Map<String, dynamic>>> getMostMessagedContacts({
+    int limit = 4,
+  }) async {
+    final userId = currentUserId;
+    if (userId.isEmpty) return [];
+    final data = await _supabase
+        .from('direct_messages')
+        .select(
+          'sender_id, receiver_id, created_at, sender:profiles!direct_messages_sender_id_fkey(id, username, avatar_url), receiver:profiles!direct_messages_receiver_id_fkey(id, username, avatar_url)',
+        )
+        .or('sender_id.eq.$userId,receiver_id.eq.$userId');
+    final contacts = <String, Map<String, dynamic>>{};
+    for (final raw in List<Map<String, dynamic>>.from(data)) {
+      final sentByMe = raw['sender_id']?.toString() == userId;
+      final otherId =
+          (sentByMe ? raw['receiver_id'] : raw['sender_id'])?.toString() ?? '';
+      final profile = sentByMe ? raw['receiver'] : raw['sender'];
+      if (otherId.isEmpty || profile is! Map) continue;
+      final entry = contacts.putIfAbsent(
+        otherId,
+        () => {...Map<String, dynamic>.from(profile), 'message_count': 0},
+      );
+      entry['message_count'] = (entry['message_count'] as int) + 1;
+    }
+    final result = contacts.values.toList()
+      ..sort(
+        (a, b) =>
+            (b['message_count'] as int).compareTo(a['message_count'] as int),
+      );
+    return result.take(limit).toList();
+  }
 }

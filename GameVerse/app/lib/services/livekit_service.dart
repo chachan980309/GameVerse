@@ -3,6 +3,8 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'voice_audio_processing.dart';
+
 class LiveKitService {
   LiveKitService({SupabaseClient? supabase})
     : _supabase = supabase ?? Supabase.instance.client;
@@ -18,32 +20,21 @@ class LiveKitService {
   bool get isScreenSharing =>
       _room?.localParticipant?.isScreenShareEnabled() ?? false;
 
-  Future<AudioCaptureOptions> _getAudioCaptureOptions() async {
+  Future<VoiceAudioProcessing> _getAudioProcessing() async {
     final prefs = await SharedPreferences.getInstance();
     final mode = prefs.getString('noise_suppression_mode') ?? 'standard';
     final echoEnabled = prefs.getBool('echo_cancellation_enabled') ?? true;
     final agcEnabled = prefs.getBool('auto_gain_control_enabled') ?? false;
 
-    bool echo = echoEnabled;
-    bool ns = true;
-    bool agc = agcEnabled;
-
-    if (mode == 'off') {
-      echo = false;
-      ns = false;
-      agc = false;
-    } else if (mode == 'standard') {
-      ns = true;
-    } else if (mode == 'ai') {
-      ns = true;
-    }
-
-    return AudioCaptureOptions(
-      echoCancellation: echo,
-      noiseSuppression: ns,
-      autoGainControl: agc,
+    return VoiceAudioProcessing.fromSettings(
+      mode: mode,
+      echoCancellation: echoEnabled,
+      autoGainControl: agcEnabled,
     );
   }
+
+  Future<AudioCaptureOptions> _getAudioCaptureOptions() async =>
+      (await _getAudioProcessing()).captureOptions;
 
   Future<Room> connect(String roomName) async {
     final user = _supabase.auth.currentUser;
@@ -146,11 +137,15 @@ class LiveKitService {
       print("[CALL] startAudio OK");
 
       print("[CALL] Publicando micrófono...");
-      final options = await _getAudioCaptureOptions();
+      final processing = await _getAudioProcessing();
       final publication = await room.localParticipant?.setMicrophoneEnabled(
         true,
-        audioCaptureOptions: options,
+        audioCaptureOptions: processing.captureOptions,
       );
+      final localTrack = publication?.track;
+      if (localTrack is LocalAudioTrack) {
+        await processing.applyTo(localTrack);
+      }
       print("[CALL] setMicrophoneEnabled OK. micPublished=${publication != null}");
 
       print("[CALL] ¡Conexión WebRTC / LiveKit completada con éxito!");

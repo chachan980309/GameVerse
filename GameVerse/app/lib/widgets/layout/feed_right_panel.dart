@@ -5,11 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../controllers/presence_controller.dart';
 import '../../models/post_model.dart';
-import '../../screens/main_screen.dart';
+import '../../pages/post_detail_page.dart';
 import '../../services/friend_service.dart';
+import '../../services/direct_message_service.dart';
 import '../../services/post_service.dart';
 import '../../services/profile_navigation_service.dart';
-import '../../services/post_navigation_service.dart';
 import '../../services/user_games_service.dart';
 
 class FeedRightPanel extends StatefulWidget {
@@ -34,6 +34,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
   int _activeCard = 0;
   bool _loading = true;
   List<_FriendInfo> _friends = const [];
+  List<_FriendInfo> _topContacts = const [];
   List<PostModel> _friendPosts = const [];
   List<_Trend> _trends = const [];
   int _postsToday = 0;
@@ -79,6 +80,8 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
           .where((friend) => friend.id.isNotEmpty)
           .toList();
 
+      final mostMessaged = await DirectMessageService()
+          .getMostMessagedContacts();
       final posts = await PostService().getFeedPosts();
       final friendIds = friends.map((friend) => friend.id).toSet();
       final friendPosts = posts
@@ -127,6 +130,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       if (!mounted) return;
       setState(() {
         _friends = friends;
+        _topContacts = mostMessaged.map(_FriendInfo.fromMap).toList();
         _friendPosts = friendPosts;
         _postsToday = postsToday;
         _commentsToday = commentsToday;
@@ -166,19 +170,22 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       listenable: PresenceController.instance,
       builder: (context, _) {
         final presence = PresenceController.instance;
-        final onlineCount = _friends
-            .where((friend) => presence.isUserOnline(friend.id))
-            .length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _title('Amigos conectados', 'Ver todos'),
+            _title(
+              'Con quienes más hablas',
+              'Ver todos',
+              onTap: widget.onShowAllFriends,
+            ),
             Text(
-              _loading ? 'Actualizando...' : '$onlineCount conectados',
+              _loading
+                  ? 'Actualizando...'
+                  : '${_topContacts.length} conversaciones frecuentes',
               style: const TextStyle(color: Color(0xFF48E69A), fontSize: 12),
             ),
             const SizedBox(height: 8),
-            if (!_loading && _friends.isEmpty)
+            if (!_loading && _topContacts.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
@@ -186,7 +193,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
-            ..._friends.take(4).map((friend) {
+            ..._topContacts.take(4).map((friend) {
               final isOnline = presence.isUserOnline(friend.id);
               return Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -389,7 +396,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: () => PostNavigationService.instance.openPost(post.id),
+              onTap: () => _openActivityPost(post),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -431,6 +438,15 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       ),
     ],
   );
+
+  void _openActivityPost(PostModel post) {
+    final originalPostId = post.sharedPost?.id ?? post.sharedPostId ?? post.id;
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PostDetailPage(postId: originalPostId),
+      ),
+    );
+  }
 
   Widget _mission() {
     final posted = _postsToday > 0;

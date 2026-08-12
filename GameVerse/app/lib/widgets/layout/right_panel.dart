@@ -5,6 +5,7 @@ import '../../controllers/profile_controller.dart';
 import '../../models/post_model.dart';
 import '../../models/user_game.dart';
 import '../../services/post_service.dart';
+import '../../services/post_navigation_service.dart';
 import '../../services/user_games_service.dart';
 import '../profile/edit_profile_dialog.dart';
 
@@ -623,50 +624,58 @@ class _PublicProfilePanelState extends State<PublicProfilePanel> {
               .map(
                 (post) => Padding(
                   padding: const EdgeInsets.only(bottom: 11),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF30264C),
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: const Icon(
-                          Icons.article_outlined,
-                          color: Color(0xFFB79BFF),
-                          size: 18,
-                        ),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => PostNavigationService.instance.openPost(
+                        post.sharedPost?.id ?? post.sharedPostId ?? post.id,
                       ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post.content.isEmpty
-                                  ? 'Publicó contenido nuevo'
-                                  : post.content,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF30264C),
+                              borderRadius: BorderRadius.circular(9),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _timeAgo(post.createdAt),
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
-                              ),
+                            child: const Icon(
+                              Icons.article_outlined,
+                              color: Color(0xFFB79BFF),
+                              size: 18,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  post.content.isEmpty
+                                      ? 'Publicó contenido nuevo'
+                                      : post.content,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _timeAgo(post.createdAt),
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -936,33 +945,41 @@ class _MyProfilePanelState extends State<MyProfilePanel> {
                   .map(
                     (post) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const CircleAvatar(
-                            radius: 15,
-                            backgroundColor: Color(0xFF30274B),
-                            child: Icon(
-                              Icons.article_outlined,
-                              color: Color(0xFFAF8CFF),
-                              size: 16,
-                            ),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => PostNavigationService.instance.openPost(
+                            post.sharedPost?.id ?? post.sharedPostId ?? post.id,
                           ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: Text(
-                              post.content.isEmpty
-                                  ? 'Publicó contenido nuevo'
-                                  : post.content,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const CircleAvatar(
+                                radius: 15,
+                                backgroundColor: Color(0xFF30274B),
+                                child: Icon(
+                                  Icons.article_outlined,
+                                  color: Color(0xFFAF8CFF),
+                                  size: 16,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 9),
+                              Expanded(
+                                child: Text(
+                                  post.content.isEmpty
+                                      ? 'Publicó contenido nuevo'
+                                      : post.content,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   )

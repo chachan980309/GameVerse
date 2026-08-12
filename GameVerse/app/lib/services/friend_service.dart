@@ -11,7 +11,9 @@ class FriendService {
 
     final data = await _supabase
         .from('profiles')
-        .select('id, username, avatar_url, status, motto, is_online, last_seen_at')
+        .select(
+          'id, username, avatar_url, status, motto, is_online, last_seen_at',
+        )
         .neq('id', user.id)
         .order('username');
     return List<Map<String, dynamic>>.from(data);
@@ -103,6 +105,85 @@ class FriendService {
         .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}')
         .eq('status', 'blocked');
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  Future<List<Map<String, dynamic>>> getSuggestedFriends({
+    int limit = 3,
+  }) async {
+    final user = _requireUser();
+    final mine = await getAcceptedFriends();
+    final myIds = mine
+        .map(
+          (row) => row['sender_id'] == user.id
+              ? row['receiver_id']?.toString() ?? ''
+              : row['sender_id']?.toString() ?? '',
+        )
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (myIds.isEmpty) return _fallbackSuggestedFriends(limit: limit);
+    final rows = await _supabase
+        .from('friendships')
+        .select(
+          'sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey(id, username, avatar_url), receiver:profiles!friendships_receiver_id_fkey(id, username, avatar_url)',
+        )
+        .eq('status', 'accepted')
+        .or(
+          'sender_id.in.(${myIds.join(',')}),receiver_id.in.(${myIds.join(',')})',
+        );
+    final candidates = <String, Map<String, dynamic>>{};
+    for (final raw in List<Map<String, dynamic>>.from(rows)) {
+      final senderId = raw['sender_id']?.toString() ?? '';
+      final receiverId = raw['receiver_id']?.toString() ?? '';
+      final id = myIds.contains(senderId) ? receiverId : senderId;
+      if (id.isEmpty || id == user.id || myIds.contains(id)) continue;
+      final profile = id == senderId ? raw['sender'] : raw['receiver'];
+      if (profile is! Map) continue;
+      final entry = candidates.putIfAbsent(
+        id,
+        () => {...Map<String, dynamic>.from(profile), 'mutual_friends': 0},
+      );
+      entry['mutual_friends'] = (entry['mutual_friends'] as int) + 1;
+    }
+    final result = candidates.values.toList()
+      ..sort(
+        (a, b) =>
+            (b['mutual_friends'] as int).compareTo(a['mutual_friends'] as int),
+      );
+    if (result.length >= limit) return result.take(limit).toList();
+
+    final fallback = await _fallbackSuggestedFriends(
+      limit: limit - result.length,
+      excludedIds: {
+        ...myIds,
+        ...result.map((candidate) => candidate['id']?.toString() ?? ''),
+      },
+    );
+    return [...result, ...fallback];
+  }
+
+  Future<List<Map<String, dynamic>>> _fallbackSuggestedFriends({
+    required int limit,
+    Set<String> excludedIds = const {},
+  }) async {
+    final user = _requireUser();
+    final relationships = await _supabase
+        .from('friendships')
+        .select('sender_id, receiver_id')
+        .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}');
+
+    final excluded = <String>{user.id, ...excludedIds};
+    for (final row in List<Map<String, dynamic>>.from(relationships)) {
+      excluded
+        ..add(row['sender_id']?.toString() ?? '')
+        ..add(row['receiver_id']?.toString() ?? '');
+    }
+
+    final users = await searchUsers();
+    return users
+        .where((profile) => !excluded.contains(profile['id']?.toString()))
+        .take(limit)
+        .map((profile) => {...profile, 'mutual_friends': null})
+        .toList();
   }
 
   Future<void> acceptRequest(String friendshipId) => _supabase

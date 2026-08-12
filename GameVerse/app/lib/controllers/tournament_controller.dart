@@ -19,6 +19,7 @@ class TournamentController extends ChangeNotifier {
   bool hasMore = true;
   String activeCategory = 'all';
   String activeQuery = '';
+  Map<String, int> communityStats = const {};
 
   RealtimeChannel? _subscription;
 
@@ -59,6 +60,15 @@ class TournamentController extends ChangeNotifier {
       isLoadingMore = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadCommunityStats() async {
+    try {
+      communityStats = await _service.getCommunityStats();
+    } catch (e) {
+      debugPrint('Error loading tournament community stats: $e');
+    }
+    notifyListeners();
   }
 
   void setFilter({String? category, String? query}) {
@@ -123,7 +133,7 @@ class TournamentController extends ChangeNotifier {
       region: region,
       isOfficial: isOfficial,
     );
-    
+
     // Insert into the local list and notify
     tournaments.insert(0, newTournament);
     notifyListeners();
@@ -141,11 +151,20 @@ class TournamentController extends ChangeNotifier {
     await _refreshTournamentById(id);
   }
 
+  Future<void> initializeBracket(String tournamentId) async {
+    await _service.initializeBracket(tournamentId);
+    await _refreshTournamentById(tournamentId);
+  }
+
   Future<OrganizerStatsModel?> getOrganizerStats(String organizerId) async {
     return _service.getOrganizerStats(organizerId);
   }
 
-  Future<void> reportTournament(String tournamentId, String reason, String details) async {
+  Future<void> reportTournament(
+    String tournamentId,
+    String reason,
+    String details,
+  ) async {
     await _service.reportTournament(tournamentId, reason, details);
   }
 
@@ -199,8 +218,9 @@ class TournamentController extends ChangeNotifier {
           callback: (payload) {
             final row = payload.newRecord;
             final oldRow = payload.oldRecord;
-            
-            final id = (row['tournament_id'] ?? oldRow?['tournament_id'])?.toString();
+
+            final id = (row['tournament_id'] ?? oldRow?['tournament_id'])
+                ?.toString();
             if (id != null) {
               _refreshTournamentById(id);
             }

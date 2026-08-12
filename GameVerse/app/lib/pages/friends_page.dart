@@ -5,6 +5,8 @@ import '../models/direct_message.dart';
 import '../services/direct_message_service.dart';
 import '../services/friend_service.dart';
 import '../services/profile_navigation_service.dart';
+import '../services/app_media_service.dart';
+import '../services/global_search_focus_service.dart';
 import '../widgets/chat/shared_post_message_card.dart';
 
 class FriendsPage extends StatefulWidget {
@@ -25,6 +27,7 @@ class _FriendsPageState extends State<FriendsPage> {
   final FriendService _friendService = FriendService();
   final DirectMessageService _messageService = DirectMessageService();
   final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _userSearchController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
 
   bool _loading = true;
@@ -32,25 +35,66 @@ class _FriendsPageState extends State<FriendsPage> {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _pending = [];
   List<Map<String, dynamic>> _blocked = [];
+  List<Map<String, dynamic>> _suggestedUsers = [];
   Map<String, String> _outgoingByUserId = {};
   Map<String, dynamic>? _activeChatProfile;
   Future<List<DirectMessage>>? _chatMessages;
   bool _sendingMessage = false;
   bool _didInitialChatScroll = false;
+  bool _showUserSearch = false;
+  bool _searchingUsers = false;
+  List<Map<String, dynamic>> _userSearchResults = const [];
+  String? _heroImageUrl;
 
   @override
   void dispose() {
     _messageController.dispose();
+    _userSearchController.dispose();
     _chatScrollController.dispose();
     PresenceController.instance.removeListener(_onPresenceChanged);
     super.dispose();
+  }
+
+  Future<void> _searchUsers(String value) async {
+    final query = value.trim().toLowerCase();
+    if (query.length < 2) {
+      if (mounted) setState(() => _userSearchResults = const []);
+      return;
+    }
+    setState(() => _searchingUsers = true);
+    try {
+      final users = await _friendService.searchUsers();
+      final results = users
+          .where((user) {
+            final id = user['id']?.toString() ?? '';
+            final name = user['username']?.toString().toLowerCase() ?? '';
+            return name.contains(query) &&
+                !_friends.any(
+                  (friendship) => _otherProfile(friendship)['id'] == id,
+                ) &&
+                !_outgoingByUserId.containsKey(id);
+          })
+          .take(5)
+          .toList();
+      if (mounted) setState(() => _userSearchResults = results);
+    } finally {
+      if (mounted) setState(() => _searchingUsers = false);
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadHeroImage();
     PresenceController.instance.addListener(_onPresenceChanged);
+  }
+
+  Future<void> _loadHeroImage() async {
+    final url = await AppMediaService.instance.publicUrlFor(
+      'friends_hero_background',
+    );
+    if (mounted) setState(() => _heroImageUrl = url);
   }
 
   void _onPresenceChanged() {
@@ -65,9 +109,11 @@ class _FriendsPageState extends State<FriendsPage> {
         _friendService.getPendingRequests(),
         _friendService.getBlockedUsers(),
         _friendService.getOutgoingRequests(),
+        _friendService.getSuggestedFriends(),
       ]);
       if (!mounted) return;
       final outgoing = List<Map<String, dynamic>>.from(results[3]);
+      final suggested = List<Map<String, dynamic>>.from(results[4]);
       setState(() {
         _friends = List<Map<String, dynamic>>.from(results[0]);
         _pending = List<Map<String, dynamic>>.from(results[1]);
@@ -76,6 +122,7 @@ class _FriendsPageState extends State<FriendsPage> {
           for (final request in outgoing)
             request['receiver_id'] as String: request['id'] as String,
         };
+        _suggestedUsers = suggested;
         _loading = false;
       });
     } catch (error) {
@@ -114,15 +161,8 @@ class _FriendsPageState extends State<FriendsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Amigos',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
+            _friendsHero(),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -151,7 +191,7 @@ class _FriendsPageState extends State<FriendsPage> {
                 ),
                 const SizedBox(width: 12),
                 FilledButton.icon(
-                  onPressed: _showAddFriendDialog,
+                  onPressed: GlobalSearchFocusService.instance.requestFocus,
                   style: FilledButton.styleFrom(
                     backgroundColor: _purple,
                     padding: const EdgeInsets.symmetric(
@@ -164,14 +204,14 @@ class _FriendsPageState extends State<FriendsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Expanded(
               child: widget.showChat
                   ? Row(
                       children: [
                         Expanded(child: body),
                         const SizedBox(width: 18),
-                        SizedBox(width: 370, child: _chatPanel()),
+                        SizedBox(width: 330, child: _friendsSidePanel()),
                       ],
                     )
                   : body,
@@ -181,6 +221,276 @@ class _FriendsPageState extends State<FriendsPage> {
       ),
     );
   }
+
+  Widget _friendsSidePanel() => _activeChatProfile != null
+      ? _chatPanel()
+      : SingleChildScrollView(
+          child: Column(
+            children: [
+              _sideCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Agregar amigo',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.person_add_alt_1_rounded,
+                          color: Color(0xff9c70ff),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Busca por nombre de usuario',
+                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => setState(() {
+                        _showUserSearch = !_showUserSearch;
+                        _userSearchResults = const [];
+                        _userSearchController.clear();
+                      }),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _purple,
+                        minimumSize: const Size.fromHeight(40),
+                      ),
+                      icon: const Icon(Icons.search_rounded, size: 18),
+                      label: const Text('Buscar usuario'),
+                    ),
+                    if (_showUserSearch) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _userSearchController,
+                        autofocus: true,
+                        onChanged: _searchUsers,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Escribe un nombre...',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: Color(0xffb58aff),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xff12101c),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      if (_searchingUsers)
+                        const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        ),
+                      ..._userSearchResults.map(_searchResultRow),
+                      if (!_searchingUsers &&
+                          _userSearchController.text.trim().length >= 2 &&
+                          _userSearchResults.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 10),
+                          child: Text(
+                            'No se encontraron usuarios.',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _sideCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Solicitudes de amistad',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _pending.isEmpty
+                          ? 'No tienes solicitudes pendientes'
+                          : 'Tienes ${_pending.length} solicitud${_pending.length == 1 ? '' : 'es'} pendiente${_pending.length == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (_pending.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: () => setState(() => _selectedTab = 3),
+                        child: const Text('Ver solicitudes'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _sideCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Amigos sugeridos',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_suggestedUsers.isEmpty)
+                      const Text(
+                        'No hay sugerencias nuevas por ahora.',
+                        style: TextStyle(color: Colors.white60, fontSize: 12),
+                      ),
+                    ..._suggestedUsers.map(_suggestedUserRow),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+
+  Widget _sideCard({required Widget child}) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xff1b1829),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xff5f35b9).withOpacity(.35)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(.18),
+          blurRadius: 15,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: child,
+  );
+
+  Widget _suggestedUserRow(Map<String, dynamic> user) => Padding(
+    padding: const EdgeInsets.only(top: 11),
+    child: Row(
+      children: [
+        _avatar(user),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _name(user),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                user['mutual_friends'] == null
+                    ? 'Jugador recomendado para ti'
+                    : '${user['mutual_friends']} amigo${user['mutual_friends'] == 1 ? '' : 's'} en común',
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+        FilledButton(
+          onPressed: () => _runAction(
+            _friendService
+                .sendFriendRequest(user['id'].toString())
+                .then((_) {}),
+            'Solicitud enviada',
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xff6c35ff),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            minimumSize: const Size(72, 36),
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          child: const Text('Agregar', style: TextStyle(fontSize: 11)),
+        ),
+      ],
+    ),
+  );
+
+  Widget _searchResultRow(Map<String, dynamic> user) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      children: [
+        _avatar(user),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _name(user),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Enviar solicitud',
+          onPressed: () => _runAction(
+            _friendService
+                .sendFriendRequest(user['id'].toString())
+                .then((_) {}),
+            'Solicitud enviada',
+          ),
+          icon: const Icon(
+            Icons.person_add_alt_1_rounded,
+            color: Color(0xffad7bff),
+            size: 19,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _tabButton(
     String label,
@@ -226,6 +536,81 @@ class _FriendsPageState extends State<FriendsPage> {
       ),
     );
   }
+
+  Widget _friendsHero() => SizedBox(
+    height: 132,
+    width: double.infinity,
+    child: Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          colors: [Color(0xff16082f), Color(0xff2d1160), Color(0xff110b22)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        border: Border.all(color: const Color(0xff7544df).withOpacity(.35)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          if (_heroImageUrl != null)
+            Positioned.fill(
+              child: Image.network(
+                _heroImageUrl!,
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xff16082f).withOpacity(.96),
+                    const Color(0xff16082f).withOpacity(.62),
+                    const Color(0xff16082f).withOpacity(.08),
+                  ],
+                  stops: const [0, .48, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 42,
+            bottom: -22,
+            child: Icon(
+              Icons.groups_rounded,
+              size: 145,
+              color: const Color(0xffa875ff).withOpacity(.20),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Amigos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'Conecta, juega y comparte momentos increíbles',
+                  style: TextStyle(color: Color(0xffc8b5eb), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _friendsList(List<Map<String, dynamic>> friendships) {
     if (friendships.isEmpty) return _emptyState('No hay amigos para mostrar.');
@@ -347,61 +732,85 @@ class _FriendsPageState extends State<FriendsPage> {
             ? 'Jugando $game'
             : (online ? 'En línea' : _lastSeenText(profile)));
     return Material(
-      color: _surface,
-      borderRadius: BorderRadius.circular(10),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              _avatar(profile),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            _name(profile),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (online)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 6),
+        child: Ink(
+          height: 64,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: online
+                  ? [const Color(0xff211b35), const Color(0xff171625)]
+                  : [const Color(0xff1d1b26), const Color(0xff17151e)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: online
+                  ? const Color(0xff5e37b4).withOpacity(.40)
+                  : Colors.white.withOpacity(.055),
+            ),
+            boxShadow: online
+                ? [
+                    BoxShadow(
+                      color: const Color(0xff7946f5).withOpacity(.10),
+                      blurRadius: 12,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              children: [
+                _avatar(profile),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
                             child: Text(
-                              '• En línea',
-                              style: TextStyle(
-                                color: Color(0xFF1ED760),
-                                fontSize: 11,
+                              _name(profile),
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      displaySubtitle,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
+                          if (online)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: Text(
+                                '• En línea',
+                                style: TextStyle(
+                                  color: Color(0xFF1ED760),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        displaySubtitle,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              trailing,
-            ],
+                const SizedBox(width: 10),
+                trailing,
+              ],
+            ),
           ),
         ),
       ),
@@ -769,7 +1178,8 @@ class _FriendsPageState extends State<FriendsPage> {
   }
 
   String _lastSeenText(Map<String, dynamic> profile) {
-    final rawDate = profile['last_seen_at']?.toString() ?? profile['last_seen']?.toString();
+    final rawDate =
+        profile['last_seen_at']?.toString() ?? profile['last_seen']?.toString();
     if (rawDate == null || rawDate.isEmpty) return 'Desconectado';
     final date = DateTime.tryParse(rawDate);
     if (date == null) return 'Desconectado';
@@ -782,6 +1192,7 @@ class _FriendsPageState extends State<FriendsPage> {
     if (days == 1) return 'Última vez ayer';
     return 'Última vez hace $days días';
   }
+
   String _profileGame(Map<String, dynamic> profile) =>
       (profile['current_game'] ?? profile['game'] ?? profile['game_name'] ?? '')
           .toString();

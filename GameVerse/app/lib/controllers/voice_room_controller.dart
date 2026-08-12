@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/voice_channel.dart';
 import '../services/livekit_service.dart';
+import '../services/voice_audio_processing.dart';
 import '../services/voice_channel_service.dart';
 import 'profile_controller.dart';
 
@@ -125,7 +126,11 @@ class VoiceRoomController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> connect(String roomName, {VoiceChannel? channel, Map<String, dynamic>? privateUser}) async {
+  Future<bool> connect(
+    String roomName, {
+    VoiceChannel? channel,
+    Map<String, dynamic>? privateUser,
+  }) async {
     if (status == VoiceConnectionStatus.connecting) return false;
 
     // Leave previous channel first if we are connected to one!
@@ -252,8 +257,10 @@ class VoiceRoomController extends ChangeNotifier {
       return enabled;
     } catch (error) {
       final message = error.toString().toLowerCase();
-      if (!message.contains('cancel') && !message.contains('abort') &&
-          !message.contains('dismissed') && !message.contains('notallowed')) {
+      if (!message.contains('cancel') &&
+          !message.contains('abort') &&
+          !message.contains('dismissed') &&
+          !message.contains('notallowed')) {
         errorMessage = 'No se pudo iniciar la transmisión de pantalla.';
         notifyListeners();
       }
@@ -328,14 +335,18 @@ class VoiceRoomController extends ChangeNotifier {
 
     if (_voicePresenceChannel != null) return;
 
-    _voicePresenceChannel = Supabase.instance.client.channel('global-voice-presence');
-    _voicePresenceChannel!.onPresenceSync((payload) {
-      _syncVoicePresenceState();
-    }).subscribe((status, _) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        _trackSelfInVoicePresence();
-      }
-    });
+    _voicePresenceChannel = Supabase.instance.client.channel(
+      'global-voice-presence',
+    );
+    _voicePresenceChannel!
+        .onPresenceSync((payload) {
+          _syncVoicePresenceState();
+        })
+        .subscribe((status, _) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _trackSelfInVoicePresence();
+          }
+        });
   }
 
   void stopVoicePresence() {
@@ -358,11 +369,14 @@ class VoiceRoomController extends ChangeNotifier {
     if (userId == null) return;
 
     final profile = ProfileController.instance;
-    final username = profile.username.isNotEmpty ? profile.username : (Supabase.instance.client.auth.currentUser?.email?.split('@').first ?? 'Usuario');
+    final username = profile.username.isNotEmpty
+        ? profile.username
+        : (Supabase.instance.client.auth.currentUser?.email?.split('@').first ??
+              'Usuario');
     final avatarUrl = profile.avatarUrl ?? '';
 
     final channelId = connectedChannel?.id;
-    
+
     bool isSpeaking = false;
     if (_room != null && _room!.localParticipant != null) {
       isSpeaking = _room!.localParticipant!.isSpeaking;
@@ -382,7 +396,8 @@ class VoiceRoomController extends ChangeNotifier {
         _lastPresencePayload!['channel_id'] == newPayload['channel_id'] &&
         _lastPresencePayload!['muted'] == newPayload['muted'] &&
         _lastPresencePayload!['speaking'] == newPayload['speaking'] &&
-        _lastPresencePayload!['screen_sharing'] == newPayload['screen_sharing'] &&
+        _lastPresencePayload!['screen_sharing'] ==
+            newPayload['screen_sharing'] &&
         _lastPresencePayload!['username'] == newPayload['username'] &&
         _lastPresencePayload!['avatar_url'] == newPayload['avatar_url']) {
       return;
@@ -403,7 +418,9 @@ class VoiceRoomController extends ChangeNotifier {
       final presences = singlePresence.presences;
       for (final presence in presences) {
         final payload = presence.payload;
-        if (payload != null && payload['user_id'] != null && payload['channel_id'] != null) {
+        if (payload != null &&
+            payload['user_id'] != null &&
+            payload['channel_id'] != null) {
           final chId = payload['channel_id'].toString();
           final uId = payload['user_id'].toString();
           final uname = payload['username']?.toString() ?? 'Usuario';
@@ -459,12 +476,18 @@ class VoiceRoomController extends ChangeNotifier {
         .subscribe();
   }
 
-  void _handleCallEvent(PostgresChangeEvent eventType, Map<String, dynamic> row, Map<String, dynamic>? oldRow) async {
+  void _handleCallEvent(
+    PostgresChangeEvent eventType,
+    Map<String, dynamic> row,
+    Map<String, dynamic>? oldRow,
+  ) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
     if (eventType == PostgresChangeEvent.insert) {
-      if (row['is_private'] == true && row['invitee_id'] == userId && row['private_status'] == 'ringing') {
+      if (row['is_private'] == true &&
+          row['invitee_id'] == userId &&
+          row['private_status'] == 'ringing') {
         isIncomingRinging = true;
         activePrivateCallRow = row;
         try {
@@ -475,10 +498,7 @@ class VoiceRoomController extends ChangeNotifier {
               .single();
           callingUserProfile = profile;
         } catch (_) {
-          callingUserProfile = {
-            'id': row['created_by'],
-            'username': 'Usuario',
-          };
+          callingUserProfile = {'id': row['created_by'], 'username': 'Usuario'};
         }
         notifyListeners();
       }
@@ -538,8 +558,9 @@ class VoiceRoomController extends ChangeNotifier {
       await leaveRoom();
     }
 
-    final roomName = 'private_${userId.replaceAll('-', '')}_${receiverProfile['id'].toString().replaceAll('-', '')}';
-    
+    final roomName =
+        'private_${userId.replaceAll('-', '')}_${receiverProfile['id'].toString().replaceAll('-', '')}';
+
     // LOGS ANTES DEL INSERT
     print("[LOG-BEFORE-INSERT] Iniciando inserción de llamada privada:");
     print("  - room_name: $roomName");
@@ -551,17 +572,21 @@ class VoiceRoomController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final row = await Supabase.instance.client.from('voice_channels').insert({
-        'name': 'Llamada privada',
-        'room_name': roomName,
-        'description': 'private_call',
-        'created_by': userId,
-        'is_private': true,
-        'invitee_id': receiverProfile['id'],
-        'private_status': 'ringing',
-        'is_active': true,
-      }).select().single();
-      
+      final row = await Supabase.instance.client
+          .from('voice_channels')
+          .insert({
+            'name': 'Llamada privada',
+            'room_name': roomName,
+            'description': 'private_call',
+            'created_by': userId,
+            'is_private': true,
+            'invitee_id': receiverProfile['id'],
+            'private_status': 'ringing',
+            'is_active': true,
+          })
+          .select()
+          .single();
+
       // LOGS DESPUÉS DEL INSERT
       print("[LOG-AFTER-INSERT] Canal privado insertado con éxito!");
       print("  - fila completa devuelta por Supabase: $row");
@@ -574,7 +599,11 @@ class VoiceRoomController extends ChangeNotifier {
 
       // Conectarse a Livekit inmediatamente
       final voiceChannel = VoiceChannel.fromMap(row);
-      await connect(roomName, channel: voiceChannel, privateUser: receiverProfile);
+      await connect(
+        roomName,
+        channel: voiceChannel,
+        privateUser: receiverProfile,
+      );
     } catch (e, stack) {
       print("[STEP 4-ERROR] Error al iniciar la llamada: $e");
       print(stack.toString());
@@ -587,7 +616,9 @@ class VoiceRoomController extends ChangeNotifier {
 
   Future<void> acceptPrivateCall() async {
     if (activePrivateCallRow == null) {
-      print("[LOG-ACCEPT] Error: activePrivateCallRow es null al intentar aceptar.");
+      print(
+        "[LOG-ACCEPT] Error: activePrivateCallRow es null al intentar aceptar.",
+      );
       return;
     }
     isIncomingRinging = false;
@@ -595,8 +626,12 @@ class VoiceRoomController extends ChangeNotifier {
 
     final searchId = activePrivateCallRow!['id'];
     final searchRoomName = activePrivateCallRow!['room_name'];
-    print("[LOG-ACCEPT-BEFORE] Intentando actualizar el canal de voz para aceptar:");
-    print("  - Consulta SQL equivalente: UPDATE voice_channels SET private_status = 'accepted' WHERE id = '$searchId' RETURNING *;");
+    print(
+      "[LOG-ACCEPT-BEFORE] Intentando actualizar el canal de voz para aceptar:",
+    );
+    print(
+      "  - Consulta SQL equivalente: UPDATE voice_channels SET private_status = 'accepted' WHERE id = '$searchId' RETURNING *;",
+    );
     print("  - room_name buscado (desde el registro activo): $searchRoomName");
     print("  - ID del canal buscado: $searchId");
 
@@ -606,12 +641,16 @@ class VoiceRoomController extends ChangeNotifier {
           .from('voice_channels')
           .select()
           .eq('id', searchId);
-      
-      print("  - Cantidad de filas encontradas en SELECT previo: ${checkRows.length}");
+
+      print(
+        "  - Cantidad de filas encontradas en SELECT previo: ${checkRows.length}",
+      );
       if (checkRows.isNotEmpty) {
         print("  - Fila encontrada en SELECT previo: ${checkRows.first}");
       } else {
-        print("  - ADVERTENCIA: ¡No se encontró ninguna fila con ese ID en SELECT previo!");
+        print(
+          "  - ADVERTENCIA: ¡No se encontró ninguna fila con ese ID en SELECT previo!",
+        );
       }
 
       final row = await Supabase.instance.client
@@ -632,7 +671,11 @@ class VoiceRoomController extends ChangeNotifier {
 
       // Conectarse a Livekit
       final voiceChannel = VoiceChannel.fromMap(row);
-      await connect(row['room_name'], channel: voiceChannel, privateUser: callingUserProfile);
+      await connect(
+        row['room_name'],
+        channel: voiceChannel,
+        privateUser: callingUserProfile,
+      );
     } catch (e) {
       print("[LOG-ACCEPT-ERROR] Excepción capturada en acceptPrivateCall: $e");
       activePrivateCallRow = null;
@@ -737,8 +780,10 @@ class VoiceRoomController extends ChangeNotifier {
     );
   }
 
-  double getParticipantVolume(String participantId) => _participantVolumes[participantId] ?? 1.0;
-  bool isParticipantLocalMuted(String participantId) => _participantLocalMutes[participantId] ?? false;
+  double getParticipantVolume(String participantId) =>
+      _participantVolumes[participantId] ?? 1.0;
+  bool isParticipantLocalMuted(String participantId) =>
+      _participantLocalMutes[participantId] ?? false;
 
   void setParticipantVolume(String participantId, double volume) {
     _participantVolumes[participantId] = volume;
@@ -755,8 +800,10 @@ class VoiceRoomController extends ChangeNotifier {
     saveParticipantSettings();
   }
 
-  double getScreenVolume(String participantId) => _screenVolumes[participantId] ?? 1.0;
-  bool isScreenLocalMuted(String participantId) => _screenLocalMutes[participantId] ?? false;
+  double getScreenVolume(String participantId) =>
+      _screenVolumes[participantId] ?? 1.0;
+  bool isScreenLocalMuted(String participantId) =>
+      _screenLocalMutes[participantId] ?? false;
 
   void setScreenVolume(String participantId, double volume) {
     _screenVolumes[participantId] = volume;
@@ -774,7 +821,7 @@ class VoiceRoomController extends ChangeNotifier {
   void _applyParticipantVolume(String participantId) {
     final room = _room;
     if (room == null) return;
-    
+
     RemoteParticipant? participant;
     for (final p in room.remoteParticipants.values) {
       if (p.identity == participantId) {
@@ -782,23 +829,27 @@ class VoiceRoomController extends ChangeNotifier {
         break;
       }
     }
-    
+
     if (participant == null) return;
-    
+
     final isMuted = _participantLocalMutes[participantId] ?? false;
     final volume = isMuted ? 0.0 : (_participantVolumes[participantId] ?? 1.0);
-    
+
     for (final publication in participant.audioTrackPublications) {
       final track = publication.track;
       if (track is RemoteAudioTrack) {
         if (publication.source == TrackSource.screenShareAudio) {
           final isScreenMuted = _screenLocalMutes[participantId] ?? false;
-          final screenVol = isScreenMuted ? 0.0 : (_screenVolumes[participantId] ?? 1.0);
-          final finalVol = kIsWeb ? screenVol.clamp(0.0, 1.0) : screenVol;
-          
+          final screenVol = isScreenMuted
+              ? 0.0
+              : (_screenVolumes[participantId] ?? 1.0);
+          // En web usamos Web Audio GainNode, que sí permite amplificar por
+          // encima del 100 % (HTMLAudioElement.volume está limitado a 1.0).
+          final finalVol = kIsWeb ? screenVol.clamp(0.0, 2.0) : screenVol;
+
           // Habilitar/Deshabilitar track a nivel de WebRTC para un silencio absoluto garantizado
           track.mediaStreamTrack.enabled = (finalVol > 0.0);
-          
+
           if (kIsWeb) {
             try {
               js.context.callMethod('eval', [
@@ -810,12 +861,12 @@ class VoiceRoomController extends ChangeNotifier {
                     if (audio.srcObject) {
                       var tracks = audio.srcObject.getAudioTracks();
                       if (tracks.length > 0 && tracks[0].id === '${track.mediaStreamTrack.id}') {
-                        audio.volume = $finalVol;
+                        window.__nubzzzSetRemoteAudioGain(audio, $finalVol);
                       }
                     }
                   }
                 })()
-                """
+                """,
               ]);
             } catch (e) {
               print("Error setting web volume via JS: $e");
@@ -824,11 +875,12 @@ class VoiceRoomController extends ChangeNotifier {
             rtc.Helper.setVolume(finalVol, track.mediaStreamTrack);
           }
         } else {
-          final finalVol = kIsWeb ? volume.clamp(0.0, 1.0) : volume;
-          
+          // 1.0 = volumen original del participante; 2.0 = +100 % de ganancia.
+          final finalVol = kIsWeb ? volume.clamp(0.0, 2.0) : volume;
+
           // Habilitar/Deshabilitar track a nivel de WebRTC para un silencio absoluto garantizado
           track.mediaStreamTrack.enabled = (finalVol > 0.0);
-          
+
           if (kIsWeb) {
             try {
               js.context.callMethod('eval', [
@@ -840,12 +892,12 @@ class VoiceRoomController extends ChangeNotifier {
                     if (audio.srcObject) {
                       var tracks = audio.srcObject.getAudioTracks();
                       if (tracks.length > 0 && tracks[0].id === '${track.mediaStreamTrack.id}') {
-                        audio.volume = $finalVol;
+                        window.__nubzzzSetRemoteAudioGain(audio, $finalVol);
                       }
                     }
                   }
                 })()
-                """
+                """,
               ]);
             } catch (e) {
               print("Error setting web volume via JS: $e");
@@ -880,10 +932,13 @@ class VoiceRoomController extends ChangeNotifier {
 
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    noiseSuppressionMode = prefs.getString('noise_suppression_mode') ?? 'standard';
-    echoCancellationEnabled = prefs.getBool('echo_cancellation_enabled') ?? true;
-    autoGainControlEnabled = prefs.getBool('auto_gain_control_enabled') ?? false;
-    
+    noiseSuppressionMode =
+        prefs.getString('noise_suppression_mode') ?? 'standard';
+    echoCancellationEnabled =
+        prefs.getBool('echo_cancellation_enabled') ?? true;
+    autoGainControlEnabled =
+        prefs.getBool('auto_gain_control_enabled') ?? false;
+
     // Cargar volúmenes de participantes guardados
     final volsJson = prefs.getString('participant_volumes_saved');
     if (volsJson != null) {
@@ -894,7 +949,7 @@ class VoiceRoomController extends ChangeNotifier {
         });
       } catch (_) {}
     }
-    
+
     final mutesJson = prefs.getString('participant_mutes_saved');
     if (mutesJson != null) {
       try {
@@ -908,8 +963,14 @@ class VoiceRoomController extends ChangeNotifier {
 
   Future<void> saveParticipantSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('participant_volumes_saved', jsonEncode(_participantVolumes));
-    await prefs.setString('participant_mutes_saved', jsonEncode(_participantLocalMutes));
+    await prefs.setString(
+      'participant_volumes_saved',
+      jsonEncode(_participantVolumes),
+    );
+    await prefs.setString(
+      'participant_mutes_saved',
+      jsonEncode(_participantLocalMutes),
+    );
   }
 
   Future<void> setNoiseSuppressionMode(String mode) async {
@@ -939,37 +1000,23 @@ class VoiceRoomController extends ChangeNotifier {
   Future<void> _applyAudioCaptureOptions() async {
     final room = _room;
     if (room == null) return;
-    
+
     final localPart = room.localParticipant;
     if (localPart == null) return;
 
     for (final pub in localPart.audioTrackPublications) {
       final track = pub.track;
       if (track is LocalAudioTrack) {
-        bool echo = echoCancellationEnabled;
-        bool ns = true;
-        bool agc = autoGainControlEnabled;
-
-        if (noiseSuppressionMode == 'off') {
-          echo = false;
-          ns = false;
-          agc = false;
-        } else if (noiseSuppressionMode == 'standard') {
-          ns = true;
-        } else if (noiseSuppressionMode == 'ai') {
-          ns = true; // El modo avanzado aprovecha los algoritmos nativos más agresivos
-        }
-
-        try {
-          await track.mediaStreamTrack.applyConstraints({
-            'echoCancellation': echo,
-            'noiseSuppression': ns,
-            'autoGainControl': agc,
-          });
-          print("[IA-AUDIO] Constraints aplicadas en tiempo real con éxito: echo=$echo, ns=$ns, agc=$agc");
-        } catch (e) {
-          print("[IA-AUDIO] Error aplicando constraints en tiempo real: $e");
-        }
+        final processing = VoiceAudioProcessing.fromSettings(
+          mode: noiseSuppressionMode,
+          echoCancellation: echoCancellationEnabled,
+          autoGainControl: autoGainControlEnabled,
+        );
+        await processing.applyTo(track);
+        print(
+          '[AUDIO] Perfil ${processing.mode} aplicado: '
+          'eco=${processing.echoCancellation}, AGC=${processing.autoGainControl}.',
+        );
       }
     }
   }

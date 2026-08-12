@@ -54,9 +54,9 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
   String _getRoleName(String userId) {
     if (widget.members.isEmpty) return 'Miembro';
     final member = widget.members.cast<ClanMemberModel?>().firstWhere(
-          (m) => m?.userId == userId,
-          orElse: () => null,
-        );
+      (m) => m?.userId == userId,
+      orElse: () => null,
+    );
     return member?.role?.name ?? 'Miembro';
   }
 
@@ -88,28 +88,45 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.volume_up_rounded, color: Color(0xff50E6A5), size: 18),
+                const Icon(
+                  Icons.volume_up_rounded,
+                  color: Color(0xff50E6A5),
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.controller.connectedChannel?.name ?? 'Canal de Voz',
+                        widget.controller.connectedChannel?.name ??
+                            'Canal de Voz',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.white,
+                        ),
                       ),
                       Text(
                         '🔊 ${users.length} Conectados',
-                        style: const TextStyle(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white54,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 if (widget.onActivityTap != null)
                   IconButton(
-                    icon: const Icon(Icons.history_toggle_off_rounded, color: Colors.white60, size: 18),
+                    icon: const Icon(
+                      Icons.history_toggle_off_rounded,
+                      color: Colors.white60,
+                      size: 18,
+                    ),
                     tooltip: 'Historial de Actividad',
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.all(6),
@@ -117,7 +134,11 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                   ),
                 if (widget.onClose != null)
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white60, size: 18),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white60,
+                      size: 18,
+                    ),
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.all(6),
                     onPressed: widget.onClose,
@@ -173,13 +194,17 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSpeaking ? const Color(0xff50E6A5) : Colors.white12,
+                                color: isSpeaking
+                                    ? const Color(0xff50E6A5)
+                                    : Colors.white12,
                                 width: 2,
                               ),
                               boxShadow: [
                                 if (isSpeaking)
                                   BoxShadow(
-                                    color: const Color(0xff50E6A5).withOpacity(0.2),
+                                    color: const Color(
+                                      0xff50E6A5,
+                                    ).withOpacity(0.2),
                                     blurRadius: 6,
                                   ),
                               ],
@@ -187,11 +212,19 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                             child: CircleAvatar(
                               radius: 16,
                               backgroundColor: widget.accentColor,
-                              backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
+                              backgroundImage: user.avatarUrl.isNotEmpty
+                                  ? NetworkImage(user.avatarUrl)
+                                  : null,
                               child: user.avatarUrl.isEmpty
                                   ? Text(
-                                      user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                      user.name.isEmpty
+                                          ? '?'
+                                          : user.name[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     )
                                   : null,
                             ),
@@ -206,7 +239,11 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                                   color: Color(0xffD64A68),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.mic_off_rounded, color: Colors.white, size: 6.5),
+                                child: const Icon(
+                                  Icons.mic_off_rounded,
+                                  color: Colors.white,
+                                  size: 6.5,
+                                ),
                               ),
                             ),
                           if (user.isScreenSharing)
@@ -219,7 +256,11 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                                   color: widget.accentColor,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.screen_share_rounded, color: Colors.white, size: 6.5),
+                                child: const Icon(
+                                  Icons.screen_share_rounded,
+                                  color: Colors.white,
+                                  size: 6.5,
+                                ),
                               ),
                             ),
                         ],
@@ -233,16 +274,25 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
 
           // 2. CHAT / CONTENIDO ABAJO (Reemplaza el espacio grande de actividad)
           Expanded(
-            child: widget.chatWidget ??
+            child:
+                widget.chatWidget ??
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.volume_up_rounded, color: Colors.white10, size: 48),
+                      Icon(
+                        Icons.volume_up_rounded,
+                        color: Colors.white10,
+                        size: 48,
+                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'Canal de voz conectado',
-                        style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       const Text(
@@ -260,11 +310,19 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             color: const Color(0xff09070F),
             child: Row(
               children: [
-                const Icon(Icons.wifi_rounded, color: Color(0xff50E6A5), size: 12),
+                const Icon(
+                  Icons.wifi_rounded,
+                  color: Color(0xff50E6A5),
+                  size: 12,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Excelente  ·  Ping: ${_ping}ms',
-                  style: const TextStyle(color: Colors.white30, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white30,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -282,29 +340,45 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
               children: [
                 // Mute Microphone
                 _controlBtn(
-                  icon: widget.controller.microphoneMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                  icon: widget.controller.microphoneMuted
+                      ? Icons.mic_off_rounded
+                      : Icons.mic_rounded,
                   active: !widget.controller.microphoneMuted,
-                  color: widget.controller.microphoneMuted ? const Color(0xffD64A68) : Colors.white70,
+                  color: widget.controller.microphoneMuted
+                      ? const Color(0xffD64A68)
+                      : Colors.white70,
                   onPressed: () => widget.controller.toggleMicrophone(),
-                  tooltip: widget.controller.microphoneMuted ? 'Activar Micrófono' : 'Silenciar Micrófono',
+                  tooltip: widget.controller.microphoneMuted
+                      ? 'Activar Micrófono'
+                      : 'Silenciar Micrófono',
                 ),
 
                 // Deafen Headphones
                 _controlBtn(
-                  icon: widget.controller.deafened ? Icons.headset_off_rounded : Icons.headphones_rounded,
+                  icon: widget.controller.deafened
+                      ? Icons.headset_off_rounded
+                      : Icons.headphones_rounded,
                   active: !widget.controller.deafened,
-                  color: widget.controller.deafened ? const Color(0xffD64A68) : Colors.white70,
+                  color: widget.controller.deafened
+                      ? const Color(0xffD64A68)
+                      : Colors.white70,
                   onPressed: () => widget.controller.toggleDeafen(),
-                  tooltip: widget.controller.deafened ? 'Activar Audio' : 'Silenciar Audio (Ensordecer)',
+                  tooltip: widget.controller.deafened
+                      ? 'Activar Audio'
+                      : 'Silenciar Audio (Ensordecer)',
                 ),
 
                 // Screen Share
                 _controlBtn(
                   icon: Icons.screen_share_rounded,
                   active: widget.controller.isScreenSharing,
-                  color: widget.controller.isScreenSharing ? Colors.greenAccent : Colors.white70,
+                  color: widget.controller.isScreenSharing
+                      ? Colors.greenAccent
+                      : Colors.white70,
                   onPressed: () => widget.controller.toggleScreenShare(),
-                  tooltip: widget.controller.isScreenSharing ? 'Detener Pantalla' : 'Compartir Pantalla',
+                  tooltip: widget.controller.isScreenSharing
+                      ? 'Detener Pantalla'
+                      : 'Compartir Pantalla',
                 ),
 
                 // Settings Menu
@@ -312,11 +386,17 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
 
                 // Disconnect Call
                 IconButton(
-                  icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.call_end_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xffD64A68),
                     padding: const EdgeInsets.all(10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => widget.controller.disconnect(),
                   tooltip: 'Desconectarse de la llamada',
@@ -341,9 +421,13 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
       child: IconButton(
         icon: Icon(icon, color: color, size: 15),
         style: IconButton.styleFrom(
-          backgroundColor: active ? Colors.white.withOpacity(0.04) : color.withOpacity(0.1),
+          backgroundColor: active
+              ? Colors.white.withOpacity(0.04)
+              : color.withOpacity(0.1),
           padding: const EdgeInsets.all(9),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(11),
+          ),
         ),
         onPressed: onPressed,
       ),
@@ -388,31 +472,59 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
         return [
           const PopupMenuItem(
             enabled: false,
-            child: Text('🎤 MICRÓFONO / ENTRADA', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            child: Text(
+              '🎤 MICRÓFONO / ENTRADA',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           ..._buildDeviceMenuItems('input'),
           const PopupMenuDivider(),
           const PopupMenuItem(
             enabled: false,
-            child: Text('🔊 SALIDA DE AUDIO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            child: Text(
+              '🔊 SALIDA DE AUDIO',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           ..._buildDeviceMenuItems('output'),
           const PopupMenuDivider(),
           const PopupMenuItem(
             enabled: false,
-            child: Text('🎙️ SUPRESIÓN DE RUIDO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            child: Text(
+              '🎙️ SUPRESIÓN DE RUIDO',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           PopupMenuItem(
             value: 'ns_off',
             child: Row(
               children: [
                 Icon(
-                  widget.controller.noiseSuppressionMode == 'off' ? Icons.radio_button_checked : Icons.radio_button_off,
-                  color: widget.controller.noiseSuppressionMode == 'off' ? widget.accentColor : Colors.white24,
+                  widget.controller.noiseSuppressionMode == 'off'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'off'
+                      ? widget.accentColor
+                      : Colors.white24,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
-                const Text('Desactivada', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Desactivada',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -421,12 +533,19 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             child: Row(
               children: [
                 Icon(
-                  widget.controller.noiseSuppressionMode == 'standard' ? Icons.radio_button_checked : Icons.radio_button_off,
-                  color: widget.controller.noiseSuppressionMode == 'standard' ? widget.accentColor : Colors.white24,
+                  widget.controller.noiseSuppressionMode == 'standard'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'standard'
+                      ? widget.accentColor
+                      : Colors.white24,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
-                const Text('Estándar', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Estándar',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -435,31 +554,52 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             child: Row(
               children: [
                 Icon(
-                  widget.controller.noiseSuppressionMode == 'ai' ? Icons.radio_button_checked : Icons.radio_button_off,
-                  color: widget.controller.noiseSuppressionMode == 'ai' ? widget.accentColor : Colors.white24,
+                  widget.controller.noiseSuppressionMode == 'ai'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: widget.controller.noiseSuppressionMode == 'ai'
+                      ? widget.accentColor
+                      : Colors.white24,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
-                const Text('IA / Avanzada', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Avanzada (aislamiento de voz)',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             enabled: false,
-            child: Text('⚙️ PROCESAMIENTO', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            child: Text(
+              '⚙️ PROCESAMIENTO',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           PopupMenuItem(
             value: 'toggle_aec',
             child: Row(
               children: [
                 Icon(
-                  widget.controller.echoCancellationEnabled ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: widget.controller.echoCancellationEnabled ? widget.accentColor : Colors.white24,
+                  widget.controller.echoCancellationEnabled
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  color: widget.controller.echoCancellationEnabled
+                      ? widget.accentColor
+                      : Colors.white24,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
-                const Text('Cancelación de eco', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Cancelación de eco',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -468,12 +608,19 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
             child: Row(
               children: [
                 Icon(
-                  widget.controller.autoGainControlEnabled ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: widget.controller.autoGainControlEnabled ? widget.accentColor : Colors.white24,
+                  widget.controller.autoGainControlEnabled
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  color: widget.controller.autoGainControlEnabled
+                      ? widget.accentColor
+                      : Colors.white24,
                   size: 14,
                 ),
                 const SizedBox(width: 8),
-                const Text('Control de ganancia (AGC)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Control de ganancia (AGC)',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -486,7 +633,10 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
     return [
       PopupMenuItem(
         value: '${type}||default',
-        child: const Text('Dispositivo Predeterminado', style: TextStyle(color: Colors.white70, fontSize: 11)),
+        child: const Text(
+          'Dispositivo Predeterminado',
+          style: TextStyle(color: Colors.white70, fontSize: 11),
+        ),
       ),
     ];
   }
@@ -495,7 +645,10 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
   // PANEL DETALLADO DE PARTICIPANTE (POPOUT)
   // ==========================
 
-  void _showParticipantDetailsPopout(VoiceParticipantState user, String roleName) {
+  void _showParticipantDetailsPopout(
+    VoiceParticipantState user,
+    String roleName,
+  ) {
     final roleColor = _getRoleColor(roleName, widget.accentColor);
 
     showDialog(
@@ -505,7 +658,9 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
           builder: (context, setStateDialog) {
             return AlertDialog(
               backgroundColor: const Color(0xff161324),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               content: SizedBox(
                 width: 280,
                 child: Column(
@@ -518,18 +673,28 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: user.isSpeaking ? const Color(0xff50E6A5) : Colors.white24,
+                          color: user.isSpeaking
+                              ? const Color(0xff50E6A5)
+                              : Colors.white24,
                           width: 2,
                         ),
                       ),
                       child: CircleAvatar(
                         radius: 36,
                         backgroundColor: widget.accentColor,
-                        backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
+                        backgroundImage: user.avatarUrl.isNotEmpty
+                            ? NetworkImage(user.avatarUrl)
+                            : null,
                         child: user.avatarUrl.isEmpty
                             ? Text(
-                                user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                user.name.isEmpty
+                                    ? '?'
+                                    : user.name[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               )
                             : null,
                       ),
@@ -539,12 +704,20 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                     // Nombre y Rol
                     Text(
                       user.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       roleName,
-                      style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: roleColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const Divider(color: Colors.white12, height: 24),
 
@@ -553,14 +726,22 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _buildStatusIndicator(
-                          icon: user.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          icon: user.isMuted
+                              ? Icons.mic_off_rounded
+                              : Icons.mic_rounded,
                           label: user.isMuted ? 'Muted' : 'Activo',
-                          color: user.isMuted ? const Color(0xffD64A68) : const Color(0xff50E6A5),
+                          color: user.isMuted
+                              ? const Color(0xffD64A68)
+                              : const Color(0xff50E6A5),
                         ),
                         _buildStatusIndicator(
                           icon: Icons.screen_share_rounded,
-                          label: user.isScreenSharing ? 'Compartiendo' : 'Sin stream',
-                          color: user.isScreenSharing ? Colors.greenAccent : Colors.white24,
+                          label: user.isScreenSharing
+                              ? 'Compartiendo'
+                              : 'Sin stream',
+                          color: user.isScreenSharing
+                              ? Colors.greenAccent
+                              : Colors.white24,
                         ),
                       ],
                     ),
@@ -571,10 +752,20 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Volumen de usuario', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                          const Text(
+                            'Volumen de usuario (100% normal)',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
                           Text(
                             '${(user.localVolume * 100).toInt()}%',
-                            style: TextStyle(color: widget.accentColor, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: widget.accentColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -591,9 +782,14 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                           max: 2.0,
                           onChanged: (val) {
                             setStateDialog(() {
-                              widget.controller.setParticipantVolume(user.id, val);
+                              widget.controller.setParticipantVolume(
+                                user.id,
+                                val,
+                              );
                               // Refrescar el estado de este popup
-                              user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                              user = widget.controller.participants.firstWhere(
+                                (p) => p.id == user.id,
+                              );
                             });
                             setState(() {}); // Refrescar el panel de voz
                           },
@@ -604,18 +800,29 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          user.isLocalMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                          color: user.isLocalMuted ? const Color(0xffD64A68) : Colors.white60,
+                          user.isLocalMuted
+                              ? Icons.volume_off_rounded
+                              : Icons.volume_up_rounded,
+                          color: user.isLocalMuted
+                              ? const Color(0xffD64A68)
+                              : Colors.white60,
                           size: 20,
                         ),
-                        title: const Text('Silenciar para mí', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        title: const Text(
+                          'Silenciar para mí',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
                         trailing: Switch(
                           value: user.isLocalMuted,
                           activeColor: const Color(0xffD64A68),
                           onChanged: (_) {
                             setStateDialog(() {
-                              widget.controller.toggleParticipantLocalMute(user.id);
-                              user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                              widget.controller.toggleParticipantLocalMute(
+                                user.id,
+                              );
+                              user = widget.controller.participants.firstWhere(
+                                (p) => p.id == user.id,
+                              );
                             });
                             setState(() {});
                           },
@@ -638,28 +845,47 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
     );
   }
 
-  void _showContextMenu(BuildContext context, VoiceParticipantState user, String roleName, Offset position) {
-    if (user.isLocal) return; // No tiene sentido cambiar nuestro propio volumen local
+  void _showContextMenu(
+    BuildContext context,
+    VoiceParticipantState user,
+    String roleName,
+    Offset position,
+  ) {
+    if (user.isLocal)
+      return; // No tiene sentido cambiar nuestro propio volumen local
     showDialog(
       context: context,
-      barrierColor: Colors.transparent, // Fondo invisible para cerrarlo con un clic fuera
+      barrierColor:
+          Colors.transparent, // Fondo invisible para cerrarlo con un clic fuera
       builder: (context) {
         return Stack(
           children: [
             Positioned(
-              left: position.dx.clamp(10.0, MediaQuery.of(context).size.width - 250.0),
-              top: position.dy.clamp(10.0, MediaQuery.of(context).size.height - 230.0),
+              left: position.dx.clamp(
+                10.0,
+                MediaQuery.of(context).size.width - 250.0,
+              ),
+              top: position.dy.clamp(
+                10.0,
+                MediaQuery.of(context).size.height - 230.0,
+              ),
               child: Material(
                 color: Colors.transparent,
                 child: StatefulBuilder(
                   builder: (context, setStateDialog) {
                     return Container(
                       width: 230,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xff161324),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xff2d2543), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xff2d2543),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.5),
@@ -675,23 +901,37 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                           // Nombre
                           Text(
                             user.name,
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 10),
-                          
+
                           // Título Volumen
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Volumen de usuario', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                              const Text(
+                                'Volumen de usuario (100% normal)',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                ),
+                              ),
                               Text(
                                 '${(user.localVolume * 100).toInt()}%',
-                                style: TextStyle(color: widget.accentColor, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: widget.accentColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          
+
                           // Slider de Volumen
                           SizedBox(
                             height: 32,
@@ -701,7 +941,9 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                                 inactiveTrackColor: Colors.white12,
                                 thumbColor: widget.accentColor,
                                 trackHeight: 3,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6,
+                                ),
                               ),
                               child: Slider(
                                 value: user.localVolume,
@@ -709,38 +951,58 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                                 max: 2.0,
                                 onChanged: (val) {
                                   setStateDialog(() {
-                                    widget.controller.setParticipantVolume(user.id, val);
-                                    user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                    widget.controller.setParticipantVolume(
+                                      user.id,
+                                      val,
+                                    );
+                                    user = widget.controller.participants
+                                        .firstWhere((p) => p.id == user.id);
                                   });
                                   setState(() {}); // Refrescar panel principal
                                 },
                               ),
                             ),
                           ),
-                          
+
                           const Divider(color: Colors.white12, height: 16),
-                          
+
                           // Opción Silenciar
                           InkWell(
                             onTap: () {
                               setStateDialog(() {
-                                widget.controller.toggleParticipantLocalMute(user.id);
-                                user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                widget.controller.toggleParticipantLocalMute(
+                                  user.id,
+                                );
+                                user = widget.controller.participants
+                                    .firstWhere((p) => p.id == user.id);
                               });
                               setState(() {});
                             },
                             borderRadius: BorderRadius.circular(6),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6,
+                                horizontal: 4,
+                              ),
                               child: Row(
                                 children: [
                                   Icon(
-                                    user.isLocalMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                                    color: user.isLocalMuted ? const Color(0xffD64A68) : Colors.white60,
+                                    user.isLocalMuted
+                                        ? Icons.volume_off_rounded
+                                        : Icons.volume_up_rounded,
+                                    color: user.isLocalMuted
+                                        ? const Color(0xffD64A68)
+                                        : Colors.white60,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text('Silenciar para mí', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                  const Text(
+                                    'Silenciar para mí',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
                                   const Spacer(),
                                   SizedBox(
                                     height: 16,
@@ -750,8 +1012,14 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                                       activeColor: const Color(0xffD64A68),
                                       onChanged: (val) {
                                         setStateDialog(() {
-                                          widget.controller.toggleParticipantLocalMute(user.id);
-                                          user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                          widget.controller
+                                              .toggleParticipantLocalMute(
+                                                user.id,
+                                              );
+                                          user = widget.controller.participants
+                                              .firstWhere(
+                                                (p) => p.id == user.id,
+                                              );
                                         });
                                         setState(() {});
                                       },
@@ -761,24 +1029,41 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
                               ),
                             ),
                           ),
-                          
+
                           // Restablecer a 100%
                           InkWell(
                             onTap: () {
                               setStateDialog(() {
-                                widget.controller.setParticipantVolume(user.id, 1.0);
-                                user = widget.controller.participants.firstWhere((p) => p.id == user.id);
+                                widget.controller.setParticipantVolume(
+                                  user.id,
+                                  1.0,
+                                );
+                                user = widget.controller.participants
+                                    .firstWhere((p) => p.id == user.id);
                               });
                               setState(() {});
                             },
                             borderRadius: BorderRadius.circular(6),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 4,
+                              ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.refresh_rounded, color: Colors.white60, size: 16),
+                                  Icon(
+                                    Icons.refresh_rounded,
+                                    color: Colors.white60,
+                                    size: 16,
+                                  ),
                                   const SizedBox(width: 8),
-                                  Text('Restablecer volumen (100%)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                  Text(
+                                    'Restablecer volumen (100%)',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -796,7 +1081,11 @@ class _VoiceSidePanelState extends State<VoiceSidePanel> {
     );
   }
 
-  Widget _buildStatusIndicator({required IconData icon, required String label, required Color color}) {
+  Widget _buildStatusIndicator({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
     return Column(
       children: [
         Icon(icon, color: color, size: 18),

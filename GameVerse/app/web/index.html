@@ -44,6 +44,39 @@
   <script src="flutter_bootstrap.js" async></script>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
+    // El volumen nativo de un <audio> web se limita a 100 %. Este puente crea
+    // una cadena Web Audio por cada elemento remoto para permitir 0-200 %.
+    window.__nubzzzSetRemoteAudioGain = (audio, gain) => {
+      if (!audio) return;
+      const targetGain = Math.max(0, Math.min(2, Number(gain) || 0));
+      try {
+        if (!audio.__nubzzzGainNode) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) {
+            audio.volume = Math.min(1, targetGain);
+            return;
+          }
+          const context = window.__nubzzzAudioContext ||= new AudioContextClass();
+          const source = context.createMediaElementSource(audio);
+          const gainNode = context.createGain();
+          source.connect(gainNode);
+          gainNode.connect(context.destination);
+          audio.__nubzzzGainNode = gainNode;
+        }
+        const context = audio.__nubzzzGainNode.context;
+        if (context.state === 'suspended') context.resume();
+        audio.volume = 1;
+        audio.__nubzzzGainNode.gain.setTargetAtTime(
+          targetGain,
+          context.currentTime,
+          0.015,
+        );
+      } catch (error) {
+        // Fallback para navegadores que no permitan conectar el elemento.
+        audio.volume = Math.min(1, targetGain);
+      }
+    };
+
     window.nubzzzSpotify = {
       player: null,
       deviceId: null,

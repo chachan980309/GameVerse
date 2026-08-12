@@ -2,16 +2,39 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tournament_model.dart';
+import '../models/tournament_bracket_match.dart';
 
 class TournamentService {
   TournamentService({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
   static bool _hasClansTable = true;
 
-  Future<List<dynamic>> _safeSelectQuery(Future<List<dynamic>> Function(String selectStr) queryBuilder) async {
+  /// Métricas globales del área de torneos, calculadas en PostgreSQL para que
+  /// el encabezado no dependa del filtro ni de la paginación visible.
+  Future<Map<String, int>> getCommunityStats() async {
+    try {
+      final rows = await _client.rpc('get_tournament_community_stats');
+      if (rows is! List || rows.isEmpty) return const {};
+      final row = Map<String, dynamic>.from(rows.first as Map);
+      int value(String key) => int.tryParse(row[key]?.toString() ?? '') ?? 0;
+      return {
+        'tournaments': value('tournaments_count'),
+        'participants': value('participants_count'),
+        'live': value('live_count'),
+        'upcoming': value('upcoming_count'),
+      };
+    } catch (e) {
+      debugPrint('Error getting tournament community stats: $e');
+      return const {};
+    }
+  }
+
+  Future<List<dynamic>> _safeSelectQuery(
+    Future<List<dynamic>> Function(String selectStr) queryBuilder,
+  ) async {
     const selectWithClans = '''
       *,
       creator:profiles!tournaments_creator_id_fkey(*),
@@ -34,13 +57,19 @@ class TournamentService {
     } catch (e) {
       if (_hasClansTable) {
         final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('clans') || errorStr.contains('relation') || errorStr.contains('not found')) {
-          debugPrint('⚠️ DB Warning: clans table not found or query failed. Falling back to legacy tournaments select. Error: $e');
+        if (errorStr.contains('clans') ||
+            errorStr.contains('relation') ||
+            errorStr.contains('not found')) {
+          debugPrint(
+            '⚠️ DB Warning: clans table not found or query failed. Falling back to legacy tournaments select. Error: $e',
+          );
           _hasClansTable = false;
           try {
             return await queryBuilder(selectWithoutClans);
           } catch (retryError) {
-            debugPrint('Critical Error: legacy tournaments retry failed. Error: $retryError');
+            debugPrint(
+              'Critical Error: legacy tournaments retry failed. Error: $retryError',
+            );
             rethrow;
           }
         }
@@ -122,17 +151,24 @@ class TournamentService {
     }
   }
 
-  Future<String?> uploadFile(Uint8List bytes, String bucketName, String fileName) async {
+  Future<String?> uploadFile(
+    Uint8List bytes,
+    String bucketName,
+    String fileName,
+  ) async {
     try {
       final ext = fileName.split('.').last;
-      final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${(bytes.length % 1000)}.$ext';
-      
-      await _client.storage.from(bucketName).uploadBinary(
+      final uniqueName =
+          '${DateTime.now().millisecondsSinceEpoch}_${(bytes.length % 1000)}.$ext';
+
+      await _client.storage
+          .from(bucketName)
+          .uploadBinary(
             uniqueName,
             bytes,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
-      
+
       return uniqueName;
     } catch (e) {
       debugPrint("Error uploading file to storage bucket: $e");
@@ -190,35 +226,42 @@ class TournamentService {
     }
 
     final row = await _safeSelectQuery((selectStr) async {
-      final insertRow = await _client.from('tournaments').insert({
-        'name': name,
-        'description': description,
-        'game_name': gameName,
-        'game_image_url': gameImageUrl,
-        'game_poster_url': gamePosterUrl ?? coverUrl,
-        'game_hero_url': gameHeroUrl ?? coverUrl,
-        'game_background_url': gameBackgroundUrl ?? coverUrl,
-        'cover_url': coverUrl,
-        'banner_url': bannerUrl,
-        'rules': rules,
-        'prizes': prizes,
-        'max_players': maxPlayers,
-        'start_date': startDate.toIso8601String(),
-        'type': type,
-        'privacy': privacy,
-        'password': password,
-        'region': region,
-        'creator_id': userId,
-        'is_official': isOfficial,
-        'clan_id': clanId,
-      }).select(selectStr).single();
+      final insertRow = await _client
+          .from('tournaments')
+          .insert({
+            'name': name,
+            'description': description,
+            'game_name': gameName,
+            'game_image_url': gameImageUrl,
+            'game_poster_url': gamePosterUrl ?? coverUrl,
+            'game_hero_url': gameHeroUrl ?? coverUrl,
+            'game_background_url': gameBackgroundUrl ?? coverUrl,
+            'cover_url': coverUrl,
+            'banner_url': bannerUrl,
+            'rules': rules,
+            'prizes': prizes,
+            'max_players': maxPlayers,
+            'start_date': startDate.toIso8601String(),
+            'type': type,
+            'privacy': privacy,
+            'password': password,
+            'region': region,
+            'creator_id': userId,
+            'is_official': isOfficial,
+            'clan_id': clanId,
+          })
+          .select(selectStr)
+          .single();
       return [insertRow];
     });
 
     return TournamentModel.fromMap(row.first);
   }
 
-  Future<void> transferOwnershipToClan(String tournamentId, String clanId) async {
+  Future<void> transferOwnershipToClan(
+    String tournamentId,
+    String clanId,
+  ) async {
     await _client
         .from('tournaments')
         .update({'clan_id': clanId})
@@ -250,8 +293,47 @@ class TournamentService {
     await _client.from('tournaments').delete().eq('id', tournamentId);
   }
 
-  Future<void> updateTournamentStatus(String tournamentId, String newStatus) async {
-    await _client.from('tournaments').update({'status': newStatus}).eq('id', tournamentId);
+  Future<void> updateTournamentStatus(
+    String tournamentId,
+    String newStatus,
+  ) async {
+    await _client
+        .from('tournaments')
+        .update({'status': newStatus})
+        .eq('id', tournamentId);
+  }
+
+  Future<void> initializeBracket(String tournamentId) async {
+    await _client.rpc(
+      'initialize_tournament_bracket',
+      params: {'target_tournament_id': tournamentId},
+    );
+  }
+
+  Future<void> reportMatchWinner(String matchId, String winnerId) async {
+    await _client.rpc(
+      'report_tournament_match_winner',
+      params: {'target_match_id': matchId, 'target_winner_id': winnerId},
+    );
+  }
+
+  Future<List<TournamentBracketMatch>> getBracketMatches(
+    String tournamentId,
+  ) async {
+    final rows = await _client
+        .from('tournament_matches')
+        .select(
+          '*, player_one:profiles!tournament_matches_player_one_id_fkey(id, username), player_two:profiles!tournament_matches_player_two_id_fkey(id, username), winner:profiles!tournament_matches_winner_id_fkey(id, username)',
+        )
+        .eq('tournament_id', tournamentId)
+        .order('round_number')
+        .order('match_number');
+    return rows
+        .map(
+          (row) =>
+              TournamentBracketMatch.fromMap(Map<String, dynamic>.from(row)),
+        )
+        .toList();
   }
 
   Future<OrganizerStatsModel?> getOrganizerStats(String organizerId) async {
@@ -270,7 +352,11 @@ class TournamentService {
     }
   }
 
-  Future<void> reportTournament(String tournamentId, String reason, String details) async {
+  Future<void> reportTournament(
+    String tournamentId,
+    String reason,
+    String details,
+  ) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception("Usuario no autenticado");
 

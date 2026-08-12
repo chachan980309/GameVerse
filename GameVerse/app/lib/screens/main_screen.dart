@@ -217,6 +217,13 @@ class _MainScreenState extends State<MainScreen> {
                         child: viewedProfileId == null
                             ? (selectedIndex == 0
                                   ? FeedRightPanel(
+                                      onShowAllFriends: () {
+                                        setState(() {
+                                          selectedIndex = 2;
+                                          activeFriendChat = null;
+                                          viewedProfileId = null;
+                                        });
+                                      },
                                       onOpenChat: (profile) {
                                         setState(() {
                                           selectedIndex = 2;
@@ -689,29 +696,12 @@ class _MainScreenState extends State<MainScreen> {
     ],
   );
 
-  Widget _friendsLayout() => Row(
+  // Amigos gestiona su propia columna derecha: muestra descubrimiento y
+  // solicitudes antes de abrir el chat del contacto seleccionado.
+  Widget _friendsLayout() => Column(
     children: [
-      Expanded(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: FriendsPage(
-                showChat: false,
-                onFriendSelected: (profile) =>
-                    setState(() => activeFriendChat = profile),
-              ),
-            ),
-          ],
-        ),
-      ),
-      SizedBox(
-        width: 370,
-        child: FriendChatPanel(
-          profile: activeFriendChat,
-          onClose: () => setState(() => activeFriendChat = null),
-        ),
-      ),
+      _topBar(),
+      const Expanded(child: FriendsPage()),
     ],
   );
 }
