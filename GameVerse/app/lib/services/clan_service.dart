@@ -71,7 +71,7 @@ class ClanService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return rows.map((r) => ClanModel.fromMap(r)).toList();
+      return _mapClansWithActualMemberCounts(rows);
     } catch (e) {
       debugPrint('Error getting clans: $e');
       return [];
@@ -86,7 +86,8 @@ class ClanService {
           .eq('id', id)
           .maybeSingle();
       if (row == null) return null;
-      return ClanModel.fromMap(row);
+      final clans = await _mapClansWithActualMemberCounts([row]);
+      return clans.isEmpty ? null : clans.first;
     } catch (e) {
       debugPrint('Error getting clan by id: $e');
       return null;
@@ -100,11 +101,45 @@ class ClanService {
     try {
       final rows = await _supabase.rpc('get_featured_clan_weekly');
       if (rows is! List || rows.isEmpty) return null;
-      return ClanModel.fromMap(Map<String, dynamic>.from(rows.first as Map));
+      final clans = await _mapClansWithActualMemberCounts(rows);
+      return clans.isEmpty ? null : clans.first;
     } catch (e) {
       debugPrint('Error getting weekly featured clan: $e');
       return null;
     }
+  }
+
+  /// Los campos desnormalizados de clans pueden quedar atrasados. Para los
+  /// listados mostramos siempre el conteo real de filas en clan_members.
+  Future<List<ClanModel>> _mapClansWithActualMemberCounts(
+    List<dynamic> rows,
+  ) async {
+    final clanRows = rows
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+    if (clanRows.isEmpty) return const [];
+
+    final clanIds = clanRows.map((row) => row['id'].toString()).toList();
+    try {
+      final memberRows = await _supabase
+          .from('clan_members')
+          .select('clan_id')
+          .inFilter('clan_id', clanIds);
+      final counts = <String, int>{for (final clanId in clanIds) clanId: 0};
+      for (final member in memberRows) {
+        final clanId = member['clan_id']?.toString();
+        if (clanId != null && counts.containsKey(clanId)) {
+          counts[clanId] = counts[clanId]! + 1;
+        }
+      }
+      for (final row in clanRows) {
+        row['members_count'] = counts[row['id'].toString()] ?? 0;
+      }
+    } catch (error) {
+      debugPrint('Error getting actual clan member counts: $error');
+    }
+
+    return clanRows.map(ClanModel.fromMap).toList();
   }
 
   Future<Map<String, int>> getCommunityStats() async {

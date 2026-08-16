@@ -190,10 +190,31 @@ class MyApp extends StatelessWidget {
           },
         },
 
-        // ========================================================
-        // AUTH GATE
-        // ========================================================
-        home: const AuthGate(),
+        // Las rutas de la aplicación se conservan en el navegador. Así Atrás
+        // vuelve a la sección anterior de nubzzz en vez de salir del sitio.
+        onGenerateRoute: (settings) {
+          final uri = Uri.parse(settings.name ?? '/');
+          final path = uri.path.isEmpty ? '/' : uri.path;
+
+          if (path == '/' ||
+              path == '/inicio' ||
+              path == '/profile' ||
+              path.startsWith('/profile/') ||
+              path == '/amigos' ||
+              path == '/canales-voz' ||
+              path == '/torneos' ||
+              path == '/clanes') {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => AuthGate(initialPath: path),
+            );
+          }
+
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const AuthGate(initialPath: '/inicio'),
+          );
+        },
       ),
     );
   }

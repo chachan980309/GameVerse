@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../controllers/post_controller.dart';
 import '../../controllers/presence_controller.dart';
 import '../../models/post_model.dart';
 import '../../pages/post_detail_page.dart';
@@ -50,7 +51,7 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
       setState(() => _activeCard = (_activeCard + 1) % 3);
     });
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
+      const Duration(minutes: 2),
       (_) => _loadData(showLoading: false),
     );
   }
@@ -82,7 +83,12 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
 
       final mostMessaged = await DirectMessageService()
           .getMostMessagedContacts();
-      final posts = await PostService().getFeedPosts();
+      // The main feed already owns this data. Reusing it avoids issuing a
+      // second, identical feed query whenever the side panel refreshes.
+      final loadedFeed = PostController.instance.feedPosts;
+      final posts = loadedFeed.isEmpty
+          ? await PostService().getFeedPosts()
+          : loadedFeed;
       final friendIds = friends.map((friend) => friend.id).toSet();
       final friendPosts = posts
           .where((post) => friendIds.contains(post.userId))
@@ -92,35 +98,33 @@ class _FeedRightPanelState extends State<FeedRightPanel> {
           .where((post) => post.userId == user.id && _isToday(post.createdAt))
           .length;
 
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day).toUtc();
       final comments = await Supabase.instance.client
           .from('comments')
-          .select('created_at')
-          .eq('user_id', user.id);
-      final commentsToday = comments.where((row) {
-        final createdAt = row['created_at'];
-        return createdAt != null &&
-            _isToday(DateTime.parse(createdAt.toString()));
-      }).length;
+          .select('id')
+          .eq('user_id', user.id)
+          .gte('created_at', startOfToday.toIso8601String());
+      final commentsToday = comments.length;
 
       final myGames = await UserGamesService().getMyGames();
       List<_Trend> trends = const [];
       try {
-        final gameRows = await Supabase.instance.client
-            .from('user_games')
-            .select('game_name');
-        final counts = <String, int>{};
-        for (final row in gameRows) {
-          final name = row['game_name']?.toString().trim() ?? '';
-          if (name.isNotEmpty) counts[name] = (counts[name] ?? 0) + 1;
-        }
-        final entries = counts.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        trends = entries
-            .take(4)
-            .map((entry) => _Trend(entry.key, entry.value))
+        final gameRows = await Supabase.instance.client.rpc(
+          'get_game_trends',
+          params: {'result_limit': 4},
+        );
+        trends = List<Map<String, dynamic>>.from(gameRows as List)
+            .map(
+              (row) => _Trend(
+                row['game_name']?.toString() ?? '',
+                int.tryParse(row['player_count'].toString()) ?? 0,
+              ),
+            )
+            .where((trend) => trend.name.isNotEmpty && trend.players > 0)
             .toList();
       } catch (_) {
-        // If RLS only allows a user's own games, still show real personal data.
+        // Backwards-compatible fallback while the aggregate RPC is deployed.
         trends = myGames
             .map((game) => _Trend(game.gameName, 1))
             .take(4)

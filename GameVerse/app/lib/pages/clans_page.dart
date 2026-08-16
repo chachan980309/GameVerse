@@ -9,7 +9,6 @@ import '../models/clan_model.dart';
 import 'clan_detail_page.dart';
 import '../services/clan_service.dart';
 import '../services/image_picker_service.dart';
-import '../widgets/clans/clan_hero_video_background.dart';
 
 class ClansPage extends StatefulWidget {
   const ClansPage({super.key});
@@ -231,22 +230,9 @@ class _ClansPageState extends State<ClansPage> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Partículas y brillo sutil de fondo
-          if (_controller.featuredClanHeroVideoUrl != null)
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.82,
-                child: Transform.scale(
-                  // Recorta el borde negro propio del video y lleva el foco
-                  // de la animación hacia la zona derecha del hero.
-                  scale: 1.13,
-                  alignment: Alignment.centerLeft,
-                  child: ClanHeroVideoBackground(
-                    url: _controller.featuredClanHeroVideoUrl!,
-                  ),
-                ),
-              ),
-            ),
+          // El fondo estático evita descargar y reproducir el MP4 del hero
+          // automáticamente cada vez que se abre Clanes. El diseño conserva
+          // su gradiente y elementos decorativos sin generar Storage egress.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -517,273 +503,285 @@ class _ClansPageState extends State<ClansPage> {
           ),
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: const Color(0xff141120),
-        border: Border.all(
-          color: accent.withOpacity(_featuredClanHovered ? 0.62 : 0.2),
-          width: _featuredClanHovered ? 1.8 : 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(_featuredClanHovered ? 0.24 : 0.04),
-            blurRadius: _featuredClanHovered ? 44 : 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 650),
-            curve: Curves.easeOutCubic,
-            top: 0,
-            bottom: 0,
-            left: _featuredClanHovered ? 420 : -260,
-            width: 220,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.white.withOpacity(0.10),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xff141120),
+            border: Border.all(
+              color: accent.withOpacity(_featuredClanHovered ? 0.62 : 0.2),
+              width: _featuredClanHovered ? 1.8 : 1.5,
             ),
-          ),
-          // Banner de fondo difuminado
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 480,
-            child: clan.bannerUrl != null && clan.bannerUrl!.isNotEmpty
-                ? AnimatedOpacity(
-                    duration: const Duration(milliseconds: 220),
-                    opacity: _featuredClanHovered ? 0.25 : 0.15,
-                    child: Image.network(clan.bannerUrl!, fit: BoxFit.cover),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xff141120),
-                    const Color(0xff141120).withOpacity(0.4),
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withOpacity(_featuredClanHovered ? 0.24 : 0.04),
+                blurRadius: _featuredClanHovered ? 44 : 30,
+                offset: const Offset(0, 10),
               ),
-            ),
+            ],
           ),
-
-          Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.emoji_events_rounded,
-                      color: Colors.amberAccent,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'CLAN DESTACADO DE LA SEMANA',
-                      style: TextStyle(
-                        color: Colors.amberAccent.shade400,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const Spacer(),
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 180),
-                      opacity: _featuredClanHovered ? 1 : 0.55,
-                      child: const Text(
-                        'EXPLORAR PERFIL  →',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    _buildLogoAvatar(clan, size: 68, accent: accent),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                clan.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (clan.verified) ...[
-                                const SizedBox(width: 6),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  color: Colors.blueAccent,
-                                  size: 18,
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '[${clan.tag}]  ·  Nivel ${clan.level}',
-                            style: TextStyle(
-                              color: accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 650),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                left: _featuredClanHovered ? 420 : -260,
+                width: 220,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.white.withOpacity(0.10),
+                          Colors.transparent,
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: _joiningFeaturedClan
-                          ? null
-                          : () => _handleFeaturedClanAction(clan),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: _joiningFeaturedClan
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              _featuredClanActionLabel(clan),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  clan.description.isNotEmpty
-                      ? clan.description
-                      : 'Este clan compite ferozmente en torneos locales. ¡Únete para subir de nivel!',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 13,
-                    height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.people_rounded,
-                      color: Colors.white30,
-                      size: 14,
+              ),
+              // Banner de fondo difuminado
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 480,
+                child: clan.bannerUrl != null && clan.bannerUrl!.isNotEmpty
+                    ? AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: _featuredClanHovered ? 0.25 : 0.15,
+                        child: Image.network(
+                          clan.bannerUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xff141120),
+                        const Color(0xff141120).withOpacity(0.4),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${clan.membersCount} guerreros',
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    const Icon(
-                      Icons.location_on_rounded,
-                      color: Colors.white30,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      clan.region,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    const Icon(
-                      Icons.language_rounded,
-                      color: Colors.white30,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      clan.language,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 220),
-                  sizeCurve: Curves.easeOutCubic,
-                  crossFadeState: _featuredClanHovered
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  firstChild: const SizedBox(width: double.infinity),
-                  secondChild: Padding(
-                    padding: const EdgeInsets.only(top: 18),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        _featuredMetric(Icons.article_rounded, '${clan.postsCount} publicaciones'),
-                        _featuredMetric(Icons.emoji_events_rounded, '${clan.tournamentsWon} victorias'),
-                        _featuredMetric(Icons.calendar_month_rounded, '${clan.eventsHosted} eventos'),
-                        _featuredMetric(
-                          Icons.groups_rounded,
-                          '${(clan.maxMembers - clan.membersCount).clamp(0, clan.maxMembers)} cupos',
+                        const Icon(
+                          Icons.emoji_events_rounded,
+                          color: Colors.amberAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'CLAN DESTACADO DE LA SEMANA',
+                          style: TextStyle(
+                            color: Colors.amberAccent.shade400,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const Spacer(),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 180),
+                          opacity: _featuredClanHovered ? 1 : 0.55,
+                          child: const Text(
+                            'EXPLORAR PERFIL  →',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        _buildLogoAvatar(clan, size: 68, accent: accent),
+                        const SizedBox(width: 18),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    clan.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (clan.verified) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.blueAccent,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '[${clan.tag}]  ·  Nivel ${clan.level}',
+                                style: TextStyle(
+                                  color: accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: _joiningFeaturedClan
+                              ? null
+                              : () => _handleFeaturedClanAction(clan),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: _joiningFeaturedClan
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  _featuredClanActionLabel(clan),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      clan.description.isNotEmpty
+                          ? clan.description
+                          : 'Este clan compite ferozmente en torneos locales. ¡Únete para subir de nivel!',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.people_rounded,
+                          color: Colors.white30,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${clan.membersCount} guerreros',
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white30,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          clan.region,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        const Icon(
+                          Icons.language_rounded,
+                          color: Colors.white30,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          clan.language,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 220),
+                      sizeCurve: Curves.easeOutCubic,
+                      crossFadeState: _featuredClanHovered
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      firstChild: const SizedBox(width: double.infinity),
+                      secondChild: Padding(
+                        padding: const EdgeInsets.only(top: 18),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _featuredMetric(
+                              Icons.article_rounded,
+                              '${clan.postsCount} publicaciones',
+                            ),
+                            _featuredMetric(
+                              Icons.emoji_events_rounded,
+                              '${clan.tournamentsWon} victorias',
+                            ),
+                            _featuredMetric(
+                              Icons.calendar_month_rounded,
+                              '${clan.eventsHosted} eventos',
+                            ),
+                            _featuredMetric(
+                              Icons.groups_rounded,
+                              '${(clan.maxMembers - clan.membersCount).clamp(0, clan.maxMembers)} cupos',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
         ),
       ),
     );
@@ -802,7 +800,10 @@ class _ClansPageState extends State<ClansPage> {
         children: [
           Icon(icon, size: 14, color: Colors.amberAccent),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
         ],
       ),
     );

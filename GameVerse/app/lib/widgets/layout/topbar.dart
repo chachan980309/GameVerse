@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:app/controllers/profile_controller.dart';
-import 'package:app/screens/login_screen.dart';
 import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
@@ -236,9 +235,9 @@ class _TopBarState extends State<TopBar> {
 
                       if (!context.mounted) return;
 
-                      Navigator.pushAndRemoveUntil(
+                      Navigator.pushNamedAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        '/login',
                         (route) => false,
                       );
                     },

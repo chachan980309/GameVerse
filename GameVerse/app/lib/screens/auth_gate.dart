@@ -8,7 +8,9 @@ import 'main_screen.dart';
 import 'reset_password_screen.dart';
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, this.initialPath = '/inicio'});
+
+  final String initialPath;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -181,7 +183,7 @@ class _AuthGateState extends State<AuthGate> {
     final session = auth.currentSession;
 
     if (session != null) {
-      return const MainScreen();
+      return MainScreen(initialPath: widget.initialPath);
     }
 
     // ==========================================================

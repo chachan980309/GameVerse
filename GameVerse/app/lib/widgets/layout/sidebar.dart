@@ -4,10 +4,16 @@ import 'package:provider/provider.dart';
 import '../../controllers/profile_controller.dart';
 
 class Sidebar extends StatelessWidget {
-  const Sidebar({super.key, required this.selected, required this.onSelected});
+  const Sidebar({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+    this.compact = false,
+  });
 
   final int selected;
   final ValueChanged<int> onSelected;
+  final bool compact;
 
   // ============================================================
   // ITEM DEL MENÚ
@@ -19,6 +25,23 @@ class Sidebar extends StatelessWidget {
     required int index,
   }) {
     final active = selected == index;
+
+    if (compact) {
+      return Tooltip(
+        message: title,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: active ? const Color(0xff6438FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            onPressed: () => onSelected(index),
+            icon: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -63,8 +86,10 @@ class Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = Provider.of<ProfileController>(context);
 
+    if (compact) return _compactSidebar(profile);
+
     return Container(
-      width: 240,
+      width: double.infinity,
       color: selected == 0 || selected == 1 || selected == 3 || selected == 5
           ? const Color.fromRGBO(8, 9, 16, 0.88)
           : const Color(0xff0D0E15),
@@ -310,4 +335,61 @@ class Sidebar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _compactSidebar(ProfileController profile) => Container(
+    color: selected == 0 || selected == 1 || selected == 3 || selected == 5
+        ? const Color.fromRGBO(8, 9, 16, 0.92)
+        : const Color(0xff0D0E15),
+    child: SafeArea(
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xff6438FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.sports_esports_rounded,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 18),
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: const Color(0xff6438FF),
+            backgroundImage: profile.avatarUrl?.isNotEmpty == true
+                ? NetworkImage(profile.avatarUrl!)
+                : null,
+            child: profile.avatarUrl?.isNotEmpty == true
+                ? null
+                : const Icon(Icons.person, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          _menuItem(icon: Icons.home_rounded, title: 'Inicio', index: 0),
+          _menuItem(icon: Icons.person_rounded, title: 'Perfil', index: 1),
+          _menuItem(icon: Icons.people_rounded, title: 'Amigos', index: 2),
+          _menuItem(
+            icon: Icons.graphic_eq_rounded,
+            title: 'Canales de voz',
+            index: 3,
+          ),
+          _menuItem(
+            icon: Icons.emoji_events_rounded,
+            title: 'Torneos',
+            index: 4,
+          ),
+          _menuItem(icon: Icons.fort_rounded, title: 'Clanes', index: 5),
+          const Spacer(),
+          const Text(
+            'v1.0',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+          const SizedBox(height: 14),
+        ],
+      ),
+    ),
+  );
 }

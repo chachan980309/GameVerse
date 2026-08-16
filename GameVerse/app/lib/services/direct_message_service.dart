@@ -5,6 +5,13 @@ import '../models/direct_message.dart';
 class DirectMessageService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // The UI currently has no "load older messages" control. Keep a generous,
+  // bounded window so an old conversation cannot grow each chat request
+  // without bound. Newest messages are kept and returned chronologically.
+  static const _conversationWindow = 100;
+  static const _inboxWindow = 200;
+  static const _contactActivityWindow = 500;
+
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
   Future<List<DirectMessage>> getConversation(String otherUserId) async {
@@ -16,8 +23,9 @@ class DirectMessageService {
         .or(
           'and(sender_id.eq.$userId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$userId)',
         )
-        .order('created_at', ascending: true);
-    return data
+        .order('created_at', ascending: false)
+        .limit(_conversationWindow);
+    return data.reversed
         .map<DirectMessage>((item) => DirectMessage.fromMap(item))
         .toList();
   }
@@ -48,7 +56,8 @@ class DirectMessageService {
           'id, sender_id, receiver_id, content, created_at, read_at, sender:profiles!direct_messages_sender_id_fkey(id, username, avatar_url), receiver:profiles!direct_messages_receiver_id_fkey(id, username, avatar_url)',
         )
         .or('sender_id.eq.$userId,receiver_id.eq.$userId')
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(_inboxWindow);
 
     final conversations = <String, Map<String, dynamic>>{};
     for (final raw in List<Map<String, dynamic>>.from(data)) {
@@ -96,7 +105,9 @@ class DirectMessageService {
         .select(
           'sender_id, receiver_id, created_at, sender:profiles!direct_messages_sender_id_fkey(id, username, avatar_url), receiver:profiles!direct_messages_receiver_id_fkey(id, username, avatar_url)',
         )
-        .or('sender_id.eq.$userId,receiver_id.eq.$userId');
+        .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+        .order('created_at', ascending: false)
+        .limit(_contactActivityWindow);
     final contacts = <String, Map<String, dynamic>>{};
     for (final raw in List<Map<String, dynamic>>.from(data)) {
       final sentByMe = raw['sender_id']?.toString() == userId;

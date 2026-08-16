@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 
+enum FeedScope { all, friends }
+
 class PostController extends ChangeNotifier {
   static final PostController instance = PostController._internal();
 
@@ -24,6 +26,7 @@ class PostController extends ChangeNotifier {
   bool isLoadingMore = false;
   bool hasMoreFeed = true;
   bool hasMoreUserPosts = true;
+  FeedScope feedScope = FeedScope.all;
 
   /// Usuario cuyo muro está cargado actualmente
   String? _currentUserId;
@@ -32,13 +35,18 @@ class PostController extends ChangeNotifier {
   // FEED
   // ==========================
 
-  Future<void> loadFeed() async {
+  Future<void> loadFeed({FeedScope? scope}) async {
+    feedScope = scope ?? feedScope;
     isLoading = true;
     hasMoreFeed = true;
     notifyListeners();
 
     try {
-      feedPosts = await _postService.getFeedPosts(offset: 0, limit: 20);
+      feedPosts = await _postService.getFeedPosts(
+        offset: 0,
+        limit: 20,
+        friendsOnly: feedScope == FeedScope.friends,
+      );
       if (feedPosts.length < 20) {
         hasMoreFeed = false;
       }
@@ -54,7 +62,11 @@ class PostController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final morePosts = await _postService.getFeedPosts(offset: feedPosts.length, limit: 20);
+      final morePosts = await _postService.getFeedPosts(
+        offset: feedPosts.length,
+        limit: 20,
+        friendsOnly: feedScope == FeedScope.friends,
+      );
       if (morePosts.isEmpty || morePosts.length < 20) {
         hasMoreFeed = false;
       }
@@ -93,7 +105,11 @@ class PostController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final morePosts = await _postService.getUserPosts(_currentUserId!, offset: userPosts.length, limit: 20);
+      final morePosts = await _postService.getUserPosts(
+        _currentUserId!,
+        offset: userPosts.length,
+        limit: 20,
+      );
       if (morePosts.isEmpty || morePosts.length < 20) {
         hasMoreUserPosts = false;
       }
@@ -120,6 +136,8 @@ class PostController extends ChangeNotifier {
     String type = "text",
     String? sharedPostId,
     String? streamId,
+    String? pollQuestion,
+    List<String>? pollOptions,
   }) async {
     await _postService.createPost(
       content: content,
@@ -133,6 +151,8 @@ class PostController extends ChangeNotifier {
       type: type,
       sharedPostId: sharedPostId,
       streamId: streamId,
+      pollQuestion: pollQuestion,
+      pollOptions: pollOptions,
     );
 
     // Actualiza el feed

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/presence_controller.dart';
@@ -21,10 +20,11 @@ import '../widgets/layout/right_panel.dart';
 import '../widgets/layout/feed_right_panel.dart';
 import '../widgets/layout/feed_background.dart';
 import '../widgets/layout/topbar.dart';
-import '../widgets/chat/friend_chat_panel.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialPath = '/inicio'});
+
+  final String initialPath;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -42,6 +42,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _applyPath(widget.initialPath);
     ProfileController.instance.loadProfile();
     _startOnlinePresence();
     ProfileNavigationService.instance.addListener(_openPublicProfile);
@@ -121,20 +122,53 @@ class _MainScreenState extends State<MainScreen> {
   void _openPublicProfile() {
     final profileId = ProfileNavigationService.instance.value;
     if (profileId == null || !mounted) return;
-    setState(() {
-      selectedIndex = 1;
-      viewedProfileId = profileId;
-      activeFriendChat = null;
-    });
+    ProfileNavigationService.instance.clear();
+    _navigateTo('/profile/$profileId');
   }
 
   void _openPost() {
     if (PostNavigationService.instance.postId == null || !mounted) return;
-    setState(() {
-      selectedIndex = 0;
-      viewedProfileId = null;
-      activeFriendChat = null;
-    });
+    _navigateTo('/inicio');
+  }
+
+  void _applyPath(String path) {
+    final normalized = Uri.parse(path).path;
+    final segments = Uri.parse(normalized).pathSegments;
+    if (segments.isNotEmpty && segments.first == 'profile') {
+      selectedIndex = 1;
+      viewedProfileId = segments.length > 1 ? segments[1] : null;
+      return;
+    }
+    selectedIndex = switch (normalized) {
+      '/amigos' => 2,
+      '/canales-voz' => 3,
+      '/torneos' => 4,
+      '/clanes' => 5,
+      _ => 0,
+    };
+    viewedProfileId = null;
+  }
+
+  String _pathForIndex(int index) => switch (index) {
+    0 => '/inicio',
+    1 => '/profile',
+    2 => '/amigos',
+    3 => '/canales-voz',
+    4 => '/torneos',
+    5 => '/clanes',
+    _ => '/inicio',
+  };
+
+  void _goToIndex(int index) {
+    if (index == selectedIndex && (index != 1 || viewedProfileId == null)) {
+      return;
+    }
+    _navigateTo(_pathForIndex(index));
+  }
+
+  void _navigateTo(String path) {
+    if (!mounted || ModalRoute.of(context)?.settings.name == path) return;
+    Navigator.of(context).pushNamed(path);
   }
 
   Widget currentPage() {
@@ -190,54 +224,50 @@ class _MainScreenState extends State<MainScreen> {
           Column(
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 250,
-                      child: Sidebar(
-                        selected: selectedIndex,
-                        onSelected: (index) {
-                          setState(() {
-                            selectedIndex = index;
-                            viewedProfileId = null;
-                            if (index != 2) activeFriendChat = null;
-                          });
-                          ProfileNavigationService.instance.clear();
-                        },
-                      ),
-                    ),
-                    Expanded(
-                      child: selectedIndex == 2
-                          ? _friendsLayout()
-                          : _standardLayout(),
-                    ),
-                    if (selectedIndex != 2)
-                      SizedBox(
-                        width: selectedIndex == 0 ? 310 : 280,
-                        child: viewedProfileId == null
-                            ? (selectedIndex == 0
-                                  ? FeedRightPanel(
-                                      onShowAllFriends: () {
-                                        setState(() {
-                                          selectedIndex = 2;
-                                          activeFriendChat = null;
-                                          viewedProfileId = null;
-                                        });
-                                      },
-                                      onOpenChat: (profile) {
-                                        setState(() {
-                                          selectedIndex = 2;
-                                          activeFriendChat = profile;
-                                        });
-                                      },
-                                    )
-                                  : const MyProfilePanel())
-                            : PublicProfilePanel(
-                                key: ValueKey('public-panel-$viewedProfileId'),
-                                userId: viewedProfileId!,
-                              ),
-                      ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showRightPanel = constraints.maxWidth >= 1320;
+                    final compactSidebar = constraints.maxWidth < 1080;
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: compactSidebar ? 76 : 250,
+                          child: Sidebar(
+                            compact: compactSidebar,
+                            selected: selectedIndex,
+                            onSelected: (index) {
+                              ProfileNavigationService.instance.clear();
+                              _goToIndex(index);
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: selectedIndex == 2
+                              ? _friendsLayout()
+                              : _standardLayout(),
+                        ),
+                        if (showRightPanel && selectedIndex != 2)
+                          SizedBox(
+                            width: selectedIndex == 0 ? 310 : 280,
+                            child: viewedProfileId == null
+                                ? (selectedIndex == 0
+                                      ? FeedRightPanel(
+                                          onShowAllFriends: () => _goToIndex(2),
+                                          onOpenChat: (profile) {
+                                            _goToIndex(2);
+                                          },
+                                        )
+                                      : const MyProfilePanel())
+                                : PublicProfilePanel(
+                                    key: ValueKey(
+                                      'public-panel-$viewedProfileId',
+                                    ),
+                                    userId: viewedProfileId!,
+                                  ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
               ListenableBuilder(

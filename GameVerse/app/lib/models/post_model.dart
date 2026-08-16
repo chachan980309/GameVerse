@@ -25,6 +25,8 @@ class PostModel {
   final String? streamId;
   final String? clanId;
   final String? clanName;
+  final String? pollQuestion;
+  final List<String> pollOptions;
 
   const PostModel({
     required this.id,
@@ -47,6 +49,8 @@ class PostModel {
     this.streamId,
     this.clanId,
     this.clanName,
+    this.pollQuestion,
+    this.pollOptions = const [],
   });
 
   factory PostModel.fromMap(Map<String, dynamic> map) {
@@ -63,12 +67,20 @@ class PostModel {
       videoUrl: map["video"],
       thumbnailUrl: map["thumbnail_url"],
       duration: map["duration"],
-      width: map["width"] != null ? int.tryParse(map["width"].toString()) : null,
-      height: map["height"] != null ? int.tryParse(map["height"].toString()) : null,
-      aspectRatio: map["aspect_ratio"] != null ? double.tryParse(map["aspect_ratio"].toString()) : null,
+      width: map["width"] != null
+          ? int.tryParse(map["width"].toString())
+          : null,
+      height: map["height"] != null
+          ? int.tryParse(map["height"].toString())
+          : null,
+      aspectRatio: map["aspect_ratio"] != null
+          ? double.tryParse(map["aspect_ratio"].toString())
+          : null,
 
       type: map["type"] ?? "text",
-      createdAt: DateTime.tryParse(map["created_at"]?.toString() ?? "") ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(map["created_at"]?.toString() ?? "") ??
+          DateTime.now(),
       username: profile?["username"]?.toString() ?? "Usuario",
       avatarUrl: profile?["avatar_url"]?.toString() ?? "",
       sharedPostId: map['shared_post_id']?.toString(),
@@ -80,6 +92,11 @@ class PostModel {
       clanName: map['clans'] != null && map['clans'] is Map<String, dynamic>
           ? (map['clans'] as Map<String, dynamic>)['name']?.toString()
           : null,
+      pollQuestion: map['poll_question']?.toString(),
+      pollOptions: (map['poll_options'] as List<dynamic>? ?? const [])
+          .map((option) => option.toString())
+          .where((option) => option.isNotEmpty)
+          .toList(),
     );
   }
 

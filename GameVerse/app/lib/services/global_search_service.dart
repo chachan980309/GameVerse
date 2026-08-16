@@ -5,7 +5,7 @@ import 'friend_service.dart';
 /// Searches only data that already exists in nubzzz's Supabase project.
 class GlobalSearchService {
   GlobalSearchService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -13,14 +13,27 @@ class GlobalSearchService {
     final term = query.trim();
     if (term.length < 2) return GlobalSearchResults.empty();
 
-    // Prevent special PostgREST filter characters from changing the query.
-    final rawUsers = await _safeList(FriendService().searchUsers());
+    // `.or()` is assembled from user input, so remove PostgREST control
+    // characters before sending it to the server.
+    final filterTerm = term
+        .replaceAll(RegExp(r'[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ _-]'), ' ')
+        .trim();
+    if (filterTerm.length < 2) return GlobalSearchResults.empty();
+
+    // Search at the database instead of downloading every profile and the
+    // latest 100 posts for each keystroke.
+    final rawUsers = await _safeList(
+      FriendService().searchUsers(query: filterTerm, limit: 6),
+    );
     final rawPosts = await _safeList(
       _supabase
           .from('posts')
-          .select('id, content, game, created_at, profiles(username, avatar_url)')
+          .select(
+            'id, content, game, created_at, profiles(username, avatar_url)',
+          )
+          .or('content.ilike.%$filterTerm%,game.ilike.%$filterTerm%')
           .order('created_at', ascending: false)
-          .limit(100),
+          .limit(6),
     );
 
     final currentUser = _supabase.auth.currentUser;
@@ -50,7 +63,11 @@ class GlobalSearchService {
         .toList();
     final games = rawPosts
         .map((row) => row['game']?.toString().trim() ?? '')
-        .where((game) => game.isNotEmpty && game.toLowerCase().contains(term.toLowerCase()))
+        .where(
+          (game) =>
+              game.isNotEmpty &&
+              game.toLowerCase().contains(term.toLowerCase()),
+        )
         .toSet()
         .take(6)
         .toList();
@@ -71,8 +88,12 @@ class GlobalSearchService {
 
   bool _matchesPost(Map<String, dynamic> post, String query) {
     final rawProfile = post['profiles'];
-    final profile = rawProfile is Map ? Map<String, dynamic>.from(rawProfile) : <String, dynamic>{};
-    final value = '${post['content'] ?? ''} ${post['game'] ?? ''} ${profile['username'] ?? ''}'.toLowerCase();
+    final profile = rawProfile is Map
+        ? Map<String, dynamic>.from(rawProfile)
+        : <String, dynamic>{};
+    final value =
+        '${post['content'] ?? ''} ${post['game'] ?? ''} ${profile['username'] ?? ''}'
+            .toLowerCase();
     return value.contains(query.toLowerCase());
   }
 
@@ -94,12 +115,8 @@ class GlobalSearchResults {
     required this.posts,
   });
 
-  factory GlobalSearchResults.empty() => const GlobalSearchResults(
-        people: [],
-        friends: [],
-        games: [],
-        posts: [],
-      );
+  factory GlobalSearchResults.empty() =>
+      const GlobalSearchResults(people: [], friends: [], games: [], posts: []);
 
   final List<GlobalSearchPerson> people;
   final List<GlobalSearchPerson> friends;
@@ -144,7 +161,9 @@ class GlobalSearchPost {
 
   factory GlobalSearchPost.fromMap(Map<String, dynamic> map) {
     final rawProfile = map['profiles'];
-    final profile = rawProfile is Map ? Map<String, dynamic>.from(rawProfile) : <String, dynamic>{};
+    final profile = rawProfile is Map
+        ? Map<String, dynamic>.from(rawProfile)
+        : <String, dynamic>{};
     return GlobalSearchPost(
       id: map['id']?.toString() ?? '',
       content: map['content']?.toString() ?? '',

@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../controllers/profile_controller.dart';
-import 'main_screen.dart';
 
 String _storageUrl(String folder, String file) => Supabase
     .instance
@@ -60,10 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/inicio', (route) => false);
     } on AuthException catch (e) {
       _showMessage(e.message);
     } catch (e) {

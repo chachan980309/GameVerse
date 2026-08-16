@@ -11,6 +11,7 @@ import '../../services/live_stream_service.dart';
 import 'post_actions.dart';
 import 'post_header.dart';
 import 'post_media.dart';
+import 'poll_card.dart';
 import '../mention_text.dart';
 
 class PostCard extends StatelessWidget {
@@ -90,6 +91,11 @@ class PostCard extends StatelessWidget {
           if (post.type == 'live' && post.streamId != null) ...[
             const SizedBox(height: 14),
             _LivePostBanner(post: post),
+          ],
+
+          if (post.type == 'poll') ...[
+            const SizedBox(height: 14),
+            PollCard(post: post),
           ],
 
           /// MEDIA
@@ -184,7 +190,8 @@ class _LivePostBannerState extends State<_LivePostBanner> {
   void _onRoomChanged() {
     if (!mounted) return;
     VideoTrack? found;
-    for (final p in (_room?.remoteParticipants.values ?? <RemoteParticipant>[])) {
+    for (final p
+        in (_room?.remoteParticipants.values ?? <RemoteParticipant>[])) {
       final pubs = p.videoTrackPublications;
       for (final pub in List.of(pubs)) {
         final track = pub.track;
@@ -290,7 +297,10 @@ class _LivePostBannerState extends State<_LivePostBanner> {
                 top: 12,
                 left: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xffD9485F),
                     borderRadius: BorderRadius.circular(6),

@@ -207,12 +207,21 @@ class _FriendsPageState extends State<FriendsPage> {
             const SizedBox(height: 14),
             Expanded(
               child: widget.showChat
-                  ? Row(
-                      children: [
-                        Expanded(child: body),
-                        const SizedBox(width: 18),
-                        SizedBox(width: 330, child: _friendsSidePanel()),
-                      ],
+                  ? LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 900) {
+                          return _activeChatProfile == null
+                              ? body
+                              : _chatPanel();
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: body),
+                            const SizedBox(width: 18),
+                            SizedBox(width: 330, child: _friendsSidePanel()),
+                          ],
+                        );
+                      },
                     )
                   : body,
             ),
@@ -846,6 +855,12 @@ class _FriendsPageState extends State<FriendsPage> {
     });
   }
 
+  void _openProfile(Map<String, dynamic> profile) {
+    final userId = profile['id']?.toString();
+    if (userId == null || userId.isEmpty) return;
+    ProfileNavigationService.instance.openProfile(userId);
+  }
+
   Future<void> _sendChatMessage() async {
     final userId = _activeChatProfile?['id']?.toString();
     if (_sendingMessage ||
@@ -927,30 +942,45 @@ class _FriendsPageState extends State<FriendsPage> {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                _avatar(profile),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _name(profile),
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  child: InkWell(
+                    onTap: () => _openProfile(profile),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          _avatar(profile),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _name(profile),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  _profileOnline(profile)
+                                      ? 'En línea'
+                                      : 'Desconectado',
+                                  style: TextStyle(
+                                    color: _profileOnline(profile)
+                                        ? const Color(0xFF1ED760)
+                                        : Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        _profileOnline(profile) ? 'En línea' : 'Desconectado',
-                        style: TextStyle(
-                          color: _profileOnline(profile)
-                              ? const Color(0xFF1ED760)
-                              : Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 IconButton(

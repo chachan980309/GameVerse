@@ -43,7 +43,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   bool _watchingScreenShare = false;
   String? _screenSharerId;
   String? _focusedScreenSharerId;
-  List<({String type, String user, String text, DateTime time})> _activityLog = [];
+  List<({String type, String user, String text, DateTime time})> _activityLog =
+      [];
   Set<String> _previousParticipantIds = {};
   Set<String> _previousScreenSharers = {};
   int _previousPresenceRevision = 0;
@@ -59,7 +60,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     if (_cachedJoinedChannels != null) _joinedChannels = _cachedJoinedChannels!;
     _loadingChannels = _channels.isEmpty;
 
-    if (_voiceController.isConnected && _voiceController.connectedChannel != null) {
+    if (_voiceController.isConnected &&
+        _voiceController.connectedChannel != null) {
       _activeChannel = _voiceController.connectedChannel;
       _roomChannel = _voiceController.connectedChannel;
       _enterRoomView(_roomChannel!);
@@ -93,7 +95,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
           schema: 'public',
           table: 'voice_channel_members',
           callback: (payload) {
-            print('[REALTIME] voice_channel_members changed: ${payload.eventType}');
+            print(
+              '[REALTIME] voice_channel_members changed: ${payload.eventType}',
+            );
             _loadChannels();
           },
         )
@@ -123,7 +127,10 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
 
     final currentParticipants = _voiceController.participants;
     final currentIds = currentParticipants.map((p) => p.id).toSet();
-    final currentSharers = currentParticipants.where((p) => p.isScreenSharing).map((p) => p.id).toSet();
+    final currentSharers = currentParticipants
+        .where((p) => p.isScreenSharing)
+        .map((p) => p.id)
+        .toSet();
 
     // Sincronizar eventos de audio en el canal mediante Supabase de forma compartida
     if (_activeChannel != null) {
@@ -131,14 +138,18 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         _logVoiceEvent(
           channelId: _activeChannel!.id,
           type: 'mic_toggle',
-          message: _voiceController.microphoneMuted ? 'silenció su micrófono' : 'activó su micrófono',
+          message: _voiceController.microphoneMuted
+              ? 'silenció su micrófono'
+              : 'activó su micrófono',
         );
       }
       if (_deafened != _voiceController.deafened) {
         _logVoiceEvent(
           channelId: _activeChannel!.id,
           type: 'deafen_toggle',
-          message: _voiceController.deafened ? 'silenció el audio del canal' : 'activó el audio del canal',
+          message: _voiceController.deafened
+              ? 'silenció el audio del canal'
+              : 'activó el audio del canal',
         );
       }
     }
@@ -152,7 +163,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         .firstOrNull;
 
     // Solo disparar reconstrucción del Scaffold si hay cambios estructurales/estados críticos de la llamada o actualizaciones de presencia
-    final hasChanges = _muted != newMuted ||
+    final hasChanges =
+        _muted != newMuted ||
         _deafened != newDeafened ||
         _streaming != newStreaming ||
         _screenSharerId != newScreenSharerId ||
@@ -232,7 +244,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
             type: row['message_type']?.toString() ?? 'text',
             user: row['username']?.toString() ?? 'Usuario',
             text: row['message']?.toString() ?? '',
-            time: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
+            time:
+                DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+                DateTime.now(),
           );
         }).toList();
       });
@@ -253,7 +267,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     }
 
     final profile = ProfileController.instance;
-    final username = profile.username.isNotEmpty ? profile.username : (user.email?.split('@').first ?? 'Usuario');
+    final username = profile.username.isNotEmpty
+        ? profile.username
+        : (user.email?.split('@').first ?? 'Usuario');
     final avatarUrl = profile.avatarUrl ?? '';
 
     try {
@@ -292,11 +308,21 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
             final type = row['message_type']?.toString() ?? 'text';
             final user = row['username']?.toString() ?? 'Usuario';
             final text = row['message']?.toString() ?? '';
-            final time = DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now();
+            final time =
+                DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+                DateTime.now();
 
             if (mounted) {
               setState(() {
-                final isDuplicateText = type == 'text' && user == (ProfileController.instance.username ?? 'Tú') && _activityLog.any((l) => l.type == 'text' && l.text == text && DateTime.now().difference(l.time).inSeconds < 3);
+                final isDuplicateText =
+                    type == 'text' &&
+                    user == (ProfileController.instance.username ?? 'Tú') &&
+                    _activityLog.any(
+                      (l) =>
+                          l.type == 'text' &&
+                          l.text == text &&
+                          DateTime.now().difference(l.time).inSeconds < 3,
+                    );
                 if (!isDuplicateText) {
                   _activityLog.add((
                     type: type,
@@ -458,10 +484,13 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
 
   Widget _featuredCard(VoiceChannel channel) {
     final active = _activeChannel == channel;
-    final isCurrentlyConnected = _voiceController.isConnected && _voiceController.connectedChannelId == channel.id;
+    final isCurrentlyConnected =
+        _voiceController.isConnected &&
+        _voiceController.connectedChannelId == channel.id;
     final highlighted = active || isCurrentlyConnected;
 
-    final members = _voiceController.voicePresenceParticipants[channel.id] ?? const [];
+    final members =
+        _voiceController.voicePresenceParticipants[channel.id] ?? const [];
 
     return _channelContainer(
       active: highlighted,
@@ -496,7 +525,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                 const SizedBox(width: 16),
               ],
               Icon(
-                highlighted ? Icons.graphic_eq_rounded : Icons.multitrack_audio_rounded,
+                highlighted
+                    ? Icons.graphic_eq_rounded
+                    : Icons.multitrack_audio_rounded,
                 color: _purple,
                 size: 28,
               ),
@@ -508,10 +539,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: members.map((member) => _buildParticipantRow(member)).toList(),
-              ),
+              child: _participantAvatars(members),
             ),
           ],
         ],
@@ -522,10 +550,13 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
 
   Widget _channelCard(VoiceChannel channel) {
     final active = _activeChannel == channel;
-    final isCurrentlyConnected = _voiceController.isConnected && _voiceController.connectedChannelId == channel.id;
+    final isCurrentlyConnected =
+        _voiceController.isConnected &&
+        _voiceController.connectedChannelId == channel.id;
     final highlighted = active || isCurrentlyConnected;
 
-    final members = _voiceController.voicePresenceParticipants[channel.id] ?? const [];
+    final members =
+        _voiceController.voicePresenceParticipants[channel.id] ?? const [];
 
     return _channelContainer(
       active: highlighted,
@@ -562,7 +593,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
               OutlinedButton(
                 onPressed: _joining ? null : () => _join(channel),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: highlighted ? Colors.white : const Color(0xffA873FF),
+                  foregroundColor: highlighted
+                      ? Colors.white
+                      : const Color(0xffA873FF),
                   backgroundColor: highlighted ? _purple : Colors.transparent,
                   side: BorderSide(
                     color: highlighted ? _purple : const Color(0xff55308B),
@@ -570,14 +603,22 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
                 child: Text(isCurrentlyConnected ? 'Entrar' : 'Unirse'),
               ),
-              if (channel.createdBy == Supabase.instance.client.auth.currentUser?.id) ...[
+              if (channel.createdBy ==
+                  Supabase.instance.client.auth.currentUser?.id) ...[
                 const SizedBox(width: 12),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 21),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 21,
+                  ),
                   onPressed: () => _deleteChannel(channel),
                   tooltip: 'Eliminar canal',
                   padding: EdgeInsets.zero,
@@ -592,10 +633,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: members.map((member) => _buildParticipantRow(member)).toList(),
-              ),
+              child: _participantAvatars(members),
             ),
           ],
         ],
@@ -604,80 +642,118 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  Widget _buildParticipantRow(VoiceChannelMember member) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(1.5),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: member.isSpeaking ? const Color(0xff2ECC71) : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            child: CircleAvatar(
-              radius: 10,
-              backgroundColor: const Color(0xff5D3487),
-              backgroundImage: member.avatarUrl.isNotEmpty
-                  ? NetworkImage(member.avatarUrl)
-                  : null,
-              child: member.avatarUrl.isEmpty
-                  ? const Icon(Icons.person, size: 10, color: Colors.white)
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            member.username,
-            style: TextStyle(
-              color: member.isSpeaking ? const Color(0xff2ECC71) : const Color(0xffE2E2E2),
-              fontSize: 13,
-              fontWeight: member.isSpeaking ? FontWeight.bold : FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (member.isScreenSharing) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+  Widget _participantAvatars(List<VoiceChannelMember> members) {
+    const maxVisible = 8;
+    final visibleMembers = members.take(maxVisible).toList();
+    final remaining = members.length - visibleMembers.length;
+    return Wrap(
+      spacing: 5,
+      runSpacing: 5,
+      children: [
+        ...visibleMembers.map(
+          (member) => Tooltip(
+            message: member.username,
+            child: Container(
+              padding: const EdgeInsets.all(1.5),
               decoration: BoxDecoration(
-                color: const Color(0xffE74C3C),
-                borderRadius: BorderRadius.circular(4),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: member.isSpeaking
+                      ? const Color(0xff2ECC71)
+                      : const Color(0xff403252),
+                  width: 1.5,
+                ),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.screen_share_rounded, size: 8, color: Colors.white),
-                  SizedBox(width: 3),
-                  Text(
-                    'EN DIRECTO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xff5D3487),
+                backgroundImage: member.avatarUrl.isNotEmpty
+                    ? NetworkImage(member.avatarUrl)
+                    : null,
+                child: member.avatarUrl.isEmpty
+                    ? Text(
+                        member.username.isEmpty
+                            ? '?'
+                            : member.username[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
-            const SizedBox(width: 6),
-          ],
-          if (member.isMuted) ...[
-            const Icon(
-              Icons.mic_off_rounded,
-              color: Color(0xffE74C3C),
-              size: 13,
+          ),
+        ),
+        if (remaining > 0)
+          InkWell(
+            onTap: () => _showAllParticipants(members),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 31,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xff302442),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xff634787)),
+              ),
+              child: Text(
+                '+$remaining',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ],
-        ],
-      ),
+          ),
+      ],
     );
   }
 
-
+  void _showAllParticipants(List<VoiceChannelMember> members) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xff1B1625),
+        title: Text(
+          '${members.length} personas en el canal',
+          style: const TextStyle(color: Colors.white, fontSize: 17),
+        ),
+        content: SizedBox(
+          width: 340,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: members.length,
+            separatorBuilder: (_, _) =>
+                const Divider(color: Colors.white12, height: 1),
+            itemBuilder: (_, index) {
+              final member = members[index];
+              return ListTile(
+                dense: true,
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xff5D3487),
+                  backgroundImage: member.avatarUrl.isNotEmpty
+                      ? NetworkImage(member.avatarUrl)
+                      : null,
+                  child: member.avatarUrl.isEmpty
+                      ? const Icon(Icons.person, size: 15, color: Colors.white)
+                      : null,
+                ),
+                title: Text(
+                  member.username,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _channelContainer({
     required bool active,
@@ -753,8 +829,6 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       ),
     ],
   );
-
-
 
   Widget _voiceControls() => Positioned(
     left: 28,
@@ -870,7 +944,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     if (_joining) return;
 
     // Si ya estamos conectados a este canal, simplemente entramos a la sala visualmente
-    if (_voiceController.isConnected && _voiceController.connectedChannelId == channel.id) {
+    if (_voiceController.isConnected &&
+        _voiceController.connectedChannelId == channel.id) {
       setState(() {
         _activeChannel = channel;
         _roomChannel = channel;
@@ -885,7 +960,10 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     setState(() => _joining = true);
     try {
       await _channelService.joinChannel(channel.id);
-      final connected = await _voiceController.connect(channel.roomName, channel: channel);
+      final connected = await _voiceController.connect(
+        channel.roomName,
+        channel: channel,
+      );
       if (!mounted) return;
       if (!connected) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -910,7 +988,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         _streaming = false;
       });
       _enterRoomView(channel);
-      _logVoiceEvent(channelId: channel.id, type: 'join', message: 'entró al canal');
+      _logVoiceEvent(
+        channelId: channel.id,
+        type: 'join',
+        message: 'entró al canal',
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -926,98 +1008,113 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     final descriptionController = TextEditingController();
     Uint8List? selectedImageBytes;
 
-    final channelData = await showDialog<({String name, String description, Uint8List? avatarBytes})>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setStateDialog) {
-          return AlertDialog(
-            backgroundColor: const Color(0xff191525),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text(
-              'Crear canal de voz',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Avatar de Canal
-                  GestureDetector(
-                    onTap: () async {
-                      final bytes = await ImagePickerService.pickImage();
-                      if (bytes != null) {
-                        setStateDialog(() {
-                          selectedImageBytes = bytes;
-                        });
-                      }
-                    },
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: const Color(0xff29233A),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _purple, width: 2),
-                        image: selectedImageBytes != null
-                            ? DecorationImage(
-                                image: MemoryImage(selectedImageBytes!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
+    final channelData =
+        await showDialog<
+          ({String name, String description, Uint8List? avatarBytes})
+        >(
+          context: context,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return AlertDialog(
+                backgroundColor: const Color(0xff191525),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                title: const Text(
+                  'Crear canal de voz',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                content: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Avatar de Canal
+                      GestureDetector(
+                        onTap: () async {
+                          final bytes = await ImagePickerService.pickImage();
+                          if (bytes != null) {
+                            setStateDialog(() {
+                              selectedImageBytes = bytes;
+                            });
+                          }
+                        },
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: const Color(0xff29233A),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _purple, width: 2),
+                            image: selectedImageBytes != null
+                                ? DecorationImage(
+                                    image: MemoryImage(selectedImageBytes!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: selectedImageBytes == null
+                              ? const Icon(
+                                  Icons.add_a_photo_rounded,
+                                  color: Colors.white70,
+                                  size: 24,
+                                )
+                              : null,
+                        ),
                       ),
-                      child: selectedImageBytes == null
-                          ? const Icon(Icons.add_a_photo_rounded, color: Colors.white70, size: 24)
-                          : null,
-                    ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Avatar del canal (opcional)',
+                        style: TextStyle(
+                          color: Color(0xff9893A4),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _dialogField(
+                        controller: nameController,
+                        label: 'Nombre del canal',
+                        hint: 'Ej. Squad competitivo',
+                      ),
+                      const SizedBox(height: 14),
+                      _dialogField(
+                        controller: descriptionController,
+                        label: 'Descripción',
+                        hint: '¿De qué se hablará en este canal?',
+                        maxLength: 90,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Avatar del canal (opcional)',
-                    style: TextStyle(color: Color(0xff9893A4), fontSize: 12),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Cancelar'),
                   ),
-                  const SizedBox(height: 16),
-                  _dialogField(
-                    controller: nameController,
-                    label: 'Nombre del canal',
-                    hint: 'Ej. Squad competitivo',
-                  ),
-                  const SizedBox(height: 14),
-                  _dialogField(
-                    controller: descriptionController,
-                    label: 'Descripción',
-                    hint: '¿De qué se hablará en este canal?',
-                    maxLength: 90,
+                  FilledButton.icon(
+                    onPressed: () {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      Navigator.pop(dialogContext, (
+                        name: name,
+                        description: descriptionController.text.trim().isEmpty
+                            ? 'Canal creado por ti'
+                            : descriptionController.text.trim(),
+                        avatarBytes: selectedImageBytes,
+                      ));
+                    },
+                    style: FilledButton.styleFrom(backgroundColor: _purple),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Crear y unirme'),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton.icon(
-                onPressed: () {
-                  final name = nameController.text.trim();
-                  if (name.isEmpty) return;
-                  Navigator.pop(dialogContext, (
-                    name: name,
-                    description: descriptionController.text.trim().isEmpty
-                        ? 'Canal creado por ti'
-                        : descriptionController.text.trim(),
-                    avatarBytes: selectedImageBytes,
-                  ));
-                },
-                style: FilledButton.styleFrom(backgroundColor: _purple),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Crear y unirme'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+              );
+            },
+          ),
+        );
     nameController.dispose();
     descriptionController.dispose();
     if (channelData == null || !mounted) return;
@@ -1063,16 +1160,21 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     bool hasConnectedUsers = false;
 
     // Comprobar únicamente los usuarios realmente conectados mediante el estado real de la sesión WebRTC/presence
-    if (_voiceController.isConnected && _voiceController.connectedChannelId == channel.id) {
+    if (_voiceController.isConnected &&
+        _voiceController.connectedChannelId == channel.id) {
       // Excluir al usuario local. Si hay más participantes en la llamada de WebRTC, impedir eliminar.
-      hasConnectedUsers = _voiceController.participants.where((p) => !p.isLocal).isNotEmpty;
+      hasConnectedUsers = _voiceController.participants
+          .where((p) => !p.isLocal)
+          .isNotEmpty;
     }
 
     if (hasConnectedUsers) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se puede eliminar el canal porque hay usuarios conectados.'),
+            content: Text(
+              'No se puede eliminar el canal porque hay usuarios conectados.',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -1085,8 +1187,13 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xff191525),
-        title: const Text('¿Eliminar canal?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('¿Estás seguro de que deseas eliminar "${channel.name}"? Esta acción no se puede deshacer.'),
+        title: const Text(
+          '¿Eliminar canal?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar "${channel.name}"? Esta acción no se puede deshacer.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -1140,12 +1247,24 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xff161324),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Historial de Actividad del Canal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text(
+          'Historial de Actividad del Canal',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
         content: SizedBox(
           width: 380,
           height: 450,
           child: _activityLog.isEmpty
-              ? const Center(child: Text('No hay actividades aún.', style: TextStyle(color: Colors.white38, fontSize: 13)))
+              ? const Center(
+                  child: Text(
+                    'No hay actividades aún.',
+                    style: TextStyle(color: Colors.white38, fontSize: 13),
+                  ),
+                )
               : ListView.builder(
                   itemCount: _activityLog.length,
                   itemBuilder: (context, index) {
@@ -1155,8 +1274,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                     final color = isJoined
                         ? Colors.greenAccent
                         : isLeft
-                            ? const Color(0xffD64A68)
-                            : Colors.white70;
+                        ? const Color(0xffD64A68)
+                        : Colors.white70;
 
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -1164,24 +1283,39 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                         isJoined
                             ? Icons.login_rounded
                             : isLeft
-                                ? Icons.logout_rounded
-                                : Icons.message_rounded,
+                            ? Icons.logout_rounded
+                            : Icons.message_rounded,
                         color: color,
                         size: 16,
                       ),
                       title: RichText(
                         text: TextSpan(
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                           children: [
-                            TextSpan(text: log.user, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                            TextSpan(
+                              text: log.user,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                             const TextSpan(text: ' '),
-                            TextSpan(text: log.text, style: TextStyle(color: color)),
+                            TextSpan(
+                              text: log.text,
+                              style: TextStyle(color: color),
+                            ),
                           ],
                         ),
                       ),
                       trailing: Text(
                         '${log.time.hour}:${log.time.minute.toString().padLeft(2, '0')}',
-                        style: const TextStyle(color: Colors.white30, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.white30,
+                          fontSize: 10,
+                        ),
                       ),
                     );
                   },
@@ -1277,7 +1411,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                 )
               else if (_screenSharerId != null)
                 OutlinedButton.icon(
-                  onPressed: () => setState(() => _watchingScreenShare = !_watchingScreenShare),
+                  onPressed: () => setState(
+                    () => _watchingScreenShare = !_watchingScreenShare,
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xff7B4DFF)),
@@ -1286,10 +1422,14 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                       vertical: 14,
                     ),
                   ),
-                  icon: Icon(_watchingScreenShare
-                      ? Icons.stop_screen_share_rounded
-                      : Icons.screen_share_rounded),
-                  label: Text(_watchingScreenShare ? 'Dejar de ver' : 'Ver transmisión'),
+                  icon: Icon(
+                    _watchingScreenShare
+                        ? Icons.stop_screen_share_rounded
+                        : Icons.screen_share_rounded,
+                  ),
+                  label: Text(
+                    _watchingScreenShare ? 'Dejar de ver' : 'Ver transmisión',
+                  ),
                 )
               else
                 OutlinedButton.icon(
@@ -1339,9 +1479,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      Expanded(
-                        child: _liveStage(isOwner: _streaming),
-                      ),
+                      Expanded(child: _liveStage(isOwner: _streaming)),
                     ],
                   ),
                 ),
@@ -1361,10 +1499,10 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-
-
   Widget _liveStage({required bool isOwner}) {
-    final screenSharers = _voiceController.participants.where((p) => p.isScreenSharing).toList();
+    final screenSharers = _voiceController.participants
+        .where((p) => p.isScreenSharing)
+        .toList();
     final hasScreenShareActive = screenSharers.isNotEmpty;
 
     return AnimatedSwitcher(
@@ -1378,12 +1516,16 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
   Widget _buildParticipantsGridStage() {
     final users = _voiceController.participants;
     if (users.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xff8B4DFF)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xff8B4DFF)),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        int count = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
+        int count = constraints.maxWidth > 800
+            ? 3
+            : (constraints.maxWidth > 500 ? 2 : 1);
         return GridView.builder(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: count,
@@ -1401,7 +1543,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                 color: const Color(0xff120F1F),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: isSpeaking ? const Color(0xff50E6A5) : const Color(0xff221C35),
+                  color: isSpeaking
+                      ? const Color(0xff50E6A5)
+                      : const Color(0xff221C35),
                   width: isSpeaking ? 2 : 1,
                 ),
                 boxShadow: [
@@ -1424,18 +1568,28 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSpeaking ? const Color(0xff50E6A5) : Colors.transparent,
+                            color: isSpeaking
+                                ? const Color(0xff50E6A5)
+                                : Colors.transparent,
                             width: 2,
                           ),
                         ),
                         child: CircleAvatar(
                           radius: 36,
                           backgroundColor: const Color(0xff8B4DFF),
-                          backgroundImage: user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
+                          backgroundImage: user.avatarUrl.isNotEmpty
+                              ? NetworkImage(user.avatarUrl)
+                              : null,
                           child: user.avatarUrl.isEmpty
                               ? Text(
-                                  user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
-                                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                  user.name.isEmpty
+                                      ? '?'
+                                      : user.name[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 )
                               : null,
                         ),
@@ -1450,7 +1604,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                               color: Color(0xffD64A68),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.mic_off_rounded, color: Colors.white, size: 10),
+                            child: const Icon(
+                              Icons.mic_off_rounded,
+                              color: Colors.white,
+                              size: 10,
+                            ),
                           ),
                         ),
                     ],
@@ -1458,17 +1616,23 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   const SizedBox(height: 14),
                   Text(
                     user.isLocal ? '${user.name} (Tú)' : user.name,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     isSpeaking
                         ? 'Hablando'
                         : user.isMuted
-                            ? 'Silenciado'
-                            : 'Escuchando',
+                        ? 'Silenciado'
+                        : 'Escuchando',
                     style: TextStyle(
-                      color: isSpeaking ? const Color(0xff50E6A5) : Colors.white38,
+                      color: isSpeaking
+                          ? const Color(0xff50E6A5)
+                          : Colors.white38,
                       fontSize: 10,
                     ),
                   ),
@@ -1481,17 +1645,25 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-  Widget _buildScreenShareStage(List<VoiceParticipantState> screenSharers, bool isOwner) {
+  Widget _buildScreenShareStage(
+    List<VoiceParticipantState> screenSharers,
+    bool isOwner,
+  ) {
     if (screenSharers.isEmpty) return const SizedBox.shrink();
 
     // Sincronizar foco del stream activo
-    if (_focusedScreenSharerId == null || !screenSharers.any((p) => p.id == _focusedScreenSharerId)) {
+    if (_focusedScreenSharerId == null ||
+        !screenSharers.any((p) => p.id == _focusedScreenSharerId)) {
       _focusedScreenSharerId = screenSharers.first.id;
     }
 
-    final focusedSharer = screenSharers.firstWhere((p) => p.id == _focusedScreenSharerId);
+    final focusedSharer = screenSharers.firstWhere(
+      (p) => p.id == _focusedScreenSharerId,
+    );
     final isLocalOwner = focusedSharer.isLocal;
-    final remoteTrack = isLocalOwner ? null : _voiceController.remoteScreenShareTrack;
+    final remoteTrack = isLocalOwner
+        ? null
+        : _voiceController.remoteScreenShareTrack;
 
     return Column(
       children: [
@@ -1513,42 +1685,89 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.screen_share_rounded, color: Color(0xff8B4DFF), size: 68),
+                            const Icon(
+                              Icons.screen_share_rounded,
+                              color: Color(0xff8B4DFF),
+                              size: 68,
+                            ),
                             const SizedBox(height: 14),
-                            const Text('Estás transmitiendo tu pantalla', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            const Text(
+                              'Estás transmitiendo tu pantalla',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            const Text('Los miembros del canal pueden ver tu directo', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                            const Text(
+                              'Los miembros del canal pueden ver tu directo',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                       )
                     : remoteTrack != null
-                        ? Center(child: VideoTrackRenderer(remoteTrack))
-                        : Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.screen_share_rounded, color: Color(0xff8B4DFF), size: 54),
-                                const SizedBox(height: 12),
-                                Text('${focusedSharer.name} está transmitiendo...', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                              ],
+                    ? Center(child: VideoTrackRenderer(remoteTrack))
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.screen_share_rounded,
+                              color: Color(0xff8B4DFF),
+                              size: 54,
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${focusedSharer.name} está transmitiendo...',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                 // Cabecera superpuesta con el nombre del streamer enfocado
                 Positioned(
                   top: 14,
                   left: 14,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xffD9485F))),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xffD9485F),
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         Text(
-                          isLocalOwner ? 'Tu transmisión' : 'Pantalla de ${focusedSharer.name}',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          isLocalOwner
+                              ? 'Tu transmisión'
+                              : 'Pantalla de ${focusedSharer.name}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -1561,9 +1780,16 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                     bottom: 14,
                     right: 14,
                     child: Container(
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: IconButton(
-                        icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.fullscreen_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Pantalla completa',
                         onPressed: () => _openFullScreen(remoteTrack),
                       ),
@@ -1594,25 +1820,38 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   },
                   child: Container(
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xff8B4DFF).withOpacity(0.12) : const Color(0xff141120),
+                      color: isSelected
+                          ? const Color(0xff8B4DFF).withOpacity(0.12)
+                          : const Color(0xff141120),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? const Color(0xff8B4DFF) : const Color(0xff221C35),
+                        color: isSelected
+                            ? const Color(0xff8B4DFF)
+                            : const Color(0xff221C35),
                         width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.live_tv_rounded, color: Colors.white38, size: 14),
+                        const Icon(
+                          Icons.live_tv_rounded,
+                          color: Colors.white38,
+                          size: 14,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           sharer.isLocal ? 'Tu Directo' : sharer.name,
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.white60,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 12,
                           ),
                         ),
@@ -1636,9 +1875,7 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            Center(
-              child: VideoTrackRenderer(track),
-            ),
+            Center(child: VideoTrackRenderer(track)),
             Positioned(
               top: 24,
               right: 24,
@@ -1648,7 +1885,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
+                  icon: const Icon(
+                    Icons.fullscreen_exit_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                   onPressed: () => Navigator.pop(dialogContext),
                 ),
               ),
@@ -1658,8 +1899,6 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       ),
     );
   }
-
-
 
   void _submitChatMessage(String value, VoiceChannel channel) {
     final cleanValue = value.trim();
@@ -1686,19 +1925,27 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (activityScrollController.hasClients) {
-        activityScrollController.jumpTo(activityScrollController.position.maxScrollExtent);
+        activityScrollController.jumpTo(
+          activityScrollController.position.maxScrollExtent,
+        );
       }
       if (chatScrollController.hasClients) {
-        chatScrollController.jumpTo(chatScrollController.position.maxScrollExtent);
+        chatScrollController.jumpTo(
+          chatScrollController.position.maxScrollExtent,
+        );
       }
     });
 
-    final systemEvents = _activityLog.where((log) => log.type != 'text').toList();
+    final systemEvents = _activityLog
+        .where((log) => log.type != 'text')
+        .toList();
     if (systemEvents.length > 30) {
       systemEvents.removeRange(0, systemEvents.length - 30);
     }
 
-    final chatMessages = _activityLog.where((log) => log.type == 'text').toList();
+    final chatMessages = _activityLog
+        .where((log) => log.type == 'text')
+        .toList();
 
     return Container(
       color: const Color.fromRGBO(15, 12, 25, 0.94),
@@ -1709,7 +1956,12 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
           // 1. PANEL DE ACTIVIDAD DEL CANAL (Altura fija 150px con scroll independiente)
           const Text(
             '⚡ ACTIVIDAD DEL CANAL',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              letterSpacing: 0.5,
+            ),
           ),
           const SizedBox(height: 6),
           SizedBox(
@@ -1718,7 +1970,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                 ? const Center(
                     child: Text(
                       'Sin actividad reciente.',
-                      style: TextStyle(color: Colors.white24, fontSize: 11, fontStyle: FontStyle.italic),
+                      style: TextStyle(
+                        color: Colors.white24,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -1741,7 +1997,8 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                       } else if (log.type == 'stream_end') {
                         icon = Icons.wifi_tethering_off_rounded;
                         color = Colors.white38;
-                      } else if (log.type == 'mic_toggle' || log.type == 'deafen_toggle') {
+                      } else if (log.type == 'mic_toggle' ||
+                          log.type == 'deafen_toggle') {
                         icon = Icons.settings_voice_rounded;
                         color = const Color(0xffB986FF);
                       } else if (log.type == 'system') {
@@ -1760,11 +2017,17 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                             Expanded(
                               child: RichText(
                                 text: TextSpan(
-                                  style: const TextStyle(fontSize: 11, color: Colors.white54),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white54,
+                                  ),
                                   children: [
                                     TextSpan(
                                       text: '${log.user} ',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: color,
+                                      ),
                                     ),
                                     TextSpan(text: log.text),
                                   ],
@@ -1782,11 +2045,19 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
           // 2. PANEL DE CHAT DEL CANAL (Ocupa el resto de la pantalla)
           Row(
             children: [
-              const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white38, size: 12),
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                color: Colors.white38,
+                size: 12,
+              ),
               const SizedBox(width: 6),
               Text(
                 '💬 CHAT - #${channel.name.toUpperCase()}',
-                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -1813,19 +2084,29 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
                               children: [
                                 Text(
                                   log.user,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 11),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.greenAccent,
+                                    fontSize: 11,
+                                  ),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '${log.time.hour}:${log.time.minute.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(color: Colors.white24, fontSize: 8),
+                                  style: const TextStyle(
+                                    color: Colors.white24,
+                                    fontSize: 8,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
                             Text(
                               log.text.replaceFirst(': ', ''),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -1840,16 +2121,23 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
             onSubmitted: (value) => _submitChatMessage(value, channel),
             decoration: InputDecoration(
               hintText: 'Escribe un mensaje...',
-              hintStyle: const TextStyle(color: Color(0xff777383), fontSize: 12),
+              hintStyle: const TextStyle(
+                color: Color(0xff777383),
+                fontSize: 12,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(Icons.send_rounded, color: _purple, size: 18),
-                onPressed: () => _submitChatMessage(_chatInputController.text, channel),
+                onPressed: () =>
+                    _submitChatMessage(_chatInputController.text, channel),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
               filled: true,
               fillColor: const Color(0xff211B30),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -1861,14 +2149,14 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
     );
   }
 
-
-
-
-
   Future<void> _leaveVoiceRoom() async {
     if (_activeChannel != null) {
       try {
-        await _logVoiceEvent(channelId: _activeChannel!.id, type: 'leave', message: 'salió del canal');
+        await _logVoiceEvent(
+          channelId: _activeChannel!.id,
+          type: 'leave',
+          message: 'salió del canal',
+        );
         await _channelService.leaveChannel(_activeChannel!.id);
       } catch (_) {}
     }
@@ -1994,7 +2282,9 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
       _logVoiceEvent(
         channelId: _activeChannel!.id,
         type: startingStream ? 'stream_start' : 'stream_end',
-        message: startingStream ? 'comenzó a compartir pantalla' : 'detuvo su transmisión',
+        message: startingStream
+            ? 'comenzó a compartir pantalla'
+            : 'detuvo su transmisión',
       );
     }
   }

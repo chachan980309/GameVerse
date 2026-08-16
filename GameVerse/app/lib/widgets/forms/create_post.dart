@@ -126,11 +126,24 @@ class _CreatePostState extends State<CreatePost> {
   }
 
   Future<void> pickImage() async {
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
 
     if (image == null) return;
 
     final bytes = await image.readAsBytes();
+    if (bytes.lengthInBytes > PostService.maxPostImageBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La imagen debe pesar máximo 5 MB.')),
+        );
+      }
+      return;
+    }
 
     setState(() {
       selectedImageBytes = bytes;
@@ -147,6 +160,14 @@ class _CreatePostState extends State<CreatePost> {
     if (video == null) return;
 
     final bytes = await video.readAsBytes();
+    if (bytes.lengthInBytes > PostService.maxPostVideoBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El video debe pesar máximo 25 MB.')),
+        );
+      }
+      return;
+    }
 
     setState(() {
       selectedVideoBytes = bytes;
@@ -158,9 +179,7 @@ class _CreatePostState extends State<CreatePost> {
   }
 
   Future<void> startStream() async {
-    final titleController = TextEditingController(
-      text: controller.text.trim(),
-    );
+    final titleController = TextEditingController(text: controller.text.trim());
     final title = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -277,10 +296,143 @@ class _CreatePostState extends State<CreatePost> {
     }
   }
 
-  void createPoll() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Próximamente encuestas 📊")));
+  Future<void> createPoll() async {
+    final questionController = TextEditingController();
+    final optionControllers = [
+      TextEditingController(),
+      TextEditingController(),
+    ];
+
+    final poll = await showDialog<({String question, List<String> options})>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF211D2E),
+          title: const Text(
+            'Crear encuesta',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: questionController,
+                    autofocus: true,
+                    maxLength: 180,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Pregunta',
+                      hintText: '¿Qué quieres preguntarle a la comunidad?',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...List.generate(
+                    optionControllers.length,
+                    (index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: optionControllers[index],
+                              maxLength: 80,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                labelText: 'Respuesta ${index + 1}',
+                                counterText: '',
+                              ),
+                            ),
+                          ),
+                          if (optionControllers.length > 2)
+                            IconButton(
+                              tooltip: 'Quitar respuesta',
+                              onPressed: () => setDialogState(
+                                () =>
+                                    optionControllers.removeAt(index).dispose(),
+                              ),
+                              icon: const Icon(
+                                Icons.remove_circle_outline,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (optionControllers.length < 6)
+                    TextButton.icon(
+                      onPressed: () => setDialogState(
+                        () => optionControllers.add(TextEditingController()),
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Añadir respuesta'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final question = questionController.text.trim();
+                final options = optionControllers
+                    .map((item) => item.text.trim())
+                    .where((item) => item.isNotEmpty)
+                    .toList();
+                if (question.isEmpty || options.length < 2) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Escribe una pregunta y al menos dos respuestas.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, (
+                  question: question,
+                  options: options,
+                ));
+              },
+              child: const Text('Publicar encuesta'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    questionController.dispose();
+    for (final option in optionControllers) {
+      option.dispose();
+    }
+    if (poll == null || !mounted) return;
+
+    setState(() => loading = true);
+    try {
+      await postController.createPost(
+        content: controller.text.trim(),
+        type: 'poll',
+        pollQuestion: poll.question,
+        pollOptions: poll.options,
+      );
+      controller.clear();
+      widget.onPostCreated();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: Colors.redAccent, content: Text('$error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> publishPost() async {
@@ -332,13 +484,16 @@ class _CreatePostState extends State<CreatePost> {
           Future(() async {
             try {
               debugPrint("Extrayendo metadatos y miniatura del video...");
-              final meta = await VideoMetadataHelper.extractMetadata(selectedVideoBytes!, selectedVideoName!);
+              final meta = await VideoMetadataHelper.extractMetadata(
+                selectedVideoBytes!,
+                selectedVideoName!,
+              );
               final durationVal = meta['duration'] as String?;
               final thumbBytes = meta['thumbnailBytes'] as Uint8List?;
               final w = meta['width'] as int?;
               final h = meta['height'] as int?;
               final ratio = meta['aspectRatio'] as double?;
-              
+
               String? thumbUrl;
               if (thumbBytes != null) {
                 debugPrint("Subiendo miniatura generada...");
@@ -373,7 +528,9 @@ class _CreatePostState extends State<CreatePost> {
         debugPrint("Video subido: $videoUrl");
         debugPrint("Miniatura subida: $thumbnailUrl");
         debugPrint("Duración: $duration");
-        debugPrint("Dimensiones: $videoWidth x $videoHeight (aspectRatio: $videoAspectRatio)");
+        debugPrint(
+          "Dimensiones: $videoWidth x $videoHeight (aspectRatio: $videoAspectRatio)",
+        );
       }
 
       debugPrint("Creando publicación...");
@@ -730,7 +887,10 @@ class _CreatePostState extends State<CreatePost> {
                   foregroundColor: Colors.white,
                   elevation: 4,
                   shadowColor: const Color(0x7F7B4DFF),
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),

@@ -1,0 +1,9 @@
+name = "rapid-shadow-68c7"
+compatibility_date = "2026-08-14"
+
+# El único contenido que se publica es el resultado de Flutter.
+# Cualquier URL interna (/inicio, /profile/:id, etc.) entrega index.html para
+# que el enrutador de Flutter la resuelva sin devolver un 404.
+[assets]
+directory = "./build/web"
+not_found_handling = "single-page-application"

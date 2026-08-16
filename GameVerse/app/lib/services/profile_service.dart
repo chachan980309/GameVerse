@@ -58,7 +58,10 @@ class ProfileService {
           .uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(contentType: "image/png"),
+            fileOptions: const FileOptions(
+              contentType: "image/png",
+              cacheControl: '31536000',
+            ),
           );
 
       final publicUrl = _supabase.storage.from("avatars").getPublicUrl(path);
@@ -128,7 +131,10 @@ class ProfileService {
           .uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(contentType: "image/png"),
+            fileOptions: const FileOptions(
+              contentType: "image/png",
+              cacheControl: '31536000',
+            ),
           );
 
       print("Banner subido correctamente.");
@@ -159,10 +165,7 @@ class ProfileService {
 
         await _supabase.auth.updateUser(
           UserAttributes(
-            data: {
-              "banner_position": verticalPosition,
-              "banner_scale": scale,
-            },
+            data: {"banner_position": verticalPosition, "banner_scale": scale},
           ),
         );
       }

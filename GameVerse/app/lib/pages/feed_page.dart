@@ -21,6 +21,9 @@ class _FeedPageState extends State<FeedPage> {
   @override
   void initState() {
     super.initState();
+    if (postController.feedScope != FeedScope.all) {
+      postController.loadFeed(scope: FeedScope.all);
+    }
     PostNavigationService.instance.addListener(_onPostRequested);
     _feedScrollController.addListener(_onScroll);
   }
@@ -98,7 +101,13 @@ class _FeedPageState extends State<FeedPage> {
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                       child: Column(
                         children: [
-                          CreatePost(onPostCreated: postController.loadFeed),
+                          CreatePost(
+                            onPostCreated: () => postController.loadFeed(
+                              scope: _selectedFeed == 0
+                                  ? FeedScope.all
+                                  : FeedScope.friends,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           _feedTabs(),
                           const SizedBox(height: 12),
@@ -112,8 +121,14 @@ class _FeedPageState extends State<FeedPage> {
                                 builder: (context, _) => PostList(
                                   posts: postController.feedPosts,
                                   loading: postController.isLoading,
-                                  onRefresh: postController.loadFeed,
-                                  emptyMessage: 'Aún no hay publicaciones.',
+                                  onRefresh: () => postController.loadFeed(
+                                    scope: _selectedFeed == 0
+                                        ? FeedScope.all
+                                        : FeedScope.friends,
+                                  ),
+                                  emptyMessage: _selectedFeed == 0
+                                      ? 'Aún no hay publicaciones.'
+                                      : 'Tus amigos aún no han publicado.',
                                   focusPostId:
                                       PostNavigationService.instance.postId,
                                   scrollController: _feedScrollController,
@@ -156,34 +171,7 @@ class _FeedPageState extends State<FeedPage> {
       ],
     ),
     child: Row(
-      children: [
-        _tab('Para ti', 0),
-        const SizedBox(width: 6),
-        _tab('Siguiendo', 1),
-        const SizedBox(width: 6),
-        _tab('Populares', 2),
-        const Spacer(),
-        TextButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.tune_rounded, size: 15),
-          label: const Text(
-            'Filtrar',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFFC5B4FF),
-            backgroundColor: Colors.white.withOpacity(0.03),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.white.withOpacity(0.05)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-      ],
+      children: [_tab('Feed', 0), const SizedBox(width: 6), _tab('Amigos', 1)],
     ),
   );
 
@@ -191,7 +179,7 @@ class _FeedPageState extends State<FeedPage> {
     final selected = _selectedFeed == index;
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => setState(() => _selectedFeed = index),
+      onTap: () => _selectFeed(index),
       child: Container(
         height: 38,
         alignment: Alignment.center,
@@ -217,6 +205,21 @@ class _FeedPageState extends State<FeedPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _selectFeed(int index) async {
+    if (_selectedFeed == index &&
+        postController.feedScope ==
+            (index == 0 ? FeedScope.all : FeedScope.friends)) {
+      return;
+    }
+    setState(() => _selectedFeed = index);
+    if (_feedScrollController.hasClients) {
+      _feedScrollController.jumpTo(0);
+    }
+    await postController.loadFeed(
+      scope: index == 0 ? FeedScope.all : FeedScope.friends,
     );
   }
 }

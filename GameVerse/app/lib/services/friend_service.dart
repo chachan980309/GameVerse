@@ -3,19 +3,29 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class FriendService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  static const _profileFields =
+      'id, username, avatar_url, status, motto, is_online, last_seen_at, favorite_game';
+
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  Future<List<Map<String, dynamic>>> searchUsers() async {
+  Future<List<Map<String, dynamic>>> searchUsers({
+    String? query,
+    int? limit,
+  }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Usuario no autenticado.');
 
-    final data = await _supabase
+    var request = _supabase
         .from('profiles')
-        .select(
-          'id, username, avatar_url, status, motto, is_online, last_seen_at',
-        )
-        .neq('id', user.id)
-        .order('username');
+        .select(_profileFields)
+        .neq('id', user.id);
+    final text = query?.trim();
+    if (text != null && text.isNotEmpty) {
+      request = request.ilike('username', '%$text%');
+    }
+    final data = limit == null
+        ? await request.order('username')
+        : await request.order('username').limit(limit);
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -64,7 +74,7 @@ class FriendService {
     final data = await _supabase
         .from('friendships')
         .select(
-          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey(*)',
+          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey($_profileFields)',
         )
         .eq('receiver_id', user.id)
         .eq('status', 'pending');
@@ -76,7 +86,7 @@ class FriendService {
     final data = await _supabase
         .from('friendships')
         .select(
-          'id, sender_id, receiver_id, receiver:profiles!friendships_receiver_id_fkey(*)',
+          'id, sender_id, receiver_id, receiver:profiles!friendships_receiver_id_fkey($_profileFields)',
         )
         .eq('sender_id', user.id)
         .eq('status', 'pending');
@@ -88,7 +98,7 @@ class FriendService {
     final data = await _supabase
         .from('friendships')
         .select(
-          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey(*), receiver:profiles!friendships_receiver_id_fkey(*)',
+          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey($_profileFields), receiver:profiles!friendships_receiver_id_fkey($_profileFields)',
         )
         .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}')
         .eq('status', 'accepted');
@@ -100,7 +110,7 @@ class FriendService {
     final data = await _supabase
         .from('friendships')
         .select(
-          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey(*), receiver:profiles!friendships_receiver_id_fkey(*)',
+          'id, sender_id, receiver_id, sender:profiles!friendships_sender_id_fkey($_profileFields), receiver:profiles!friendships_receiver_id_fkey($_profileFields)',
         )
         .or('sender_id.eq.${user.id},receiver_id.eq.${user.id}')
         .eq('status', 'blocked');
