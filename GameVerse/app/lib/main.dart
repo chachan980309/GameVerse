@@ -204,15 +204,19 @@ class MyApp extends StatelessWidget {
               path == '/canales-voz' ||
               path == '/torneos' ||
               path == '/clanes') {
-            return MaterialPageRoute<void>(
+            return PageRouteBuilder<void>(
               settings: settings,
-              builder: (_) => AuthGate(initialPath: path),
+              pageBuilder: (_, _, _) => AuthGate(initialPath: path),
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
             );
           }
 
-          return MaterialPageRoute<void>(
+          return PageRouteBuilder<void>(
             settings: settings,
-            builder: (_) => const AuthGate(initialPath: '/inicio'),
+            pageBuilder: (_, _, _) => const AuthGate(initialPath: '/inicio'),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
           );
         },
       ),

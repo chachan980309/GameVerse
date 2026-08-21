@@ -62,6 +62,7 @@ flutter:
   # Archivo de configuración de Supabase
   assets:
     - supabase.env
+    - assets/images/
 
   # ============================================================
   # FUENTE GAMER NUBZZZ

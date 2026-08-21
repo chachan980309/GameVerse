@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../controllers/tournament_controller.dart';
 import '../widgets/tournaments/tournament_card.dart';
 import '../pages/create_tournament_page.dart';
-import '../services/app_media_service.dart';
 
 class TournamentsPage extends StatefulWidget {
   const TournamentsPage({super.key});
@@ -15,7 +14,6 @@ class _TournamentsPageState extends State<TournamentsPage> {
   final TournamentController _controller = TournamentController.instance;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  String? _heroImageUrl;
 
   final List<Map<String, String>> _categories = [
     {'id': 'all', 'label': 'Todos'},
@@ -59,15 +57,7 @@ class _TournamentsPageState extends State<TournamentsPage> {
     super.initState();
     _controller.loadTournaments(reset: true);
     _controller.loadCommunityStats();
-    _loadHeroImage();
     _scrollController.addListener(_onScroll);
-  }
-
-  Future<void> _loadHeroImage() async {
-    final url = await AppMediaService.instance.publicUrlFor(
-      'tournaments_hero_background',
-    );
-    if (mounted) setState(() => _heroImageUrl = url);
   }
 
   @override
@@ -116,15 +106,13 @@ class _TournamentsPageState extends State<TournamentsPage> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          if (_heroImageUrl != null)
-            Positioned.fill(
-              child: Image.network(
-                _heroImageUrl!,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/tournaments-hero.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
             ),
+          ),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(

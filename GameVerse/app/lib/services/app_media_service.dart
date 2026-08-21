@@ -6,8 +6,12 @@ class AppMediaService {
 
   static final instance = AppMediaService._();
   final _supabase = Supabase.instance.client;
+  final Map<String, Future<String?>> _urlCache = {};
 
-  Future<String?> publicUrlFor(String key) async {
+  Future<String?> publicUrlFor(String key) =>
+      _urlCache.putIfAbsent(key, () => _fetchPublicUrl(key));
+
+  Future<String?> _fetchPublicUrl(String key) async {
     try {
       final row = await _supabase
           .from('app_media_config')

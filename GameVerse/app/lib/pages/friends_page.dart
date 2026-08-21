@@ -5,7 +5,6 @@ import '../models/direct_message.dart';
 import '../services/direct_message_service.dart';
 import '../services/friend_service.dart';
 import '../services/profile_navigation_service.dart';
-import '../services/app_media_service.dart';
 import '../services/global_search_focus_service.dart';
 import '../widgets/chat/shared_post_message_card.dart';
 
@@ -44,7 +43,6 @@ class _FriendsPageState extends State<FriendsPage> {
   bool _showUserSearch = false;
   bool _searchingUsers = false;
   List<Map<String, dynamic>> _userSearchResults = const [];
-  String? _heroImageUrl;
 
   @override
   void dispose() {
@@ -86,15 +84,7 @@ class _FriendsPageState extends State<FriendsPage> {
   void initState() {
     super.initState();
     _loadData();
-    _loadHeroImage();
     PresenceController.instance.addListener(_onPresenceChanged);
-  }
-
-  Future<void> _loadHeroImage() async {
-    final url = await AppMediaService.instance.publicUrlFor(
-      'friends_hero_background',
-    );
-    if (mounted) setState(() => _heroImageUrl = url);
   }
 
   void _onPresenceChanged() {
@@ -562,15 +552,13 @@ class _FriendsPageState extends State<FriendsPage> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          if (_heroImageUrl != null)
-            Positioned.fill(
-              child: Image.network(
-                _heroImageUrl!,
-                fit: BoxFit.cover,
-                alignment: Alignment.centerRight,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/friends-hero.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
             ),
+          ),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(

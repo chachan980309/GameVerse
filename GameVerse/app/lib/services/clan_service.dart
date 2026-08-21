@@ -432,7 +432,11 @@ class ClanService {
         .uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(contentType: 'image/png'),
+          fileOptions: const FileOptions(
+            contentType: 'image/png',
+            cacheControl: '31536000',
+            upsert: false,
+          ),
         );
 
     final publicUrl = _supabase.storage.from('clans').getPublicUrl(path);
@@ -447,7 +451,11 @@ class ClanService {
         .uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(contentType: 'image/png'),
+          fileOptions: const FileOptions(
+            contentType: 'image/png',
+            cacheControl: '31536000',
+            upsert: false,
+          ),
         );
 
     final publicUrl = _supabase.storage.from('clans').getPublicUrl(path);

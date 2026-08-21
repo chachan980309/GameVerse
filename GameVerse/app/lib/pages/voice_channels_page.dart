@@ -1131,7 +1131,11 @@ class _VoiceChannelsPageState extends State<VoiceChannelsPage> {
               .uploadBinary(
                 path,
                 channelData.avatarBytes!,
-                fileOptions: const FileOptions(contentType: 'image/png'),
+                fileOptions: const FileOptions(
+                  contentType: 'image/png',
+                  cacheControl: '31536000',
+                  upsert: false,
+                ),
               );
           avatarUrl = path; // Almacenamos la ruta corta relativa
         }

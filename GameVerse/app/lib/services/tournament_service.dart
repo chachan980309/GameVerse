@@ -166,7 +166,10 @@ class TournamentService {
           .uploadBinary(
             uniqueName,
             bytes,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+            fileOptions: const FileOptions(
+              cacheControl: '31536000',
+              upsert: false,
+            ),
           );
 
       return uniqueName;

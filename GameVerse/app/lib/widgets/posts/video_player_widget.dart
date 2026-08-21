@@ -46,6 +46,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   bool _isOpened = false;
   bool _isOpening = false;
+  bool _isFullscreen = false;
   bool _videoReadyToRender = false;
   String? _openedUrl;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -146,8 +147,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
       _subscriptions.add(
         p.stream.completed.listen((completed) {
-          if (!mounted || !widget.videoController.isActive(widget.videoId))
+          if (!mounted || !widget.videoController.isActive(widget.videoId)) {
             return;
+          }
 
           // Verificar de forma robusta si el video realmente ha finalizado
           final isAtEnd =
@@ -193,7 +195,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
   }
 
-  Future<void> _destroyPlayer() async {
+  Future<void> _destroyPlayer({bool notify = true}) async {
     debugPrint("[LOG-VIDEO] Solicitando Dispose/Destroy de reproductor...");
     controlsTimer?.cancel();
     for (final sub in _subscriptions) {
@@ -209,7 +211,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     _videoReadyToRender = false;
     _openedUrl = null;
 
-    if (mounted) {
+    if (notify && mounted) {
       setState(() {});
     }
 
@@ -229,7 +231,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     // Si sale completamente de pantalla (0.0 visible), destruir para liberar recursos
     // Se usa fraction == 0.0 para evitar detener el video por falsos positivos de fracciones intermedias durante rebuilds
-    if (fraction == 0.0 && (playing || _isOpened)) {
+    if (!_isFullscreen && fraction == 0.0 && (playing || _isOpened)) {
       debugPrint(
         "[LOG-VIDEO] Video salió completamente de la pantalla. Autodestruyendo...",
       );
@@ -261,19 +263,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           _videoReadyToRender = true;
         });
         debugPrint("[LOG-VIDEO] Play ejecutado");
-
-        // Polling de diagnóstico por 5 segundos (cada 500ms)
-        int count = 0;
-        Timer.periodic(const Duration(milliseconds: 500), (timer) {
-          if (!mounted || player == null || count >= 10) {
-            timer.cancel();
-            return;
-          }
-          count++;
-          debugPrint(
-            "[LOG-VIDEO-POLL] #${count} - Posición: ${player?.state.position}, Duración: ${player?.state.duration}, isPlaying: ${player?.state.playing}, isCompleted: ${player?.state.completed}",
-          );
-        });
       }
     } catch (e) {
       debugPrint("[LOG-VIDEO-ERROR] Excepción capturada en togglePlay: $e");
@@ -318,15 +307,34 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     return "${two(d.inMinutes)}:${two(d.inSeconds % 60)}";
   }
 
-  void goFullscreen() {
+  Future<void> goFullscreen() async {
     if (player == null || controller == null) return;
-    Navigator.push(
+
+    // VisibilityDetector reports 0% while the fullscreen route covers this
+    // widget. Keep the shared player alive until that route closes.
+    setState(() => _isFullscreen = true);
+    controlsTimer?.cancel();
+    await Navigator.push<void>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             FullVideoScreen(player: player!, controller: controller!),
       ),
     );
+
+    if (!mounted) return;
+    if (player == null) {
+      setState(() => _isFullscreen = false);
+      return;
+    }
+    setState(() {
+      _isFullscreen = false;
+      playing = player!.state.playing;
+      position = player!.state.position;
+      duration = player!.state.duration;
+      _videoReadyToRender = true;
+    });
+    showVideoControls();
   }
 
   Widget _buildThumbnail() {
@@ -473,13 +481,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                       ),
 
                       // Capa 2: Reproductor de Video (Se crea y renderiza SOLO bajo demanda y cuando está listo)
-                      if (_isOpened &&
+                      if (!_isFullscreen &&
+                          _isOpened &&
                           controller != null &&
                           _videoReadyToRender)
                         Positioned.fill(
                           child: Video(
                             controller: controller!,
                             fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
                             controls: NoVideoControls,
                           ),
                         ),
@@ -592,7 +602,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void dispose() {
     widget.videoController.removeListener(_onActiveVideoChanged);
-    _destroyPlayer();
+    _destroyPlayer(notify: false);
     debugPrint("[LOG-VIDEO] Widget destruido (dispose) ID: ${widget.videoId}");
     super.dispose();
   }
